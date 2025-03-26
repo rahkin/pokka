@@ -1,6 +1,6 @@
 // Game Constants
 const CELL_SIZE = 20;
-const PACMAN_SPEED = 2;
+const PACMAN_SPEED = 4;
 const GHOST_SPEED = 1.5;
 const POWER_PELLET_DURATION = 10000; // 10 seconds
 const POINT_VALUE = 10;
@@ -19,13 +19,14 @@ let gameState = {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let grid = [];
-let pacman = { x: 0, y: 0, direction: 'right', nextDirection: 'right' };
+let pacman = { x: 0, y: 0, direction: 'right', nextDirection: 'right', speed: PACMAN_SPEED };
 let ghosts = [];
 let dots = [];
 let powerPellets = [];
 
 // Initialize Game
 function initGame() {
+    console.log('Initializing game...');
     // Set canvas size
     canvas.width = CELL_SIZE * 28;
     canvas.height = CELL_SIZE * 31;
@@ -92,7 +93,8 @@ function initializeGameObjects() {
         x: 14 * CELL_SIZE,
         y: 17 * CELL_SIZE,
         direction: 'right',
-        nextDirection: 'right'
+        nextDirection: 'right',
+        speed: PACMAN_SPEED
     };
 
     // Initialize Ghosts
@@ -142,19 +144,27 @@ function setupEventListeners() {
 
 // Handle Keyboard Input
 function handleKeyPress(event) {
-    if (!gameState.isPlaying) return;
+    console.log('Key pressed:', event.key);
+    if (!gameState.isPlaying) {
+        console.log('Game not playing');
+        return;
+    }
     
     switch(event.key) {
         case 'ArrowUp':
+            console.log('Moving up');
             handleDirection('up');
             break;
         case 'ArrowDown':
+            console.log('Moving down');
             handleDirection('down');
             break;
         case 'ArrowLeft':
+            console.log('Moving left');
             handleDirection('left');
             break;
         case 'ArrowRight':
+            console.log('Moving right');
             handleDirection('right');
             break;
     }
@@ -162,7 +172,11 @@ function handleKeyPress(event) {
 
 // Handle Direction Changes
 function handleDirection(direction) {
-    if (!gameState.isPlaying) return;
+    console.log('Handling direction:', direction);
+    if (!gameState.isPlaying) {
+        console.log('Game not playing');
+        return;
+    }
     
     const opposites = {
         'up': 'down',
@@ -171,13 +185,14 @@ function handleDirection(direction) {
         'right': 'left'
     };
     
-    if (opposites[direction] !== pacman.direction) {
-        pacman.nextDirection = direction;
-    }
+    // Always update nextDirection, even if it's the opposite direction
+    console.log('Changing direction to:', direction);
+    pacman.nextDirection = direction;
 }
 
 // Start Game
 function startGame() {
+    console.log('Starting game...');
     hideAllModals();
     gameState.isPlaying = true;
     gameState.score = 0;
@@ -206,16 +221,18 @@ function updateGame() {
 
 // Update Pacman Position
 function updatePacman() {
-    const nextX = pacman.x + (pacman.direction === 'right' ? PACMAN_SPEED : 
-                              pacman.direction === 'left' ? -PACMAN_SPEED : 0);
-    const nextY = pacman.y + (pacman.direction === 'down' ? PACMAN_SPEED : 
-                              pacman.direction === 'up' ? -PACMAN_SPEED : 0);
+    const speed = pacman.speed;
+    const nextX = pacman.x + (pacman.direction === 'right' ? speed : 
+                              pacman.direction === 'left' ? -speed : 0);
+    const nextY = pacman.y + (pacman.direction === 'down' ? speed : 
+                              pacman.direction === 'up' ? -speed : 0);
     
     // Check if next position is valid
     const gridX = Math.floor(nextX / CELL_SIZE);
     const gridY = Math.floor(nextY / CELL_SIZE);
     
     if (grid[gridY][gridX] !== 1) {
+        console.log('Moving Pacman to:', nextX, nextY);
         pacman.x = nextX;
         pacman.y = nextY;
         pacman.direction = pacman.nextDirection;
@@ -465,4 +482,7 @@ function handleNameSubmit() {
 }
 
 // Initialize game when page loads
-window.addEventListener('load', initGame); 
+window.addEventListener('load', () => {
+    console.log('Page loaded, initializing game...');
+    initGame();
+}); 
