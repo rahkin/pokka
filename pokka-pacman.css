@@ -1,10 +1,11 @@
 /* Pokka Theme Colors */
 :root {
-    --pokka-pink: #FF69B4;
-    --pokka-purple: #9370DB;
-    --pokka-blue: #00BFFF;
-    --pokka-yellow: #FFD700;
-    --pokka-green: #98FB98;
+    --pokka-pink: #ff69b4;
+    --pokka-purple: #9370db;
+    --pokka-blue: #87ceeb;
+    --pokka-yellow: #ffd700;
+    --pokka-green: #98fb98;
+    --background-gradient: linear-gradient(135deg, var(--pokka-purple) 0%, var(--pokka-blue) 100%);
     --background-dark: #1a1a1a;
     --text-light: #ffffff;
     --modal-bg: rgba(0, 0, 0, 0.8);
@@ -15,79 +16,68 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
 }
 
 body {
-    background: linear-gradient(135deg, var(--background-dark), #2a2a2a);
-    color: var(--text-light);
     min-height: 100vh;
+    background: var(--background-gradient);
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
 }
 
 /* Game Container */
 .game-container {
     width: 100%;
-    max-width: 1200px;
+    max-width: 800px;
     padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 /* Header Styles */
 .game-header {
-    width: 100%;
     text-align: center;
-    padding: 20px;
-    background: linear-gradient(45deg, var(--pokka-pink), var(--pokka-purple));
-    border-radius: 15px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    margin-bottom: 20px;
+    color: var(--pokka-purple);
 }
 
 .game-header h1 {
     font-size: 2.5em;
     margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 2px 2px var(--pokka-pink);
 }
 
-.score-display {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    font-size: 1.2em;
+.score-container {
+    font-size: 1.5em;
+    color: var(--pokka-blue);
 }
 
 /* Game Area */
 .game-area {
     position: relative;
-    width: 100%;
-    aspect-ratio: 4/3;
-    background-color: var(--background-dark);
+    aspect-ratio: 1;
+    background: #000;
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 0 20px rgba(255, 105, 180, 0.3);
+    margin-bottom: 20px;
 }
 
 #gameCanvas {
     width: 100%;
     height: 100%;
-    background-color: var(--background-dark);
+    display: block;
 }
 
 /* Mobile Controls */
 .mobile-controls {
+    display: none;
     position: absolute;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     gap: 10px;
 }
 
@@ -96,43 +86,42 @@ body {
     gap: 20px;
 }
 
-.control-btn {
-    width: 60px;
-    height: 60px;
+.mobile-controls button {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.7);
     border: none;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
     font-size: 24px;
     cursor: pointer;
-    transition: transform 0.2s, background-color 0.2s;
+    transition: background-color 0.3s;
 }
 
-.control-btn:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
+.mobile-controls button:hover {
+    background: rgba(255, 255, 255, 0.9);
 }
 
 /* Game Menu */
 .game-menu {
     display: flex;
     gap: 15px;
-    margin-top: 20px;
+    justify-content: center;
 }
 
-.menu-btn {
+.menu-button {
     padding: 12px 24px;
+    font-size: 1.2em;
+    background: var(--pokka-pink);
+    color: white;
     border: none;
     border-radius: 25px;
-    background: linear-gradient(45deg, var(--pokka-blue), var(--pokka-purple));
-    color: white;
-    font-size: 1.1em;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, background-color 0.2s;
 }
 
-.menu-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+.menu-button:hover {
+    transform: scale(1.05);
+    background: var(--pokka-purple);
 }
 
 /* Modal Styles */
@@ -143,30 +132,25 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--modal-bg);
+    background: rgba(0, 0, 0, 0.7);
     z-index: 1000;
-    justify-content: center;
-    align-items: center;
-}
-
-.modal.active {
-    display: flex;
 }
 
 .modal-content {
-    background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
     padding: 30px;
     border-radius: 20px;
-    max-width: 500px;
-    width: 90%;
     text-align: center;
-    box-shadow: 0 0 30px rgba(255, 105, 180, 0.3);
+    min-width: 300px;
 }
 
 .modal h2 {
-    color: var(--pokka-yellow);
+    color: var(--pokka-purple);
     margin-bottom: 20px;
-    font-size: 1.8em;
 }
 
 /* Tutorial Styles */
@@ -175,59 +159,37 @@ body {
     margin: 20px 0;
 }
 
-.tutorial-content section {
-    margin-bottom: 15px;
-}
-
-.tutorial-content h3 {
-    color: var(--pokka-pink);
-    margin-bottom: 5px;
+.tutorial-content p {
+    margin: 10px 0;
+    color: #666;
 }
 
 /* Leaderboard Styles */
-.leaderboard-list {
+#leaderboardList {
     max-height: 300px;
     overflow-y: auto;
     margin: 20px 0;
 }
 
-.leaderboard-entry {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
-    margin: 5px 0;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 5px;
-}
-
 /* Input Styles */
-input[type="text"] {
+#playerName {
     width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 25px;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
+    padding: 10px;
+    margin: 15px 0;
+    border: 2px solid var(--pokka-blue);
+    border-radius: 10px;
     font-size: 1.1em;
-    text-align: center;
-}
-
-input[type="text"]::placeholder {
-    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Animations */
-@keyframes pulse {
+@keyframes scorePopup {
     0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
 
-@keyframes float {
-    0% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0); }
+.score-update {
+    animation: scorePopup 0.3s ease-out;
 }
 
 /* Responsive Design */
@@ -236,18 +198,15 @@ input[type="text"]::placeholder {
         padding: 10px;
     }
 
-    .game-header h1 {
-        font-size: 2em;
-    }
-
     .mobile-controls {
         display: flex;
+        flex-direction: column;
+        align-items: center;
     }
-}
 
-@media (min-width: 769px) {
-    .mobile-controls {
-        display: none;
+    .game-menu {
+        flex-direction: column;
+        align-items: center;
     }
 }
 
@@ -267,16 +226,14 @@ input[type="text"]::placeholder {
 }
 
 /* Score Animation */
-@keyframes scorePopup {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.5); opacity: 0.5; }
-    100% { transform: scale(2); opacity: 0; }
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
-.score-popup {
-    position: absolute;
-    animation: scorePopup 0.5s ease-out forwards;
-    color: var(--pokka-yellow);
-    font-weight: bold;
-    pointer-events: none;
+@keyframes float {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
 } 
