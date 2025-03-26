@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokka's Maze Adventure 🎮</title>
+    <link rel="stylesheet" href="pokka-pacman.css">
+</head>
+<body>
+    <!-- Game Container -->
+    <div class="game-container">
+        <!-- Header Section -->
+        <header class="game-header">
+            <h1>Pokka's Maze Adventure</h1>
+            <div class="score-display">
+                <span>Score: <span id="current-score">0</span></span>
+                <span>High Score: <span id="high-score">0</span></span>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <div class="game-area">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Game Controls for Mobile -->
+            <div class="mobile-controls">
+                <button class="control-btn up">⬆️</button>
+                <div class="horizontal-controls">
+                    <button class="control-btn left">⬅️</button>
+                    <button class="control-btn right">➡️</button>
+                </div>
+                <button class="control-btn down">⬇️</button>
+            </div>
+        </div>
+
+        <!-- Game Menu -->
+        <div class="game-menu">
+            <button id="startGame" class="menu-btn">Start Game</button>
+            <button id="showTutorial" class="menu-btn">Tutorial</button>
+            <button id="showLeaderboard" class="menu-btn">Leaderboard</button>
+        </div>
+
+        <!-- Player Name Modal -->
+        <div id="playerNameModal" class="modal">
+            <div class="modal-content">
+                <h2>Enter Your Name</h2>
+                <input type="text" id="playerName" placeholder="Your name here...">
+                <button id="submitName" class="menu-btn">Start Playing!</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Modal -->
+        <div id="tutorialModal" class="modal">
+            <div class="modal-content">
+                <h2>How to Play 🎮</h2>
+                <div class="tutorial-content">
+                    <section>
+                        <h3>Controls</h3>
+                        <p>Use arrow keys or on-screen buttons to move Pokka around!</p>
+                    </section>
+                    <section>
+                        <h3>Objective</h3>
+                        <p>Collect all the coins while avoiding the meme ghosts!</p>
+                    </section>
+                    <section>
+                        <h3>Power-Ups</h3>
+                        <p>Special items give Pokka amazing abilities!</p>
+                    </section>
+                </div>
+                <button class="close-modal menu-btn">Got it!</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard Modal -->
+        <div id="leaderboardModal" class="modal">
+            <div class="modal-content">
+                <h2>Top Players 🏆</h2>
+                <div class="leaderboard-list">
+                    <!-- Leaderboard entries will be added here dynamically -->
+                </div>
+                <button class="close-modal menu-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button id="playAgain" class="menu-btn">Play Again</button>
+            <button id="saveScore" class="menu-btn">Save Score</button>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="bgMusic" loop>
+        <source src="assets/pokka-theme.mp3" type="audio/mp3">
+    </audio>
+    <audio id="coinSound">
+        <source src="assets/coin.mp3" type="audio/mp3">
+    </audio>
+    <audio id="powerupSound">
+        <source src="assets/powerup.mp3" type="audio/mp3">
+    </audio>
+    <audio id="gameOverSound">
+        <source src="assets/gameover.mp3" type="audio/mp3">
+    </audio>
+</body>
+</html> 

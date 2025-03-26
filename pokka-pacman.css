@@ -1,0 +1,282 @@
+/* Pokka Theme Colors */
+:root {
+    --pokka-pink: #FF69B4;
+    --pokka-purple: #9370DB;
+    --pokka-blue: #00BFFF;
+    --pokka-yellow: #FFD700;
+    --pokka-green: #98FB98;
+    --background-dark: #1a1a1a;
+    --text-light: #ffffff;
+    --modal-bg: rgba(0, 0, 0, 0.8);
+}
+
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, var(--background-dark), #2a2a2a);
+    color: var(--text-light);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Game Container */
+.game-container {
+    width: 100%;
+    max-width: 1200px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Header Styles */
+.game-header {
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(45deg, var(--pokka-pink), var(--pokka-purple));
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.game-header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.score-display {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 1.2em;
+}
+
+/* Game Area */
+.game-area {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background-color: var(--background-dark);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(255, 105, 180, 0.3);
+}
+
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    background-color: var(--background-dark);
+}
+
+/* Mobile Controls */
+.mobile-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.horizontal-controls {
+    display: flex;
+    gap: 20px;
+}
+
+.control-btn {
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+/* Game Menu */
+.game-menu {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.menu-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    background: linear-gradient(45deg, var(--pokka-blue), var(--pokka-purple));
+    color: white;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.menu-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-bg);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+    padding: 30px;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(255, 105, 180, 0.3);
+}
+
+.modal h2 {
+    color: var(--pokka-yellow);
+    margin-bottom: 20px;
+    font-size: 1.8em;
+}
+
+/* Tutorial Styles */
+.tutorial-content {
+    text-align: left;
+    margin: 20px 0;
+}
+
+.tutorial-content section {
+    margin-bottom: 15px;
+}
+
+.tutorial-content h3 {
+    color: var(--pokka-pink);
+    margin-bottom: 5px;
+}
+
+/* Leaderboard Styles */
+.leaderboard-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 20px 0;
+}
+
+.leaderboard-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    margin: 5px 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+/* Input Styles */
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 25px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1.1em;
+    text-align: center;
+}
+
+input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes float {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .game-container {
+        padding: 10px;
+    }
+
+    .game-header h1 {
+        font-size: 2em;
+    }
+
+    .mobile-controls {
+        display: flex;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-controls {
+        display: none;
+    }
+}
+
+/* Game Character Styles */
+.pokka-character {
+    animation: float 2s ease-in-out infinite;
+}
+
+.ghost {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Power-up Effects */
+.power-up {
+    animation: pulse 0.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px var(--pokka-yellow));
+}
+
+/* Score Animation */
+@keyframes scorePopup {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+.score-popup {
+    position: absolute;
+    animation: scorePopup 0.5s ease-out forwards;
+    color: var(--pokka-yellow);
+    font-weight: bold;
+    pointer-events: none;
+} 
