@@ -4,14 +4,10 @@ export class PowerUp {
     constructor(game, type) {
         this.game = game;
         this.type = type;
-        this.position = new THREE.Vector3(
-            (Math.random() - 0.5) * 80,
-            0.5,
-            (Math.random() - 0.5) * 80
-        );
-
+        this.position = new THREE.Vector3();
+        this.mesh = null;
+        this.glow = null;
         this.createMesh();
-        this.game.scene.add(this.mesh);
     }
 
     createMesh() {
@@ -22,46 +18,89 @@ export class PowerUp {
             shield: 0xffff00     // Yellow
         };
 
-        // Create main power-up mesh
-        const geometry = new THREE.SphereGeometry(0.5, 16, 16);
+        // Ensure we have a valid color for the power-up type
+        const color = colors[this.type] || 0xffffff; // Default to white if type not found
+
+        // Create main power-up mesh using OctahedronGeometry for diamond shape
+        const geometry = new THREE.OctahedronGeometry(0.5, 0);
         const material = new THREE.MeshPhongMaterial({
-            color: colors[this.type] || 0xffffff,
-            emissive: colors[this.type] || 0xffffff,
-            emissiveIntensity: 0.5,
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.8,
             transparent: true,
-            opacity: 0.8
+            opacity: 1.0,
+            shininess: 100
         });
 
         this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.copy(this.position);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
+        this.mesh.visible = true;
 
-        // Add glow effect
-        const glowGeometry = new THREE.SphereGeometry(0.6, 16, 16);
+        // Add glow effect using a larger octahedron
+        const glowGeometry = new THREE.OctahedronGeometry(0.6, 0);
         const glowMaterial = new THREE.MeshBasicMaterial({
-            color: colors[this.type] || 0xffffff,
+            color: color,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.5,
             side: THREE.BackSide
         });
         const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
         this.mesh.add(glowMesh);
 
-        // Add floating animation
-        this.initialY = this.position.y;
-        this.floatOffset = Math.random() * Math.PI * 2;
+        // Add to scene
+        if (this.game && this.game.scene) {
+            this.game.scene.add(this.mesh);
+            console.log('PowerUp: Added mesh to scene', {
+                type: this.type,
+                position: this.position.clone(),
+                hasMesh: !!this.mesh,
+                meshVisible: this.mesh.visible,
+                color: color,
+                scene: this.game.scene
+            });
+        } else {
+            console.error('PowerUp: Failed to add mesh to scene - game or scene not found');
+        }
+    }
+
+    setPosition(position) {
+        this.position.copy(position);
+        if (this.mesh) {
+            this.mesh.position.copy(position);
+        }
+        console.log('PowerUp: Position set', {
+            position: this.position.clone(),
+            meshPosition: this.mesh ? this.mesh.position.clone() : null
+        });
     }
 
     update(deltaTime) {
-        // Update floating animation
-        const time = performance.now() * 0.001;
-        this.mesh.position.y = this.initialY + Math.sin(time + this.floatOffset) * 0.2;
-        this.mesh.rotation.y += deltaTime;
+        if (!this.mesh) return;
 
-        // Update glow effect
-        const glowIntensity = 0.3 + Math.sin(time * 2) * 0.1;
-        this.mesh.children[0].material.opacity = glowIntensity;
+        // Update floating animation
+        const floatHeight = 0.2;
+        const floatSpeed = 2;
+        this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.001 * floatSpeed + this.floatOffset) * floatHeight;
+
+        // Rotate the power-up
+        this.mesh.rotation.y += deltaTime * 2;
+        this.mesh.rotation.x += deltaTime * 1.5; // Add some tilt to the rotation
+    }
+
+    cleanup() {
+        if (this.mesh) {
+            if (this.game && this.game.scene) {
+                this.game.scene.remove(this.mesh);
+            }
+            this.mesh.geometry.dispose();
+            this.mesh.material.dispose();
+            if (this.mesh.children.length > 0) {
+                this.mesh.children[0].geometry.dispose();
+                this.mesh.children[0].material.dispose();
+            }
+            this.mesh = null;
+        }
     }
 
     collect() {

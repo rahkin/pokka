@@ -1,22 +1,54 @@
 import { Game } from './Game';
 import './styles/hud.css';
 
-try {
-    // Wait for the DOM to be fully loaded
-    window.addEventListener('load', () => {
-        const game = new Game();
-        game.start();
+let game = null;
 
+async function initializeGame() {
+    try {
+        // Create game instance
+        game = new Game();
+        
+        // Wait for all resources to load
+        await game.audioManager.initializeSounds();
+        
+        // Check if any sounds were loaded
+        if (game.audioManager.loadedSounds.size === 0) {
+            throw new Error('No sound files were loaded successfully');
+        }
+        
+        // Hide loading screen and show game
+        const loadingScreen = document.getElementById('loading-screen');
+        const gameContainer = document.getElementById('game-container');
+        
+        if (loadingScreen && gameContainer) {
+            loadingScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+        }
+        
+        // Start the game
+        game.start();
+        
         // Handle window resize
         window.addEventListener('resize', () => {
-            game.onResize();
+            if (game) {
+                game.handleResize();
+            }
         });
-
-        // Handle cleanup when the window is closed
+        
+        // Handle window close
         window.addEventListener('beforeunload', () => {
-            game.cleanup();
+            if (game) {
+                game.cleanup();
+            }
         });
-    });
-} catch (error) {
-    console.error('Error initializing game:', error);
+    } catch (error) {
+        console.error('Failed to initialize game:', error);
+        const loadingText = document.getElementById('loading-text');
+        if (loadingText) {
+            loadingText.textContent = 'Error loading game. Please refresh the page.';
+        }
+    }
 }
+
+// Start initialization when the window loads
+window.addEventListener('load', initializeGame);

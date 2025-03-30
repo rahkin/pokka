@@ -3,25 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokka's Snakes</title>
-    <link href="https://fonts.googleapis.com/css2?family=Canva+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <title>Pokka Snakes GL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
+            padding: 0;
             overflow: hidden;
             background: #000;
-            font-family: 'Canva Sans', Arial, sans-serif;
+            font-family: 'Press Start 2P', monospace;
         }
-        canvas {
-            display: block;
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
         }
-
-        /* Preload fonts */
-        .font-preload {
-            position: absolute;
-            left: -9999px;
-            visibility: hidden;
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            color: #fff;
+            z-index: 1000;
+        }
+        #loading-progress {
+            width: 300px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #666;
+            margin-top: 20px;
+        }
+        #loading-bar {
+            width: 0%;
+            height: 100%;
+            background: #3EE0B1;
+            transition: width 0.3s ease;
+        }
+        #loading-text {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
         }
     </style>
     <!-- Third-party libraries -->
@@ -30,11 +62,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Font preload elements -->
-    <div class="font-preload">
-        <span style="font-family: 'Press Start 2P';">.</span>
-        <span style="font-family: 'Canva Sans';">.</span>
+    <div id="loading-screen">
+        <h1>Pokka Snakes GL</h1>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+        <div id="loading-text">Loading resources...</div>
     </div>
+    <div id="game-container"></div>
     <script type="module" src="/src/main.js"></script>
 </body>
 </html> 

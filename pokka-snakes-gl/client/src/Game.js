@@ -20,17 +20,36 @@ export class Game {
         // Initialize audio manager
         this.audioManager = new AudioManager();
         
+        // Initialize audio before other systems
+        this.audioManager.initializeSounds().then(() => {
+            console.log('Game: Audio initialized successfully');
+            // Initialize weather system
+            this.weatherSystem = new WeatherSystem(this.scene);
+            
+            // Then initialize game systems
+            this.initializeSystems();
+
+            // Start the game
+            this.start();
+        }).catch(error => {
+            console.error('Game: Failed to initialize audio:', error);
+            // Continue without audio
+            this.weatherSystem = new WeatherSystem(this.scene);
+            this.initializeSystems();
+            this.start();
+        });
+        
         this.lastTime = 0;
         this.isRunning = false;
         this.isGameOver = false;
         this.lastPelletSpawnTime = 0;
-        this.pelletSpawnInterval = 2; // Spawn a pellet every 2 seconds
-        this.specialPelletChance = 0.2; // 20% chance for special pellets
+        this.pelletSpawnInterval = 2;
+        this.specialPelletChance = 0.2;
         this.frameCount = 0;
-        this.dayNightCycle = 0; // Track day/night cycle
-        this.particles = []; // Store particle effects
-        this.snakeTrail = []; // Store snake trail particles
-        this.weatherChangeInterval = 30; // Change weather every 30 seconds
+        this.dayNightCycle = 0;
+        this.particles = [];
+        this.snakeTrail = [];
+        this.weatherChangeInterval = 30;
         this.lastWeatherChange = 0;
 
         // Initialize input manager with direction vectors
@@ -47,15 +66,6 @@ export class Game {
                 'd': new THREE.Vector3(1, 0, 0)
             }
         };
-
-        // Initialize weather system
-        this.weatherSystem = new WeatherSystem(this.scene);
-        
-        // Then initialize game systems
-        this.initializeSystems();
-
-        // Start the game
-        this.start();
     }
 
     initializeCore() {
@@ -101,15 +111,72 @@ export class Game {
         this.gameManager.start();
 
         // Add window resize handler
-        window.addEventListener('resize', this.onResize.bind(this));
+        const boundHandleResize = this.handleResize.bind(this);
+        window.addEventListener('resize', boundHandleResize);
+
+        // Store the bound function for cleanup
+        this._boundHandleResize = boundHandleResize;
+    }
+
+    cleanup() {
+        this.isRunning = false;
+
+        // Remove event listeners
+        if (this._boundHandleResize) {
+            window.removeEventListener('resize', this._boundHandleResize);
+            this._boundHandleResize = null;
+        }
+
+        // Cleanup HUD
+        if (this.hud) {
+            this.hud.cleanup();
+        }
+
+        // Dispose of Three.js objects
+        if (this.scene) {
+            this.scene.traverse(object => {
+                if (object.geometry) {
+                    object.geometry.dispose();
+                }
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(material => material.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+        }
+
+        // Cleanup camera controller
+        if (this.cameraController) {
+            this.cameraController.cleanup();
+        }
+
+        // Dispose of renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            this.renderer.domElement.remove();
+        }
+
+        if (this.gameManager) {
+            this.gameManager.cleanup();
+        }
+
+        // Cleanup audio manager
+        if (this.audioManager) {
+            this.audioManager.cleanup();
+        }
     }
 
     setupRenderer() {
         try {
             this.renderer = new THREE.WebGLRenderer({ 
                 antialias: true,
-                powerPreference: "high-performance"
+                powerPreference: "high-performance",
+                alpha: false // Ensure black background instead of transparent
             });
+            this.renderer.setClearColor(0x000000); // Set clear color to black
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             this.renderer.shadowMap.enabled = true;
@@ -121,7 +188,13 @@ export class Game {
                 existingCanvas.remove();
             }
             
-            document.body.appendChild(this.renderer.domElement);
+            // Add renderer to game container
+            const gameContainer = document.getElementById('game-container');
+            if (gameContainer) {
+                gameContainer.appendChild(this.renderer.domElement);
+            } else {
+                document.body.appendChild(this.renderer.domElement);
+            }
             
             console.log('Game: Renderer initialized', {
                 width: window.innerWidth,
@@ -131,14 +204,15 @@ export class Game {
             });
         } catch (error) {
             console.error('Error setting up renderer:', error);
-            throw error; // Re-throw to prevent game from continuing without renderer
+            throw error;
         }
     }
 
     setupScene() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0xFFFFFF);
-        this.scene.fog = new THREE.FogExp2(0xFFFFFF, 0.01);
+        this.scene.background = new THREE.Color(0x8B4513); // Changed to coffee brown color
+        this.scene.fog = new THREE.FogExp2(0x8B4513, 0.01); // Matched fog color to background
+        console.log('Game: Scene initialized');
     }
 
     setupCamera() {
@@ -259,59 +333,129 @@ export class Game {
     }
 
     createCoffeeShopEnvironment() {
+        // Create walls first
+        this.createWalls();
+
         // Create floor
         const floorGeometry = new THREE.PlaneGeometry(100, 100);
         const floorMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513, // Brown color as fallback
+            color: 0x8B4513,
             roughness: 0.8,
             metalness: 0.2
         });
-
-        // Try to load wood texture
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load(
-            './textures/wood_floor.jpg',
-            (texture) => {
-                floorMaterial.map = texture;
-                floorMaterial.needsUpdate = true;
-            },
-            undefined,
-            (error) => {
-                console.warn('Failed to load wood floor texture:', error);
-                // Keep using the default brown color
-            }
-        );
 
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = 0;
         this.scene.add(floor);
 
-        // Add a base floor to cover any gaps
-        const baseFloorGeometry = new THREE.PlaneGeometry(300, 300);
-        const baseFloorMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFFFFFF,
-            roughness: 0.9,
-            metalness: 0.1,
-            side: THREE.DoubleSide
-        });
-        const baseFloor = new THREE.Mesh(baseFloorGeometry, baseFloorMaterial);
-        baseFloor.rotation.x = -Math.PI / 2;
-        baseFloor.position.y = -0.01; // Slightly below everything
-        baseFloor.receiveShadow = true;
-        this.scene.add(baseFloor);
-
-        // Add tables and chairs
+        // Add furniture and other elements
         this.addFurniture();
-
-        // Add kiosk
         this.addKiosk();
-
-        // Add NPCs
         this.addNPCs();
-
-        // Add ambient coffee shop props
         this.addCoffeeShopProps();
+        
+        // Add the picture frames explicitly
+        this.createPictureFrames();
+    }
+
+    createWalls() {
+        // Walls removed to prevent blocking of game elements
+    }
+
+    async createPictureFrames() {
+        // Create frame geometry - reduced size by 10%
+        const frameGeometry = new THREE.BoxGeometry(8.64, 11.52, 0.3);  // Reduced from 9.6x12.8 to 8.64x11.52
+        const frameMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513,
+            roughness: 0.3,
+            metalness: 0.1,
+            emissive: 0x4A3728,
+            emissiveIntensity: 0.2
+        });
+
+        // Define frame positions - adjusted for no wall
+        const framePositions = [
+            { pos: [-20, 12, -70], rotation: 0, image: 'frame1.png' },  // Left frame
+            { pos: [20, 12, -70], rotation: 0, image: 'frame2.png' }    // Right frame
+        ];
+
+        // Load images first
+        const imageLoader = new THREE.TextureLoader();
+        const images = await Promise.all(framePositions.map(async ({ image }) => {
+            try {
+                console.log('Attempting to load image:', image);
+                const texture = await new Promise((resolve, reject) => {
+                    imageLoader.load(
+                        `/images/${image}`,  // Changed to absolute path
+                        (texture) => {
+                            console.log('Successfully loaded image:', image);
+                            texture.minFilter = THREE.LinearFilter;
+                            texture.magFilter = THREE.LinearFilter;
+                            texture.format = THREE.RGBAFormat;
+                            texture.flipY = true;  // Changed to true to flip the image
+                            texture.needsUpdate = true;  // Force texture update
+                            resolve(texture);
+                        },
+                        (progress) => {
+                            console.log(`Loading progress for ${image}:`, (progress.loaded / progress.total * 100) + '%');
+                        },
+                        (error) => {
+                            console.error(`Failed to load image ${image}:`, error);
+                            reject(error);
+                        }
+                    );
+                });
+                return texture;
+            } catch (error) {
+                console.error(`Failed to load image ${image}:`, error);
+                return null;
+            }
+        }));
+
+        framePositions.forEach(({ pos, rotation, image }, index) => {
+            // Create main frame
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            frame.position.set(pos[0], pos[1], pos[2]);
+            frame.rotation.y = rotation;
+            frame.castShadow = true;
+            frame.receiveShadow = true;
+            this.scene.add(frame);
+
+            // Create image plane - slightly smaller than frame (reduced by 10%)
+            const imageGeometry = new THREE.PlaneGeometry(8.06, 10.94);  // Reduced from 8.96x12.16 to 8.06x10.94
+            const imageMaterial = new THREE.MeshBasicMaterial({
+                color: 0xFFFFFF,
+                side: THREE.DoubleSide,  // Changed to DoubleSide to ensure visibility
+                map: images[index] || null,
+                transparent: true,  // Enable transparency
+                opacity: 1.0,
+                depthWrite: false,  // Prevent depth issues
+                depthTest: false    // Prevent depth issues
+            });
+            const imageMesh = new THREE.Mesh(imageGeometry, imageMaterial);
+            imageMesh.position.set(pos[0], pos[1], pos[2] - 0.1);
+            imageMesh.rotation.y = rotation;
+            imageMesh.renderOrder = 1;  // Ensure it renders after the frame
+            this.scene.add(imageMesh);
+
+            // Add spotlight for the frame - adjusted for new size
+            const spotlight = new THREE.SpotLight(0xFFE4B5, 1.5);
+            spotlight.position.set(pos[0], pos[1] + 3, pos[2] + 3);
+            spotlight.target.position.set(pos[0], pos[1], pos[2]);
+            spotlight.angle = Math.PI / 6;
+            spotlight.penumbra = 0.3;
+            spotlight.decay = 1.5;
+            spotlight.distance = 15;
+            this.scene.add(spotlight);
+            this.scene.add(spotlight.target);
+
+            // Store reference for texture updates
+            imageMesh.userData.isPictureFrame = true;
+            imageMesh.userData.frameIndex = index;
+
+            console.log('Added picture frame at:', pos, 'with image:', image);
+        });
     }
 
     addFurniture() {
@@ -331,10 +475,10 @@ export class Game {
 
         // Place tables and chairs in a pattern - moved closer to watch the game
         const tablePositions = [
-            [-50, 0, -50], [-50, 0, -30], [-50, 0, -10],
-            [50, 0, -50], [50, 0, -30], [50, 0, -10],
-            [-50, 0, 10], [-50, 0, 30], [-50, 0, 50],
-            [50, 0, 10], [50, 0, 30], [50, 0, 50]
+            [-57.5, 0, -57.5], [-57.5, 0, -34.5], [-57.5, 0, -11.5],
+            [57.5, 0, -57.5], [57.5, 0, -34.5], [57.5, 0, -11.5],
+            [-57.5, 0, 11.5], [-57.5, 0, 34.5], [-57.5, 0, 57.5],
+            [57.5, 0, 11.5], [57.5, 0, 34.5], [57.5, 0, 57.5]
         ];
 
         tablePositions.forEach(pos => {
@@ -487,7 +631,7 @@ export class Game {
             const machine = new THREE.Mesh(
                 new THREE.BoxGeometry(1.5, 1.5, 1),
                 new THREE.MeshPhongMaterial({
-                    color: 0xFFFFFF, // Pure white like the coffee cup
+                    color: 0xFFFFFF,
                     shininess: 90
                 })
             );
@@ -606,238 +750,6 @@ export class Game {
         });
     }
 
-    start() {
-        if (!this.isRunning) {
-            // Ensure we have all required components
-            if (!this.renderer || !this.scene || !this.camera) {
-                console.error('Game: Missing required components', {
-                    hasRenderer: !!this.renderer,
-                    hasScene: !!this.scene,
-                    hasCamera: !!this.camera
-                });
-                return;
-            }
-
-            console.log('Game: Starting game');
-            this.isRunning = true;
-            this.isGameOver = false;
-            this.lastTime = performance.now();
-            
-            // Start background music
-            this.audioManager.play('background');
-            
-            // Start animation loop
-            this.animate();
-            
-            console.log('Game: Started', {
-                isRunning: this.isRunning,
-                hasSnake: !!this.snake,
-                hasGameManager: !!this.gameManager,
-                cameraPosition: this.camera.position.clone(),
-                rendererSize: {
-                    width: this.renderer.domElement.width,
-                    height: this.renderer.domElement.height
-                }
-            });
-        }
-    }
-
-    animate() {
-        if (!this.isRunning) return;
-
-        const currentTime = performance.now();
-        const deltaTime = (currentTime - this.lastTime) / 1000;
-        this.lastTime = currentTime;
-        this.frameCount++;
-
-        // Create snake trail with varying colors based on time of day
-        if (this.frameCount % 2 === 0) {
-            this.createSnakeTrail();
-        }
-
-        // Update all particle systems
-        this.updateParticles(deltaTime);
-        this.updateSnakeTrail(deltaTime);
-        this.updateDayNightCycle(deltaTime);
-
-        // Animate ambient particles
-        this.scene.children.forEach(child => {
-            if (child.userData.floatSpeed) {
-                // Vertical floating motion
-                const floatY = Math.sin(currentTime * 0.001 * child.userData.floatSpeed + child.userData.floatOffset) * 0.5;
-                child.position.y = child.userData.initialY + floatY;
-
-                // Horizontal drifting motion for dust particles
-                if (child.userData.driftSpeed) {
-                    child.position.x += child.userData.driftSpeed.x * deltaTime;
-                    child.position.z += child.userData.driftSpeed.z * deltaTime;
-
-                    // Wrap around when particles drift too far
-                    if (Math.abs(child.position.x) > 80) child.position.x *= -0.9;
-                    if (Math.abs(child.position.z) > 80) child.position.z *= -0.9;
-                }
-            }
-        });
-
-        // Animate NPCs
-        if (this.npcs) {
-            this.npcs.forEach(npc => {
-                const floatY = Math.sin(currentTime * 0.001 * npc.floatSpeed + npc.floatOffset) * 0.1;
-                npc.body.position.y = npc.initialY + floatY;
-                npc.head.position.y = npc.initialY + 1.2 + floatY;
-            });
-        }
-
-        // Update snake first
-        if (this.snake) {
-            this.snake.update(deltaTime);
-        }
-
-        // Update game systems
-        if (this.gameManager) {
-            this.gameManager.update(deltaTime);
-        }
-
-        // Update power-up system
-        if (this.powerUpSystem) {
-            this.powerUpSystem.update(deltaTime);
-        }
-
-        // Update camera controller
-        if (this.cameraController) {
-            this.cameraController.update(deltaTime);
-        } else {
-            // Fallback camera following if controller not available
-            if (this.camera && this.snake && this.snake.head) {
-                this.camera.position.x = this.snake.head.position.x;
-                this.camera.position.z = this.snake.head.position.z + 20;
-                this.camera.position.y = 15;
-                this.camera.lookAt(this.snake.head.position);
-            }
-        }
-
-        // Update weather system
-        this.weatherSystem.update(deltaTime);
-
-        // Randomly change weather
-        if (this.currentTime - this.lastWeatherChange > this.weatherChangeInterval) {
-            const weatherTypes = ['sunny', 'rain', 'snow'];
-            const randomWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
-            this.weatherSystem.setWeather(randomWeather);
-            this.audioManager.setWeather(randomWeather); // Update weather sounds
-            this.lastWeatherChange = this.currentTime;
-        }
-
-        // Always render the scene
-        if (this.renderer && this.scene && this.camera) {
-            try {
-                this.renderer.render(this.scene, this.camera);
-            } catch (error) {
-                console.error('Game: Error rendering scene:', error);
-                this.isRunning = false;
-                return;
-            }
-        }
-
-        // Check for game over conditions
-        if (this.gameManager && this.gameManager.isGameOver) {
-            this.handleGameOver();
-            return;
-        }
-
-        // Continue animation loop
-        requestAnimationFrame(() => this.animate());
-    }
-
-    update() {
-        if (!this.isRunning || this.gameManager.isGameOver) {
-            console.log('Game: Update stopped - game not running or game over');
-            return;
-        }
-
-        try {
-            // Update game systems
-            this.gameManager.update();
-            
-            // Update camera
-            this.cameraController.update();
-            
-            // Render the scene
-            this.renderer.render(this.scene, this.camera);
-            
-            // Continue the game loop
-            this.animationFrameId = requestAnimationFrame(() => this.update());
-        } catch (error) {
-            console.error('Game: Error in update loop:', error);
-            this.stop();
-        }
-    }
-
-    render() {
-        if (this.renderer && this.scene && this.camera) {
-            this.renderer.render(this.scene, this.camera);
-        }
-    }
-
-    onResize() {
-        if (this.camera && this.renderer) {
-            // Update camera
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-
-            // Update renderer
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-    }
-
-    cleanup() {
-        this.isRunning = false;
-
-        // Remove event listeners
-        window.removeEventListener('resize', this.onResize.bind(this));
-
-        // Cleanup HUD
-        if (this.hud) {
-            this.hud.cleanup();
-        }
-
-        // Dispose of Three.js objects
-        if (this.scene) {
-            this.scene.traverse(object => {
-                if (object.geometry) {
-                    object.geometry.dispose();
-                }
-                if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else {
-                        object.material.dispose();
-                    }
-                }
-            });
-        }
-
-        // Cleanup camera controller
-        if (this.cameraController) {
-            this.cameraController.cleanup();
-        }
-
-        // Dispose of renderer
-        if (this.renderer) {
-            this.renderer.dispose();
-            this.renderer.domElement.remove();
-        }
-
-        if (this.gameManager) {
-            this.gameManager.cleanup();
-        }
-
-        // Cleanup audio manager
-        if (this.audioManager) {
-            this.audioManager.cleanup();
-        }
-    }
-
     addDecorations() {
         // Add floating orbs with Pokka's colors
         for (let i = 0; i < 30; i++) {
@@ -951,9 +863,9 @@ export class Game {
             }
         });
 
-        // Reset scene properties
-        this.scene.background = new THREE.Color(0xFFFFFF);
-        this.scene.fog = new THREE.FogExp2(0xFFFFFF, 0.01);
+        // Reset scene properties with coffee shop colors
+        this.scene.background = new THREE.Color(0x8B4513);
+        this.scene.fog = new THREE.FogExp2(0x8B4513, 0.01);
 
         // Recreate all lights
         this.setupLights();
@@ -1051,7 +963,7 @@ export class Game {
                     color: color,
                     transparent: true,
                     opacity: 0.8,
-                    emissive: emissive ? color : undefined,
+                    emissive: emissive ? color : 0x000000,  // Use black when not emissive
                     emissiveIntensity: emissive ? 0.5 : 0
                 })
             );
@@ -1247,5 +1159,119 @@ export class Game {
 
             this.scene.add(particle);
         }
+    }
+
+    handleResize() {
+        // Update canvas size
+        const canvas = this.renderer.domElement;
+        const container = canvas.parentElement;
+        
+        // Get container dimensions
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        // Update camera aspect ratio
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+        
+        // Update renderer size
+        this.renderer.setSize(width, height);
+        
+        // Update HUD
+        if (this.hud) {
+            this.hud.updateSize(width, height);
+        }
+    }
+
+    start() {
+        if (!this.isRunning) {
+            // Ensure we have all required components
+            if (!this.renderer || !this.scene || !this.camera) {
+                console.error('Game: Missing required components', {
+                    hasRenderer: !!this.renderer,
+                    hasScene: !!this.scene,
+                    hasCamera: !!this.camera
+                });
+                return;
+            }
+
+            console.log('Game: Starting game');
+            this.isRunning = true;
+            this.isGameOver = false;
+            this.lastTime = performance.now();
+            
+            // Start animation loop
+            this.animate();
+            
+            // Show game container and hide loading screen
+            const gameContainer = document.getElementById('game-container');
+            const loadingScreen = document.getElementById('loading-screen');
+            
+            if (gameContainer) {
+                gameContainer.style.display = 'block';
+            }
+            
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+            }
+            
+            console.log('Game: Started', {
+                isRunning: this.isRunning,
+                hasSnake: !!this.snake,
+                hasGameManager: !!this.gameManager,
+                cameraPosition: this.camera.position.clone(),
+                rendererSize: {
+                    width: this.renderer.domElement.width,
+                    height: this.renderer.domElement.height
+                }
+            });
+        }
+    }
+
+    animate() {
+        if (!this.isRunning) return;
+
+        const currentTime = performance.now();
+        const deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+        this.frameCount++;
+
+        // Update game systems
+        if (this.gameManager) {
+            this.gameManager.update(deltaTime);
+        }
+
+        // Update snake
+        if (this.snake) {
+            this.snake.update(deltaTime);
+        }
+
+        // Update power-up system
+        if (this.powerUpSystem) {
+            this.powerUpSystem.update(deltaTime);
+        }
+
+        // Update camera controller
+        if (this.cameraController) {
+            this.cameraController.update(deltaTime);
+        }
+
+        // Update weather system
+        if (this.weatherSystem) {
+            this.weatherSystem.update(deltaTime);
+        }
+
+        // Update particles and effects
+        this.updateParticles(deltaTime);
+        this.updateSnakeTrail(deltaTime);
+        this.updateDayNightCycle(deltaTime);
+
+        // Render the scene
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
+
+        // Continue animation loop
+        requestAnimationFrame(() => this.animate());
     }
 } 

@@ -77,6 +77,7 @@ export class GameManager {
         this.isGameOver = false;
         this.score = 0;
         this.pellets = [];
+        this.powerUps.clear();
         this.totalPellets = 0;
         this.pelletSpawnInterval = 2;
         this.lastPelletSpawnTime = 0;
@@ -84,8 +85,9 @@ export class GameManager {
         this.obstacleSystem.start();
         this.powerUpSystem.start();
 
-        // Spawn initial pellets
+        // Spawn initial pellets and power-ups
         this.spawnInitialPellets();
+        this.spawnInitialPowerUps();
 
         // Delay enabling collision checks until after snake initialization
         setTimeout(() => {
@@ -94,9 +96,12 @@ export class GameManager {
                 hasObstacleSystem: !!this.obstacleSystem,
                 obstacleCount: this.obstacleSystem.obstacles.length,
                 snakePosition: this.game.snake?.head?.position,
-                frameCount: this.game.frameCount
+                frameCount: this.game.frameCount,
+                collisionChecksEnabled: this.collisionChecksEnabled,
+                isRunning: this.isRunning,
+                isGameOver: this.isGameOver
             });
-        }, 1000); // Wait 1 second before enabling collision checks
+        }, this.startDelay);
     }
 
     stop() {
@@ -124,12 +129,22 @@ export class GameManager {
         }
     }
 
+    spawnInitialPowerUps() {
+        // Spawn initial power-ups
+        for (let i = 0; i < 2; i++) {
+            this.spawnPowerUp();
+        }
+    }
+
     update(deltaTime) {
         if (!this.isRunning) return;
 
         // Update systems
         this.powerUpSystem.update(deltaTime);
         this.obstacleSystem.update(deltaTime);
+
+        // Handle spawning
+        this.handleSpawning();
 
         // Check collisions if enabled
         if (this.collisionChecksEnabled) {
@@ -138,7 +153,16 @@ export class GameManager {
     }
 
     checkCollisions() {
-        if (!this.collisionChecksEnabled || !this.game.snake) return;
+        if (!this.collisionChecksEnabled || !this.game.snake) {
+            console.log('GameManager: Collision checks skipped', {
+                collisionChecksEnabled: this.collisionChecksEnabled,
+                hasSnake: !!this.game.snake,
+                isRunning: this.isRunning,
+                isGameOver: this.isGameOver,
+                powerUpCount: this.powerUps.size
+            });
+            return;
+        }
 
         // Check wall collisions first
         if (this.game.snake.checkWallCollision()) {
@@ -152,6 +176,9 @@ export class GameManager {
 
         // Check pellet collisions
         this.game.snake.checkPelletCollisions();
+
+        // Check power-up collisions
+        this.game.snake.checkPowerUpCollisions();
     }
 
     collectPellet(pellet) {
@@ -181,20 +208,50 @@ export class GameManager {
         this.spawnPellet();
         
         // Play sound effect if available
-        if (this.game.audio?.play) {
-            this.game.audio.play('eat');
+        if (this.game.audioManager) {
+            console.log('GameManager: Playing eat sound');
+            this.game.audioManager.play('eat');
+        } else {
+            console.warn('GameManager: Audio manager not available for eat sound');
         }
     }
 
     collectPowerUp(powerUp) {
+        if (!powerUp || !this.game.snake || this.isGameOver) {
+            console.log('GameManager: Cannot collect power-up', {
+                hasPowerUp: !!powerUp,
+                hasSnake: !!this.game.snake,
+                isGameOver: this.isGameOver
+            });
+            return;
+        }
+
+        console.log('GameManager: Collecting power-up', {
+            type: powerUp.type,
+            position: powerUp.position.clone(),
+            snakePosition: this.game.snake.head.position.clone(),
+            distance: powerUp.position.distanceTo(this.game.snake.head.position)
+        });
+
         if (this.game.powerUpSystem) {
             this.game.powerUpSystem.activatePowerUp(powerUp.type);
         }
+        
+        // Remove the power-up
         this.powerUps.delete(powerUp);
-        powerUp.collect();
+        powerUp.cleanup();
+        
+        // Spawn a new power-up after a short delay
+        setTimeout(() => {
+            if (this.isRunning && !this.isGameOver) {
+                this.spawnPowerUp();
+            }
+        }, 2000); // Spawn new power-up after 2 seconds
         
         // Play sound effect if available
-        this.game.audio?.play('powerUp');
+        if (this.game.audioManager) {
+            this.game.audioManager.play('powerUp');
+        }
     }
 
     spawnPellet() {
@@ -220,8 +277,65 @@ export class GameManager {
         const type = this.settings.powerUpTypes[
             Math.floor(Math.random() * this.settings.powerUpTypes.length)
         ];
+        const worldSize = this.game.worldSize || 45;
+        
+        // Ensure power-ups spawn within the game bounds, away from edges and center
+        const minDistanceFromCenter = 10; // Minimum distance from center
+        const maxDistanceFromCenter = (worldSize / 2) - 5; // Keep away from edges
+        
+        let position;
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        do {
+            // Generate random angle and radius
+            const angle = Math.random() * Math.PI * 2;
+            const radius = minDistanceFromCenter + Math.random() * (maxDistanceFromCenter - minDistanceFromCenter);
+            
+            // Convert to Cartesian coordinates
+            position = new THREE.Vector3(
+                Math.cos(angle) * radius,
+                0.5, // Slightly above ground
+                Math.sin(angle) * radius
+            );
+            
+            attempts++;
+        } while (this.isPositionOccupied(position) && attempts < maxAttempts);
+        
         const powerUp = new PowerUp(this.game, type);
+        powerUp.setPosition(position);
         this.powerUps.add(powerUp);
+        
+        console.log('GameManager: Spawned new power-up', {
+            type,
+            position: position.clone(),
+            totalPowerUps: this.powerUps.size,
+            worldSize,
+            distanceFromCenter: position.length(),
+            collisionChecksEnabled: this.collisionChecksEnabled,
+            isRunning: this.isRunning,
+            isGameOver: this.isGameOver,
+            snakePosition: this.game.snake?.head?.position
+        });
+    }
+
+    isPositionOccupied(position) {
+        // Check distance from other power-ups
+        const minDistance = 5; // Minimum distance between power-ups
+        for (const powerUp of this.powerUps) {
+            if (powerUp.position.distanceTo(position) < minDistance) {
+                return true;
+            }
+        }
+        
+        // Check distance from snake
+        if (this.game.snake && this.game.snake.head) {
+            if (position.distanceTo(this.game.snake.head.position) < minDistance) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     handleSpawning() {
