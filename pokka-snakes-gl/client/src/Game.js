@@ -849,6 +849,21 @@ export class Game {
     restart() {
         console.log('Game: Restarting game');
         
+        // Show loading screen
+        const loadingScreen = document.getElementById('loading-screen');
+        const gameContainer = document.getElementById('game-container');
+        
+        if (loadingScreen && gameContainer) {
+            loadingScreen.style.display = 'flex';
+            gameContainer.style.display = 'none';
+            
+            // Update initial loading text
+            const loadingText = document.getElementById('loading-text');
+            if (loadingText) {
+                loadingText.textContent = 'Restarting game...';
+            }
+        }
+        
         // Stop the current game
         this.isRunning = false;
         this.isGameOver = false;
@@ -907,12 +922,21 @@ export class Game {
         // Recreate all lights
         this.setupLights();
 
+        // Update loading progress
+        this.updateLoadingProgress(30);
+
         // Recreate the entire environment
         this.createBasicScene(); // This includes ground, grid, and coffee shop environment
+
+        // Update loading progress
+        this.updateLoadingProgress(60);
 
         // Create new snake at the center
         const startPosition = new THREE.Vector3(0, 0.5, 0);
         this.snake = new Snake(this, startPosition);
+
+        // Update loading progress
+        this.updateLoadingProgress(80);
 
         // Set snake as camera target
         if (this.cameraController) {
@@ -928,6 +952,17 @@ export class Game {
         this.powerUpSystem.start();
         this.isRunning = true;
         this.isGameOver = false;
+
+        // Update loading progress
+        this.updateLoadingProgress(100);
+
+        // Hide loading screen and show game after a short delay
+        setTimeout(() => {
+            if (loadingScreen && gameContainer) {
+                loadingScreen.style.display = 'none';
+                gameContainer.style.display = 'block';
+            }
+        }, 500);
 
         // Start the animation loop
         this.animate();
