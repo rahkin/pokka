@@ -24,14 +24,28 @@ export class Game {
         // Initialize audio before other systems
         this.audioManager.initializeSounds().then(() => {
             console.log('Game: Audio initialized successfully');
+            this.updateLoadingProgress(30);
+            
             // Initialize weather system
             this.weatherSystem = new WeatherSystem(this.scene);
+            this.updateLoadingProgress(50);
             
             // Then initialize game systems
             this.initializeSystems();
+            this.updateLoadingProgress(80);
 
             // Start the game
             this.start();
+            this.updateLoadingProgress(100);
+            
+            // Hide loading screen and show game
+            const loadingScreen = document.getElementById('loading-screen');
+            const gameContainer = document.getElementById('game-container');
+            
+            if (loadingScreen && gameContainer) {
+                loadingScreen.style.display = 'none';
+                gameContainer.style.display = 'block';
+            }
         }).catch(error => {
             console.error('Game: Failed to initialize audio:', error);
             // Continue without audio
@@ -1290,5 +1304,28 @@ export class Game {
 
         // Continue animation loop
         requestAnimationFrame(() => this.animate());
+    }
+
+    updateLoadingProgress(percent) {
+        const loadingBar = document.getElementById('loading-bar');
+        const loadingText = document.getElementById('loading-text');
+        
+        if (loadingBar) {
+            loadingBar.style.width = `${percent}%`;
+        }
+        
+        if (loadingText) {
+            if (percent < 30) {
+                loadingText.textContent = 'Loading audio...';
+            } else if (percent < 50) {
+                loadingText.textContent = 'Initializing weather system...';
+            } else if (percent < 80) {
+                loadingText.textContent = 'Setting up game systems...';
+            } else if (percent < 100) {
+                loadingText.textContent = 'Starting game...';
+            } else {
+                loadingText.textContent = 'Ready!';
+            }
+        }
     }
 } 
