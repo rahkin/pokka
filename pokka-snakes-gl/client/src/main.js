@@ -5,13 +5,19 @@ let game = null;
 
 async function initializeGame() {
     try {
-        // Show loading screen
+        // Show loading screen first
         const loadingScreen = document.getElementById('loading-screen');
         const gameContainer = document.getElementById('game-container');
         
         if (loadingScreen && gameContainer) {
             loadingScreen.style.display = 'flex';
             gameContainer.style.display = 'none';
+            
+            // Update initial loading text
+            const loadingText = document.getElementById('loading-text');
+            if (loadingText) {
+                loadingText.textContent = 'Initializing game...';
+            }
         }
         
         // Create game instance
