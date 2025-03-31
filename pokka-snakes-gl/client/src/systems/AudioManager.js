@@ -84,14 +84,14 @@ export class AudioManager {
             try {
                 console.log('AudioManager: Initializing sounds');
                 
-                // Game sounds with both WAV and MP3 formats
+                // Game sounds with MP3 format
                 const gameSounds = {
-                    eat: ['/pokka-snakes-gl/client/public/sounds/eat.wav', '/pokka-snakes-gl/client/public/sounds/eat.mp3'],
-                    gameOver: ['/pokka-snakes-gl/client/public/sounds/gameOver.wav', '/pokka-snakes-gl/client/public/sounds/gameOver.mp3'],
-                    powerUp: ['/pokka-snakes-gl/client/public/sounds/powerUp.wav', '/pokka-snakes-gl/client/public/sounds/powerUp.mp3'],
-                    turn: ['/pokka-snakes-gl/client/public/sounds/turn.wav', '/pokka-snakes-gl/client/public/sounds/turn.mp3'],
-                    background: ['/pokka-snakes-gl/client/public/sounds/background.wav', '/pokka-snakes-gl/client/public/sounds/background.mp3'],
-                    click: ['/pokka-snakes-gl/client/public/sounds/click.wav', '/pokka-snakes-gl/client/public/sounds/click.mp3']
+                    eat: ['/pokka-snakes-gl/client/public/sounds/eat.mp3'],
+                    gameOver: ['/pokka-snakes-gl/client/public/sounds/gameOver.mp3'],
+                    powerUp: ['/pokka-snakes-gl/client/public/sounds/powerUp.mp3'],
+                    turn: ['/pokka-snakes-gl/client/public/sounds/turn.mp3'],
+                    background: ['/pokka-snakes-gl/client/public/sounds/background.mp3'],
+                    click: ['/pokka-snakes-gl/client/public/sounds/click.mp3']
                 };
 
                 // Weather sounds (MP3 only)
