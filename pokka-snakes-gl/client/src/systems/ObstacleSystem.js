@@ -38,28 +38,23 @@ export class ObstacleSystem {
     }
 
     createInitialObstacles() {
-        // Create border walls with larger size and safe zone
+        // Create border walls at the edge of the play area
         const size = 45;
-        const safeZoneSize = 10; // Create a safe zone around spawn point
 
+        // Create walls along the edges
         for (let x = -size; x <= size; x += 4) {
-            // Only create walls outside the safe zone
-            if (Math.abs(x) > safeZoneSize) {
-                this.createWall(new THREE.Vector3(x, 0, -size));
-                this.createWall(new THREE.Vector3(x, 0, size));
-            }
+            this.createWall(new THREE.Vector3(x, 0, -size));
+            this.createWall(new THREE.Vector3(x, 0, size));
         }
 
         for (let z = -size; z <= size; z += 4) {
-            if (Math.abs(z) > safeZoneSize) {
-                this.createWall(new THREE.Vector3(-size, 0, z));
-                this.createWall(new THREE.Vector3(size, 0, z));
-            }
+            this.createWall(new THREE.Vector3(-size, 0, z));
+            this.createWall(new THREE.Vector3(size, 0, z));
         }
 
-        // Add random obstacles away from spawn point
+        // Add random obstacles in the play area
         for (let i = 0; i < 5; i++) {
-            this.createRandomObstacleWithSafeZone(safeZoneSize);
+            this.createRandomObstacleWithSafeZone(0); // No safe zone needed
         }
     }
 
@@ -169,17 +164,11 @@ export class ObstacleSystem {
         const type = types[Math.floor(Math.random() * types.length)];
         const pattern = this.patterns[type];
         
-        // Generate position outside safe zone
-        let position;
-        do {
-            position = new THREE.Vector3(
-                (Math.random() - 0.5) * 80,
-                0,
-                (Math.random() - 0.5) * 80
-            );
-        } while (
-            Math.abs(position.x) < safeZoneSize && 
-            Math.abs(position.z) < safeZoneSize
+        // Generate position anywhere in the play area
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * 80,
+            0,
+            (Math.random() - 0.5) * 80
         );
         
         pattern.create(position);
