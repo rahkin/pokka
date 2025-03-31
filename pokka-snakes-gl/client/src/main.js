@@ -5,28 +5,20 @@ let game = null;
 
 async function initializeGame() {
     try {
-        // Create game instance
-        game = new Game();
-        
-        // Wait for all resources to load
-        await game.audioManager.initializeSounds();
-        
-        // Check if any sounds were loaded
-        if (game.audioManager.loadedSounds.size === 0) {
-            throw new Error('No sound files were loaded successfully');
-        }
-        
-        // Hide loading screen and show game
+        // Show loading screen
         const loadingScreen = document.getElementById('loading-screen');
         const gameContainer = document.getElementById('game-container');
         
         if (loadingScreen && gameContainer) {
-            loadingScreen.style.display = 'none';
-            gameContainer.style.display = 'block';
+            loadingScreen.style.display = 'flex';
+            gameContainer.style.display = 'none';
         }
         
-        // Start the game
-        game.start();
+        // Create game instance
+        game = new Game();
+        
+        // The loading screen will be managed by the Game class
+        // and will be hidden when everything is ready
         
         // Handle window resize
         window.addEventListener('resize', () => {

@@ -38,20 +38,33 @@ export class Game {
             this.start();
             this.updateLoadingProgress(100);
             
-            // Hide loading screen and show game
-            const loadingScreen = document.getElementById('loading-screen');
-            const gameContainer = document.getElementById('game-container');
-            
-            if (loadingScreen && gameContainer) {
-                loadingScreen.style.display = 'none';
-                gameContainer.style.display = 'block';
-            }
+            // Hide loading screen and show game after a short delay
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                const gameContainer = document.getElementById('game-container');
+                
+                if (loadingScreen && gameContainer) {
+                    loadingScreen.style.display = 'none';
+                    gameContainer.style.display = 'block';
+                }
+            }, 500); // Short delay to ensure smooth transition
         }).catch(error => {
             console.error('Game: Failed to initialize audio:', error);
             // Continue without audio
             this.weatherSystem = new WeatherSystem(this.scene);
             this.initializeSystems();
             this.start();
+            
+            // Still hide loading screen even if audio fails
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                const gameContainer = document.getElementById('game-container');
+                
+                if (loadingScreen && gameContainer) {
+                    loadingScreen.style.display = 'none';
+                    gameContainer.style.display = 'block';
+                }
+            }, 500);
         });
         
         this.lastTime = 0;
