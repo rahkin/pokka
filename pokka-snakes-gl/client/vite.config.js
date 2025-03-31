@@ -2,13 +2,13 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-    base: '/',
+    base: '/pokka-snakes-gl/',
     publicDir: 'public',
     server: {
-        port: 3002,
+        port: 3000,
         proxy: {
             '/socket.io': {
-                target: 'ws://localhost:3000',
+                target: 'ws://localhost:3001',
                 ws: true
             }
         }

@@ -196,33 +196,30 @@ export class ObstacleSystem {
 
     checkCollisions(target) {
         // Handle both snake objects and direct positions with radius
-        let position, radius = 0.8; // Default radius if not specified
+        let position, radius = 0.8; // Default collision radius
 
         if (target instanceof THREE.Vector3) {
             position = target;
         } else if (target && target.position) {
             position = target.position;
             radius = target.radius || radius;
-        } else if (target && target.head) {
-            if (target.isInvulnerable || target.isGhost) return false;
-            position = target.head.position;
-            radius = target.collisionRadius || radius;
         } else {
             console.error('ObstacleSystem: Invalid target for collision check');
             return false;
         }
 
+        // Check collision with each obstacle
         for (const obstacle of this.obstacles) {
-            if (!obstacle || !obstacle.position) continue;
+            if (!obstacle || !obstacle.mesh) continue;
 
-            // Adjust collision radius based on obstacle type
-            let effectiveRadius = obstacle.radius;
-            if (obstacle.type === 'moving' || obstacle.isMoving) {
-                effectiveRadius *= 0.6; // Reduce collision radius for moving obstacles
-            }
-
-            const distance = position.distanceTo(obstacle.position);
-            const minDistance = radius + effectiveRadius;
+            const obstaclePos = obstacle.mesh.position;
+            // Use obstacle's actual size for collision
+            const obstacleRadius = obstacle.size || 1.0;
+            
+            // Calculate distance between snake head and obstacle center
+            const distance = position.distanceTo(obstaclePos);
+            // Total minimum distance needed to avoid collision
+            const minDistance = radius + obstacleRadius;
 
             if (distance < minDistance) {
                 console.log('ObstacleSystem: Collision detected', {
@@ -230,12 +227,9 @@ export class ObstacleSystem {
                     minDistance,
                     targetPosition: position.clone(),
                     targetRadius: radius,
-                    obstaclePosition: obstacle.position.clone(),
-                    obstacleRadius: effectiveRadius,
-                    originalRadius: obstacle.radius,
-                    obstacleType: obstacle.type,
-                    isMoving: obstacle.isMoving,
-                    obstacleCount: this.obstacles.size
+                    obstaclePosition: obstaclePos.clone(),
+                    obstacleRadius: obstacleRadius,
+                    obstacleType: obstacle.type
                 });
                 return true;
             }

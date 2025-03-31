@@ -347,25 +347,25 @@ export class Snake {
         const headPos = this.head.position;
         const isNearMovingObstacle = this.game.gameManager.obstacleSystem.isNearMovingObstacle(headPos);
         
-        // Use a more forgiving radius for moving obstacles
+        // Use a more precise collision radius
         const collisionRadius = isNearMovingObstacle ? 
-            this.collisionRadius * 0.4 : // Increased for rectangular obstacles
-            this.collisionRadius * 0.6;  // Normal radius for static obstacles
+            0.8 : // Tighter radius for moving obstacles
+            0.6;  // Standard radius for static obstacles
 
         // Check for collisions using the obstacle system's checkCollisions method
         const collision = this.game.gameManager.obstacleSystem.checkCollisions({
             position: headPos,
-            radius: collisionRadius,
-            isRectangular: isNearMovingObstacle // Add flag to indicate rectangular obstacle
+            radius: collisionRadius
         });
 
         if (collision) {
             console.log('Snake: Obstacle collision detected', {
                 headPosition: headPos.clone(),
                 collisionRadius,
-                isMovingObstacle: isNearMovingObstacle,
-                isRectangular: true
+                isMovingObstacle: isNearMovingObstacle
             });
+            // Trigger game over immediately on collision
+            this.game.gameManager.gameOver();
             return true;
         }
 

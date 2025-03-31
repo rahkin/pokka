@@ -11,13 +11,13 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: "http://localhost:3000",
         methods: ["GET", "POST"]
     }
 });
 
 // Serve static files from the client/dist directory
-app.use(express.static(join(__dirname, '../client/dist')));
+app.use('/pokka-snakes-gl', express.static(join(__dirname, '../client/dist')));
 
 // Serve index.html for all routes
 app.get('*', (req, res) => {
@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
     // Add your game-specific socket events here
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3001; // Changed to 3001 to avoid conflict with Vite
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

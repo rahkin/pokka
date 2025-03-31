@@ -7,6 +7,7 @@ import { HUD } from './ui/HUD';
 import { PowerUpSystem } from './systems/PowerUpSystem';
 import { WeatherSystem } from './systems/WeatherSystem';
 import { AudioManager } from './systems/AudioManager';
+import { ObstacleSystem } from './systems/ObstacleSystem';
 // Import other systems as needed
 // import { NetworkManager } from './network/NetworkManager';
 // import { GameStateManager } from './systems/GameStateManager';
@@ -98,6 +99,10 @@ export class Game {
         // Initialize power-up system
         this.powerUpSystem = new PowerUpSystem(this);
         
+        // Initialize obstacle system
+        this.obstacleSystem = new ObstacleSystem(this);
+        this.obstacleSystem.start();
+        
         // Create snake at the center of the scene
         const startPosition = new THREE.Vector3(0, 0.5, 0);
         this.snake = new Snake(this, startPosition);
@@ -130,6 +135,11 @@ export class Game {
         // Cleanup HUD
         if (this.hud) {
             this.hud.cleanup();
+        }
+
+        // Cleanup obstacle system
+        if (this.obstacleSystem) {
+            this.obstacleSystem.cleanup();
         }
 
         // Dispose of Three.js objects
@@ -193,7 +203,7 @@ export class Game {
             if (gameContainer) {
                 gameContainer.appendChild(this.renderer.domElement);
             } else {
-                document.body.appendChild(this.renderer.domElement);
+            document.body.appendChild(this.renderer.domElement);
             }
             
             console.log('Game: Renderer initialized', {
@@ -345,9 +355,9 @@ export class Game {
         });
 
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
+            floor.rotation.x = -Math.PI / 2;
         floor.position.y = 0;
-        this.scene.add(floor);
+            this.scene.add(floor);
 
         // Add furniture and other elements
         this.addFurniture();
@@ -387,7 +397,7 @@ export class Game {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        `/images/${image}`,  // Changed to absolute path
+                        `/pokka-snakes-gl/client/public/images/${image}`,  // Updated path
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;
@@ -916,18 +926,14 @@ export class Game {
         // Stop game manager first
         if (this.gameManager) {
             this.gameManager.gameOver();
-        }
-        
-        // Show game over screen
-        if (this.hud) {
-            // Small delay to ensure state is updated
+            // Show game over screen using GameManager
             setTimeout(() => {
-                this.hud.showGameOver();
+                this.gameManager.showGameOverScreen();
                 console.log('Game: Game over screen shown', {
                     isRunning: this.isRunning,
                     isGameOver: this.isGameOver,
                     hasSnake: !!this.snake,
-                    score: this.hud.score
+                    score: this.gameManager.score
                 });
             }, 100);
         }
@@ -1244,11 +1250,22 @@ export class Game {
         // Update snake
         if (this.snake) {
             this.snake.update(deltaTime);
+            
+            // Check for collisions with obstacles
+            if (this.obstacleSystem && this.obstacleSystem.checkCollisions(this.snake.head)) {
+                this.handleGameOver();
+            }
         }
 
         // Update power-up system
         if (this.powerUpSystem) {
             this.powerUpSystem.update(deltaTime);
+        }
+
+        // Update obstacle system
+        if (this.obstacleSystem) {
+            this.obstacleSystem.update(deltaTime);
+            this.obstacleSystem.increaseDifficulty(deltaTime);
         }
 
         // Update camera controller
