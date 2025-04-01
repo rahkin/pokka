@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PowerUpSystem } from '../systems/PowerUpSystem';
 
 export class PowerUp {
     constructor(game, type) {
@@ -11,21 +12,21 @@ export class PowerUp {
     }
 
     createMesh() {
-        const colors = {
-            ghost: 0x808080,     // Gray
-            timeSlow: 0x00ffff,  // Cyan
-            magnet: 0xff00ff,    // Magenta
-            shield: 0xffff00     // Yellow
-        };
-
-        // Ensure we have a valid color for the power-up type
-        const color = colors[this.type] || 0xffffff; // Default to white if type not found
+        // Get power-up type definition from PowerUpSystem
+        const powerUpType = PowerUpSystem.Types[this.type];
+        if (!powerUpType) {
+            console.error('PowerUp: Invalid power-up type', {
+                type: this.type,
+                availableTypes: Object.keys(PowerUpSystem.Types)
+            });
+            return;
+        }
 
         // Create main power-up mesh using OctahedronGeometry for diamond shape
         const geometry = new THREE.OctahedronGeometry(0.5, 0);
         const material = new THREE.MeshPhongMaterial({
-            color: color,
-            emissive: color,
+            color: powerUpType.color,
+            emissive: powerUpType.color,
             emissiveIntensity: 0.8,
             transparent: true,
             opacity: 1.0,
@@ -40,7 +41,7 @@ export class PowerUp {
         // Add glow effect using a larger octahedron
         const glowGeometry = new THREE.OctahedronGeometry(0.6, 0);
         const glowMaterial = new THREE.MeshBasicMaterial({
-            color: color,
+            color: powerUpType.color,
             transparent: true,
             opacity: 0.5,
             side: THREE.BackSide
@@ -48,15 +49,19 @@ export class PowerUp {
         const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
         this.mesh.add(glowMesh);
 
+        // Add floating animation offset
+        this.floatOffset = Math.random() * Math.PI * 2;
+
         // Add to scene
         if (this.game && this.game.scene) {
             this.game.scene.add(this.mesh);
             console.log('PowerUp: Added mesh to scene', {
                 type: this.type,
+                powerUpType: powerUpType.id,
                 position: this.position.clone(),
                 hasMesh: !!this.mesh,
                 meshVisible: this.mesh.visible,
-                color: color,
+                color: powerUpType.color,
                 scene: this.game.scene
             });
         } else {
@@ -69,38 +74,49 @@ export class PowerUp {
         if (this.mesh) {
             this.mesh.position.copy(position);
         }
-        console.log('PowerUp: Position set', {
-            position: this.position.clone(),
-            meshPosition: this.mesh ? this.mesh.position.clone() : null
-        });
     }
 
     update(deltaTime) {
         if (!this.mesh) return;
 
         // Update floating animation
-        const floatHeight = 0.2;
-        const floatSpeed = 2;
-        this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.001 * floatSpeed + this.floatOffset) * floatHeight;
+        this.floatOffset += deltaTime * 2;
+        this.mesh.position.y = this.position.y + Math.sin(this.floatOffset) * 0.2;
 
-        // Rotate the power-up
+        // Update rotation
         this.mesh.rotation.y += deltaTime * 2;
-        this.mesh.rotation.x += deltaTime * 1.5; // Add some tilt to the rotation
+        this.mesh.rotation.z += deltaTime;
     }
 
     cleanup() {
-        if (this.mesh) {
-            if (this.game && this.game.scene) {
-                this.game.scene.remove(this.mesh);
-            }
-            this.mesh.geometry.dispose();
-            this.mesh.material.dispose();
-            if (this.mesh.children.length > 0) {
-                this.mesh.children[0].geometry.dispose();
-                this.mesh.children[0].material.dispose();
-            }
-            this.mesh = null;
+        if (!this.mesh) return;
+
+        // Remove from scene
+        if (this.game && this.game.scene) {
+            this.game.scene.remove(this.mesh);
         }
+
+        // Dispose of geometries and materials
+        if (this.mesh.geometry) {
+            this.mesh.geometry.dispose();
+        }
+        if (this.mesh.material) {
+            this.mesh.material.dispose();
+        }
+
+        // Clean up glow effect
+        if (this.mesh.children.length > 0) {
+            const glowMesh = this.mesh.children[0];
+            if (glowMesh.geometry) {
+                glowMesh.geometry.dispose();
+            }
+            if (glowMesh.material) {
+                glowMesh.material.dispose();
+            }
+        }
+
+        this.mesh = null;
+        this.glow = null;
     }
 
     collect() {

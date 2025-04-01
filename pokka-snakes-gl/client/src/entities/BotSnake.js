@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Snake } from './Snake';
+import { PowerUpSystem } from '../systems/PowerUpSystem';
 
 export class BotSnake extends Snake {
     constructor(game, startPosition) {
@@ -20,9 +21,16 @@ export class BotSnake extends Snake {
         
         // Override snake properties for bot
         this.speed = 13;
+        this.baseSpeed = 13;  // Added for power-up effects
         this.segmentSpacing = 1.2;
         this.wanderAngle = 0;
         this.wanderRadius = 2;
+        
+        // Power-up state
+        this.isGhostMode = false;
+        this.isMagnetMode = false;
+        this.isInvulnerable = false;
+        this.timeScale = 1.0;
         
         // New properties for enhanced behavior
         this.lastPlayerPosition = null;
@@ -116,13 +124,30 @@ export class BotSnake extends Snake {
     update(deltaTime) {
         if (!this.isInitialized) return;
 
+        // Apply time scale to deltaTime
+        const scaledDeltaTime = deltaTime * (this.timeScale || 1.0);
+
+        // Update ghost trails if they exist
+        if (this.ghostTrails && this.ghostTrails.length > 0) {
+            this.ghostTrails.forEach((trail, index) => {
+                const delay = index * 0.1; // Stagger the trails
+                const targetPos = this.positionHistory[Math.floor(delay * 10)] || this.head.position;
+                trail.position.lerp(targetPos, 0.3);
+            });
+        }
+
+        // Update magnet effect if active
+        if (this.isMagnetMode) {
+            this.updateMagnetEffect(scaledDeltaTime);
+        }
+
         // Track player movement for prediction
         if (this.game.snake) {
             const currentPlayerPos = this.game.snake.head.position.clone();
             if (this.lastPlayerPosition) {
                 this.playerVelocity = currentPlayerPos.clone()
                     .sub(this.lastPlayerPosition)
-                    .multiplyScalar(1 / deltaTime);
+                    .multiplyScalar(1 / scaledDeltaTime);
             }
             this.lastPlayerPosition = currentPlayerPos;
         }
@@ -141,7 +166,7 @@ export class BotSnake extends Snake {
         }
 
         // Move the bot
-        this.move(deltaTime);
+        this.move(scaledDeltaTime);
 
         // Check for collisions
         if (this.collisionChecksEnabled) {
@@ -152,14 +177,79 @@ export class BotSnake extends Snake {
         this.checkPelletCollection();
     }
 
+    updateMagnetEffect(deltaTime) {
+        if (!this.isMagnetMode || !this.game.gameManager) return;
+
+        const pellets = this.game.gameManager.pellets;
+        if (!pellets || !pellets.length) return;
+
+        const headPosition = this.head.position;
+        const magnetRadius = 15;
+        const magnetStrength = 2.0;
+
+        pellets.forEach(pellet => {
+            if (!pellet || !pellet.mesh) return;
+
+            const pelletPosition = pellet.mesh.position;
+            const distance = pelletPosition.distanceTo(headPosition);
+
+            if (distance < magnetRadius) {
+                // Calculate direction to snake head
+                const direction = new THREE.Vector3()
+                    .subVectors(headPosition, pelletPosition)
+                    .normalize();
+
+                // Stronger attraction for closer pellets
+                const attractionStrength = magnetStrength * (1 - distance / magnetRadius) * deltaTime * 60;
+
+                // Move pellet towards snake head
+                pelletPosition.add(direction.multiplyScalar(attractionStrength));
+
+                // Debug log for pellet movement
+                console.log('Bot: Attracting pellet', {
+                    distance,
+                    attractionStrength,
+                    pelletPosition: pelletPosition.clone(),
+                    headPosition: headPosition.clone()
+                });
+            }
+        });
+    }
+
     scanForPellets() {
         if (!this.game.gameManager) return;
         
         // Update nearby pellets list
-        this.nearbyPellets = this.game.gameManager.pellets.filter(pellet => {
-            if (!pellet.mesh) return false;
+        this.nearbyPellets = [];
+
+        // Add regular pellets
+        this.game.gameManager.pellets.forEach(pellet => {
+            if (!pellet.mesh) return;
             const distance = this.head.position.distanceTo(pellet.mesh.position);
-            return distance <= this.viewDistance;
+            if (distance <= this.viewDistance) {
+                this.nearbyPellets.push({
+                    ...pellet,
+                    type: 'normal'
+                });
+            }
+        });
+
+        // Add power-ups with high priority
+        this.game.gameManager.powerUps.forEach(powerUp => {
+            if (!powerUp.mesh) return;
+            const distance = this.head.position.distanceTo(powerUp.mesh.position);
+            if (distance <= this.viewDistance) {
+                this.nearbyPellets.push({
+                    mesh: powerUp.mesh,
+                    position: powerUp.mesh.position,
+                    type: 'powerUp'
+                });
+                console.log('Bot: Found power-up in range', {
+                    distance,
+                    position: powerUp.mesh.position.clone(),
+                    botPosition: this.head.position.clone()
+                });
+            }
         });
 
         // Sort pellets by priority
@@ -168,38 +258,31 @@ export class BotSnake extends Snake {
             const scoreB = this.calculatePelletScore(b);
             return scoreB - scoreA;
         });
+
+        // Debug log if power-ups are found
+        const powerUps = this.nearbyPellets.filter(p => p.type === 'powerUp');
+        if (powerUps.length > 0) {
+            console.log('Bot: Power-ups in range', {
+                count: powerUps.length,
+                positions: powerUps.map(p => p.mesh.position.clone()),
+                botPosition: this.head.position.clone()
+            });
+        }
     }
 
     calculatePelletScore(pellet) {
         if (!pellet.mesh) return -Infinity;
 
-        let score = 0;
         const distance = this.head.position.distanceTo(pellet.mesh.position);
+        let score = 1000 / (distance + 1); // Base score inversely proportional to distance
 
-        // Base distance factor (closer is better)
-        score -= distance * 0.5;
-
-        // Pellet type priority with much higher values for power-ups
+        // Heavily prioritize power-ups
         if (pellet.type === 'powerUp') {
-            score += 10000; // Significantly increased from 5000
-            if (distance < 50) { // Increased range
-                score += (50 - distance) * 400; // Doubled bonus
-            }
+            score *= 5.0; // Increased multiplier for power-ups
+            score += 5000; // Large base bonus for power-ups
         } else if (pellet.type === 'bonus') {
-            score += 800;
-            if (distance < 25) {
-                score += (25 - distance) * 40;
-            }
-        } else {
-            score += 50;
-            if (distance < 15) {
-                score += (15 - distance) * 5;
-            }
-        }
-
-        // Path analysis with higher bonus for power-ups
-        if (this.isPathClear(pellet.mesh.position)) {
-            score += pellet.type === 'powerUp' ? 4000 : (pellet.type === 'bonus' ? 400 : 50);
+            score *= 2.0;
+            score += 1000;
         }
 
         // Competition with player - much more aggressive for power-ups
@@ -207,9 +290,9 @@ export class BotSnake extends Snake {
             const playerDistance = this.game.snake.head.position.distanceTo(pellet.mesh.position);
             if (playerDistance < distance) {
                 if (pellet.type === 'powerUp') {
-                    if (distance - playerDistance < 40) { // Increased range
-                        score *= 3.0; // Increased multiplier
-                        score += 4000; // Doubled bonus
+                    if (distance - playerDistance < 50) { // Increased range for power-ups
+                        score *= 4.0; // Higher multiplier
+                        score += 6000; // Higher bonus
                     }
                 } else if (pellet.type === 'bonus') {
                     if (distance - playerDistance < 15) {
@@ -223,8 +306,19 @@ export class BotSnake extends Snake {
                     }
                 }
             } else {
-                score += (playerDistance - distance) * (pellet.type === 'powerUp' ? 320 : 40);
+                score += (playerDistance - distance) * (pellet.type === 'powerUp' ? 500 : 40); // Increased power-up priority
             }
+        }
+
+        // Add debug logging for power-up scoring
+        if (pellet.type === 'powerUp') {
+            console.log('Bot: Power-up score calculation', {
+                distance,
+                score,
+                position: this.head.position.clone(),
+                powerUpPosition: pellet.mesh.position.clone(),
+                playerDistance: this.game.snake ? this.game.snake.head.position.distanceTo(pellet.mesh.position) : null
+            });
         }
 
         return score;
@@ -991,54 +1085,42 @@ export class BotSnake extends Snake {
     checkPelletCollection() {
         if (!this.game.gameManager) return;
 
-        // Scan for nearby pellets
-        this.scanForPellets();
+        // Determine collection radius based on magnet mode
+        const baseCollectionRadius = 2.0;
+        const magnetCollectionRadius = 6.0;
+        const collectionRadius = this.isMagnetMode ? magnetCollectionRadius : baseCollectionRadius;
 
-        // Sort pellets by type and distance
-        const sortedPellets = [...this.game.gameManager.pellets].sort((a, b) => {
-            if (!a.mesh || !b.mesh) return 0;
-            
-            // First sort by type (power-ups first)
-            if (a.type === 'powerUp' && b.type !== 'powerUp') return -1;
-            if (a.type !== 'powerUp' && b.type === 'powerUp') return 1;
-            
-            // Then by distance
-            const distA = this.head.position.distanceTo(a.mesh.position);
-            const distB = this.head.position.distanceTo(b.mesh.position);
-            return distA - distB;
-        });
-
-        // Check each pellet for collection, prioritizing power-ups
-        for (const pellet of sortedPellets) {
-            if (!pellet.mesh) continue;
-            
+        // Check regular pellets with dynamic radius
+        this.game.gameManager.pellets.forEach(pellet => {
+            if (!pellet.mesh) return;
             const distance = this.head.position.distanceTo(pellet.mesh.position);
-            
-            // Increased collection radius for power-ups
-            const collectionRadius = pellet.type === 'powerUp' ? 4.0 : 2.0;
-            
-            // Debug logging for power-up collection attempts
-            if (pellet.type === 'powerUp') {
-                console.log('Bot: Checking power-up collection', {
+            if (distance < collectionRadius) {
+                console.log('Bot: Collecting regular pellet', {
                     distance,
                     collectionRadius,
-                    dotProduct: this.direction.dot(new THREE.Vector3().subVectors(pellet.mesh.position, this.head.position).normalize()),
-                    position: this.head.position,
-                    powerUpPosition: pellet.mesh.position
-                });
-            }
-            
-            if (distance < collectionRadius) {
-                // Simplified collection logic - no direction check needed
-                console.log('Bot: Collecting pellet', {
-                    distance,
-                    type: pellet.type,
-                    collectionRadius
+                    isMagnetMode: this.isMagnetMode,
+                    position: pellet.mesh.position.clone()
                 });
                 this.collectPellet(pellet);
-                break;
             }
-        }
+        });
+
+        // Check power-ups with larger collection radius
+        this.game.gameManager.powerUps.forEach(powerUp => {
+            if (!powerUp.mesh) return;
+            const distance = this.head.position.distanceTo(powerUp.mesh.position);
+            const powerUpCollectionRadius = this.isMagnetMode ? 8.0 : 4.0;
+            if (distance < powerUpCollectionRadius) {
+                console.log('Bot: Collecting power-up', {
+                    distance,
+                    powerUpCollectionRadius,
+                    isMagnetMode: this.isMagnetMode,
+                    type: powerUp.type,
+                    position: powerUp.mesh.position.clone()
+                });
+                this.game.gameManager.collectPowerUp(powerUp);
+            }
+        });
     }
 
     collectPellet(pellet) {
@@ -1048,15 +1130,24 @@ export class BotSnake extends Snake {
         if (this.game.gameManager) {
             let points = 10; // Default points
             
-            if (pellet.type === 'bonus') {
-                points = 50;
-            } else if (pellet.type === 'powerUp') {
+            // Check if it's a power-up type
+            const isPowerUp = Object.keys(PowerUpSystem.Types).includes(pellet.type);
+            
+            if (isPowerUp) {
                 points = 100;
-                // Handle power-up effects
-                if (this.game.gameManager.activatePowerUp) {
-                    console.log('Bot: Activating power-up', { type: pellet.type });
-                    this.game.gameManager.activatePowerUp(pellet.type);
+                // Handle power-up effects using PowerUpSystem through gameManager
+                if (this.game.gameManager.powerUpSystem) {
+                    console.log('Bot: Activating power-up through GameManager', { 
+                        type: pellet.type,
+                        hasGameManager: !!this.game.gameManager,
+                        hasPowerUpSystem: !!this.game.gameManager.powerUpSystem
+                    });
+                    this.game.gameManager.powerUpSystem.activatePowerUp(pellet.type, this);
+                } else {
+                    console.error('Bot: PowerUpSystem not found in GameManager');
                 }
+            } else if (pellet.type === 'bonus') {
+                points = 50;
             }
 
             // Add score if the method exists
@@ -1070,7 +1161,7 @@ export class BotSnake extends Snake {
 
         // Play collection sound with different sounds for different types
         if (this.game.audioManager) {
-            if (pellet.type === 'powerUp') {
+            if (Object.keys(PowerUpSystem.Types).includes(pellet.type)) {
                 this.game.audioManager.play('powerUpCollect');
             } else if (pellet.type === 'bonus') {
                 this.game.audioManager.play('bonusCollect');
@@ -1085,8 +1176,9 @@ export class BotSnake extends Snake {
             let particleCount = 15;
             let effectScale = 0.1;
             
-            if (pellet.type === 'powerUp') {
-                effectColor = 0x00FF00;
+            if (Object.keys(PowerUpSystem.Types).includes(pellet.type)) {
+                const powerUpColors = PowerUpSystem.Types[pellet.type]?.color || 0x00FF00;
+                effectColor = powerUpColors;
                 particleCount = 25;
                 effectScale = 0.15;
             } else if (pellet.type === 'bonus') {
@@ -1146,5 +1238,160 @@ export class BotSnake extends Snake {
 
         // Adjust segment spacing based on snake length
         this.segmentSpacing = Math.max(0.8, 1.0 - (this.segments.length * 0.005));
+    }
+
+    // Add power-up effect methods
+    setGhostMode(enabled) {
+        console.log('Bot: Ghost mode', enabled);
+        this.isGhostMode = enabled;
+        if (enabled) {
+            // Make snake semi-transparent
+            this.head.material.transparent = true;
+            this.head.material.opacity = 0.5;
+            this.headGlow.material.transparent = true;
+            this.headGlow.material.opacity = 0.3;
+            
+            // Make segments semi-transparent
+            this.segments.forEach(segment => {
+                segment.material.transparent = true;
+                segment.material.opacity = 0.5;
+            });
+
+            // Add ghost trail effect
+            this.addGhostTrail();
+        } else {
+            // Reset transparency
+            this.head.material.transparent = false;
+            this.head.material.opacity = 1;
+            this.headGlow.material.transparent = false;
+            this.headGlow.material.opacity = 0.3;
+            
+            // Reset segment transparency
+            this.segments.forEach(segment => {
+                segment.material.transparent = false;
+                segment.material.opacity = 1;
+            });
+
+            // Remove ghost trail effect
+            this.removeGhostTrail();
+        }
+    }
+
+    setTimeScale(scale) {
+        console.log('Bot: Time scale', scale);
+        this.timeScale = scale;
+        this.speed = this.baseSpeed * scale;
+        this.updateInterval = 30 / scale; // Adjust AI update interval based on time scale
+        this.pelletScanInterval = 100 / scale; // Adjust pellet scanning interval based on time scale
+        this.directionChangeInterval = 500 / scale; // Adjust direction change interval based on time scale
+    }
+
+    setMagnetMode(enabled) {
+        console.log('Bot: Magnet mode', enabled);
+        this.isMagnetMode = enabled;
+        if (enabled) {
+            this.viewDistance = 90; // Increased view distance for magnet mode
+            this.speed = this.baseSpeed * 1.2; // Increase speed slightly when magnet is active
+
+            // Add magnet visual effect
+            const magnetColor = new THREE.Color(0xff00ff);
+            this.head.material.emissive = magnetColor;
+            this.head.material.emissiveIntensity = 0.8;
+            this.headGlow.material.emissive = magnetColor;
+            this.headGlow.material.emissiveIntensity = 0.5;
+
+            // Update segment materials
+            this.segments.forEach(segment => {
+                segment.material.emissive = magnetColor;
+                segment.material.emissiveIntensity = 0.6;
+            });
+        } else {
+            this.viewDistance = 60; // Reset to normal
+            this.speed = this.baseSpeed;
+
+            // Reset visual effects
+            const normalColor = new THREE.Color(0xFF0000); // Bot's normal color
+            this.head.material.emissive = normalColor;
+            this.head.material.emissiveIntensity = 0.4;
+            this.headGlow.material.emissive = normalColor;
+            this.headGlow.material.emissiveIntensity = 0.3;
+
+            // Reset segment materials
+            this.segments.forEach(segment => {
+                segment.material.emissive = normalColor;
+                segment.material.emissiveIntensity = 0.2;
+            });
+        }
+    }
+
+    setInvulnerable(enabled) {
+        console.log('Bot: Invulnerable mode', enabled);
+        this.isInvulnerable = enabled;
+        if (enabled) {
+            // Add shield visual effect
+            const shieldColor = new THREE.Color(0xffff00);
+            this.head.material.emissive = shieldColor;
+            this.head.material.emissiveIntensity = 0.8;
+            this.headGlow.material.emissive = shieldColor;
+            this.headGlow.material.emissiveIntensity = 0.5;
+
+            // Update segment materials
+            this.segments.forEach(segment => {
+                segment.material.emissive = shieldColor;
+                segment.material.emissiveIntensity = 0.6;
+            });
+        } else {
+            // Reset visual effects
+            const normalColor = new THREE.Color(0xFF0000); // Bot's normal color
+            this.head.material.emissive = normalColor;
+            this.head.material.emissiveIntensity = 0.4;
+            this.headGlow.material.emissive = normalColor;
+            this.headGlow.material.emissiveIntensity = 0.3;
+
+            // Reset segment materials
+            this.segments.forEach(segment => {
+                segment.material.emissive = normalColor;
+                segment.material.emissiveIntensity = 0.2;
+            });
+        }
+    }
+
+    addGhostTrail() {
+        // Create ghost trail effect
+        const trailGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+        const trailMaterial = new THREE.MeshPhongMaterial({
+            color: 0xFF0000, // Bot's color
+            transparent: true,
+            opacity: 0.3,
+            emissive: 0xFF0000,
+            emissiveIntensity: 0.3
+        });
+        
+        this.ghostTrails = [];
+        for (let i = 0; i < 5; i++) {
+            const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+            trail.position.copy(this.head.position);
+            this.game.scene.add(trail);
+            this.ghostTrails.push(trail);
+        }
+    }
+
+    removeGhostTrail() {
+        if (this.ghostTrails) {
+            this.ghostTrails.forEach(trail => {
+                this.game.scene.remove(trail);
+                if (trail.geometry) trail.geometry.dispose();
+                if (trail.material) trail.material.dispose();
+            });
+            this.ghostTrails = [];
+        }
+    }
+
+    cleanup() {
+        // Remove ghost trails if they exist
+        this.removeGhostTrail();
+
+        // Call parent cleanup
+        super.cleanup();
     }
 } 

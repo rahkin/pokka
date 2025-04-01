@@ -20,7 +20,7 @@ export class GameManager {
         this.settings = {
             maxPellets: 20,
             powerUpChance: 0.1,
-            powerUpTypes: ['ghost', 'timeSlow', 'magnet', 'shield'],
+            powerUpTypes: Object.keys(PowerUpSystem.Types),
             spawnInterval: 1000, // ms
             difficultyIncrease: 0.1
         };
@@ -395,24 +395,62 @@ export class GameManager {
     }
 
     collectPowerUp(powerUp) {
-        if (!powerUp || !this.game.snake || this.isGameOver) {
+        if (!powerUp || this.isGameOver) {
             console.log('GameManager: Cannot collect power-up', {
                 hasPowerUp: !!powerUp,
-                hasSnake: !!this.game.snake,
                 isGameOver: this.isGameOver
             });
             return;
         }
 
+        // Store power-up position before cleanup
+        const powerUpPosition = powerUp.mesh ? powerUp.mesh.position.clone() : null;
+        const powerUpType = powerUp.type;
+
+        // Determine which snake collected the power-up based on distance
+        let collectingSnake = null;
+        let minDistance = Infinity;
+
+        // Check player snake
+        if (this.game.snake) {
+            const playerDistance = this.game.snake.head.position.distanceTo(powerUp.mesh.position);
+            if (playerDistance < 4.0) {
+                collectingSnake = this.game.snake;
+                minDistance = playerDistance;
+            }
+        }
+
+        // Check bot snake
+        if (this.botSnake && this.botSnake.isAlive) {
+            const botDistance = this.botSnake.head.position.distanceTo(powerUp.mesh.position);
+            if (botDistance < 4.0 && botDistance < minDistance) {
+                collectingSnake = this.botSnake;
+                minDistance = botDistance;
+            }
+        }
+
+        if (!collectingSnake) {
+            return; // No snake close enough to collect
+        }
+
         console.log('GameManager: Collecting power-up', {
-            type: powerUp.type,
-            position: powerUp.position.clone(),
-            snakePosition: this.game.snake.head.position.clone(),
-            distance: powerUp.position.distanceTo(this.game.snake.head.position)
+            type: powerUpType,
+            position: powerUpPosition,
+            snakeType: collectingSnake === this.game.snake ? 'player' : 'bot',
+            snakePosition: collectingSnake.head.position.clone(),
+            distance: minDistance
         });
 
-        if (this.game.powerUpSystem) {
-            this.game.powerUpSystem.activatePowerUp(powerUp.type);
+        // Activate power-up effect using PowerUpSystem
+        if (this.powerUpSystem) {
+            console.log('GameManager: Activating power-up through PowerUpSystem', {
+                type: powerUpType,
+                powerUpSystem: !!this.powerUpSystem,
+                snake: collectingSnake === this.game.snake ? 'player' : 'bot'
+            });
+            this.powerUpSystem.activatePowerUp(powerUpType, collectingSnake);
+        } else {
+            console.error('GameManager: PowerUpSystem not found');
         }
         
         // Remove the power-up
@@ -424,11 +462,22 @@ export class GameManager {
             if (this.isRunning && !this.isGameOver) {
                 this.spawnPowerUp();
             }
-        }, 2000); // Spawn new power-up after 2 seconds
+        }, 2000);
         
         // Play sound effect if available
         if (this.game.audioManager) {
             this.game.audioManager.play('powerUp');
+        }
+
+        // Create visual effect using stored position
+        if (this.game.createParticleEffect && powerUpPosition) {
+            const powerUpTypeDef = PowerUpSystem.Types[powerUpType];
+            const effectColor = powerUpTypeDef ? powerUpTypeDef.color : 0x00ff00;
+            this.game.createParticleEffect(powerUpPosition, effectColor, 30, {
+                scale: 0.3,
+                lifetime: 1.0,
+                velocityScale: 3
+            });
         }
     }
 
@@ -486,6 +535,7 @@ export class GameManager {
         
         console.log('GameManager: Spawned new power-up', {
             type,
+            powerUpType: PowerUpSystem.Types[type],
             position: position.clone(),
             totalPowerUps: this.powerUps.size,
             worldSize,
