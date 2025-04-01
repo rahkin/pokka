@@ -8,6 +8,7 @@ import { PowerUpSystem } from './systems/PowerUpSystem';
 import { WeatherSystem } from './systems/WeatherSystem';
 import { AudioManager } from './systems/AudioManager';
 import { ObstacleSystem } from './systems/ObstacleSystem';
+import aiaiHeaderImage from '/pokka-snakes-gl/client/public/images/assets/icons/aiai_header.png';
 // Import other systems as needed
 // import { NetworkManager } from './network/NetworkManager';
 // import { GameStateManager } from './systems/GameStateManager';
@@ -15,6 +16,15 @@ import { ObstacleSystem } from './systems/ObstacleSystem';
 
 export class Game {
     constructor() {
+        // Show loading screen immediately
+        const loadingScreen = document.getElementById('loading-screen');
+        const gameContainer = document.getElementById('game-container');
+        
+        if (loadingScreen && gameContainer) {
+            loadingScreen.style.display = 'flex';
+            gameContainer.style.display = 'none';
+        }
+
         // Initialize core components first
         this.initializeCore();
         
@@ -341,7 +351,7 @@ export class Game {
 
     createBasicScene() {
         // Create ground plane with white material for the play area
-        const groundGeometry = new THREE.PlaneGeometry(100, 100); // Reduced size to match play area
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
         const groundMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
             roughness: 0.7,
@@ -349,15 +359,51 @@ export class Game {
             envMapIntensity: 1,
             side: THREE.DoubleSide
         });
+        
         this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
         this.ground.rotation.x = -Math.PI / 2;
-        this.ground.position.y = 0.01; // Slightly raised to prevent z-fighting
+        this.ground.position.y = 0.01;
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
 
-        // Add stylish grid with subtle colors on white
+        // Create a separate plane for the logo/image
+        const logoGeometry = new THREE.PlaneGeometry(20, 20); // Size of the logo area
+        const textureLoader = new THREE.TextureLoader();
+        
+        console.log('Loading texture from:', aiaiHeaderImage);
+        textureLoader.load(
+            aiaiHeaderImage,
+            (texture) => {
+                console.log('Successfully loaded aiai texture');
+                const logoMaterial = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 1.0,
+                    depthWrite: false,
+                    roughness: 0.5,
+                    metalness: 0.1
+                });
+                
+                const logo = new THREE.Mesh(logoGeometry, logoMaterial);
+                logo.rotation.x = -Math.PI / 2;
+                logo.position.y = 0.02; // Slightly above the ground to prevent z-fighting
+                logo.position.z = 0;
+                logo.position.x = 0;
+                logo.receiveShadow = true;
+                this.scene.add(logo);
+                console.log('Added logo to scene');
+            },
+            (progress) => {
+                console.log('Texture loading progress:', (progress.loaded / progress.total * 100) + '%');
+            },
+            (error) => {
+                console.error('Error loading aiai texture:', error);
+            }
+        );
+
+        // Add stylish grid with subtle colors on white - more transparent to show the image better
         const gridHelper = new THREE.GridHelper(100, 20, 0xE0E0E0, 0xF0F0F0);
-        gridHelper.material.opacity = 0.3;
+        gridHelper.material.opacity = 0.2; // More transparent
         gridHelper.material.transparent = true;
         gridHelper.position.y = 0.02; // Slightly above the ground
         this.scene.add(gridHelper);
@@ -424,7 +470,7 @@ export class Game {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        `/pokka-snakes-gl/assets/img/${image}`,  // Updated path to match Vite's asset handling
+                        `/pokka-snakes-gl/client/public/assets/img/${image}`,  // Updated path to match Vite's asset handling
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;
