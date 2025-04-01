@@ -424,7 +424,7 @@ export class Game {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        `/pokka-snakes-gl/client/public/images/${image}`,  // Updated path
+                        `/pokka-snakes-gl/assets/img/${image}`,  // Updated path to match Vite's asset handling
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;

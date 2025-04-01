@@ -86,19 +86,19 @@ export class AudioManager {
                 
                 // Game sounds with MP3 format
                 const gameSounds = {
-                    eat: ['/pokka-snakes-gl/client/public/sounds/eat.mp3'],
-                    gameOver: ['/pokka-snakes-gl/client/public/sounds/gameOver.mp3'],
-                    powerUp: ['/pokka-snakes-gl/client/public/sounds/powerUp.mp3'],
-                    turn: ['/pokka-snakes-gl/client/public/sounds/turn.mp3'],
-                    background: ['/pokka-snakes-gl/client/public/sounds/background.mp3'],
-                    click: ['/pokka-snakes-gl/client/public/sounds/click.mp3']
+                    eat: ['/pokka-snakes-gl/assets/audio/eat.mp3'],
+                    gameOver: ['/pokka-snakes-gl/assets/audio/gameOver.mp3'],
+                    powerUp: ['/pokka-snakes-gl/assets/audio/powerUp.mp3'],
+                    turn: ['/pokka-snakes-gl/assets/audio/turn.mp3'],
+                    background: ['/pokka-snakes-gl/assets/audio/background.mp3'],
+                    click: ['/pokka-snakes-gl/assets/audio/click.mp3']
                 };
 
                 // Weather sounds (MP3 only)
                 const weatherSounds = {
-                    rain: ['/pokka-snakes-gl/client/public/sounds/rain.mp3'],
-                    snow: ['/pokka-snakes-gl/client/public/sounds/snow.mp3'],
-                    wind: ['/pokka-snakes-gl/client/public/sounds/wind.mp3']
+                    rain: ['/pokka-snakes-gl/assets/audio/rain.mp3'],
+                    snow: ['/pokka-snakes-gl/assets/audio/snow.mp3'],
+                    wind: ['/pokka-snakes-gl/assets/audio/wind.mp3']
                 };
 
                 // Count total sounds
