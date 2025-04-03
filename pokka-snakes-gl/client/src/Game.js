@@ -8,25 +8,20 @@ import { PowerUpSystem } from './systems/PowerUpSystem';
 import { WeatherSystem } from './systems/WeatherSystem';
 import { AudioManager } from './systems/AudioManager';
 import { ObstacleSystem } from './systems/ObstacleSystem';
-import aiaiHeaderImage from '/pokka-snakes-gl/client/public/images/assets/icons/aiai_header.png';
+import aiaiHeaderImage from '../public/images/assets/icons/aiai_header.png';
 // Import other systems as needed
 // import { NetworkManager } from './network/NetworkManager';
 // import { GameStateManager } from './systems/GameStateManager';
 // etc...
 
 export class Game {
-    constructor() {
-        // Show loading screen immediately
-        const loadingScreen = document.getElementById('loading-screen');
-        const gameContainer = document.getElementById('game-container');
+    constructor(updateLoadingProgress) {
+        // Store the callback with a different name
+        this._loadingProgressCallback = updateLoadingProgress || (() => {});
         
-        if (loadingScreen && gameContainer) {
-            loadingScreen.style.display = 'flex';
-            gameContainer.style.display = 'none';
-        }
-
         // Initialize core components first
         this.initializeCore();
+        this.updateLoadingProgress(10, 'Initializing core components...');
         
         // Initialize audio manager
         this.audioManager = new AudioManager();
@@ -34,19 +29,23 @@ export class Game {
         // Initialize audio before other systems
         this.audioManager.initializeSounds().then(() => {
             console.log('Game: Audio initialized successfully');
-            this.updateLoadingProgress(30);
+            this.updateLoadingProgress(30, 'Audio initialized...');
             
             // Initialize weather system
             this.weatherSystem = new WeatherSystem(this.scene);
-            this.updateLoadingProgress(50);
+            this.updateLoadingProgress(50, 'Weather system initialized...');
             
             // Then initialize game systems
             this.initializeSystems();
-            this.updateLoadingProgress(80);
+            this.updateLoadingProgress(80, 'Game systems initialized...');
+
+            // Create the scene and environment
+            this.createBasicScene();
+            this.updateLoadingProgress(90, 'Scene created...');
 
             // Start the game
             this.start();
-            this.updateLoadingProgress(100);
+            this.updateLoadingProgress(100, 'Ready!');
             
             // Hide loading screen and show game after a short delay
             setTimeout(() => {
@@ -57,12 +56,15 @@ export class Game {
                     loadingScreen.style.display = 'none';
                     gameContainer.style.display = 'block';
                 }
-            }, 500); // Short delay to ensure smooth transition
+            }, 1000);
         }).catch(error => {
             console.error('Game: Failed to initialize audio:', error);
+            this.updateLoadingProgress(0, 'Error initializing audio, continuing without...');
+            
             // Continue without audio
             this.weatherSystem = new WeatherSystem(this.scene);
             this.initializeSystems();
+            this.createBasicScene();
             this.start();
             
             // Still hide loading screen even if audio fails
@@ -74,7 +76,7 @@ export class Game {
                     loadingScreen.style.display = 'none';
                     gameContainer.style.display = 'block';
                 }
-            }, 500);
+            }, 1000);
         });
         
         this.lastTime = 0;
@@ -98,10 +100,6 @@ export class Game {
                 'ArrowDown': new THREE.Vector3(0, 0, 1),
                 'ArrowLeft': new THREE.Vector3(-1, 0, 0),
                 'ArrowRight': new THREE.Vector3(1, 0, 0),
-                'w': new THREE.Vector3(0, 0, -1),
-                'a': new THREE.Vector3(-1, 0, 0),
-                's': new THREE.Vector3(0, 0, 1),
-                'd': new THREE.Vector3(1, 0, 0)
             }
         };
     }
@@ -1400,7 +1398,13 @@ export class Game {
         requestAnimationFrame(() => this.animate());
     }
 
-    updateLoadingProgress(percent) {
+    updateLoadingProgress(percent, message) {
+        // Store the callback function in a different property name to avoid confusion
+        if (typeof this._loadingProgressCallback === 'function') {
+            this._loadingProgressCallback(percent, message);
+            return;
+        }
+        
         const loadingBar = document.getElementById('loading-bar');
         const loadingText = document.getElementById('loading-text');
         
@@ -1409,17 +1413,9 @@ export class Game {
         }
         
         if (loadingText) {
-            if (percent < 30) {
-                loadingText.textContent = 'Loading audio...';
-            } else if (percent < 50) {
-                loadingText.textContent = 'Initializing weather system...';
-            } else if (percent < 80) {
-                loadingText.textContent = 'Setting up game systems...';
-            } else if (percent < 100) {
-                loadingText.textContent = 'Starting game...';
-            } else {
-                loadingText.textContent = 'Ready!';
-            }
+            loadingText.textContent = message || 'Loading...';
         }
+        
+        console.log(`Loading progress: ${percent}% - ${message}`);
     }
 } 
