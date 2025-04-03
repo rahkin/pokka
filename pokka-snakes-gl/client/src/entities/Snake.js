@@ -18,6 +18,7 @@ export class Snake {
         this.initializationFrames = 180;
         this.movementEnabled = false;
         this.collisionChecksEnabled = false;
+        this.score = 0;  // Add score tracking
         
         // Create snake group
         this.group = new THREE.Group();
@@ -495,29 +496,43 @@ export class Snake {
     }
 
     checkPelletCollisions() {
-        if (!this.game.gameManager || !this.game.gameManager.pellets) return;
+        if (!this.game.gameManager || !this.game.gameManager.pellets) {
+            console.log('Snake: Pellet collision check skipped - missing gameManager or pellets', {
+                hasGameManager: !!this.game.gameManager,
+                hasPellets: this.game.gameManager?.pellets,
+                isInitialized: this.initialized,
+                movementEnabled: this.movementEnabled,
+                collisionChecksEnabled: this.collisionChecksEnabled
+            });
+            return;
+        }
 
-        console.log('Snake: Checking pellet collisions', {
-            pelletCount: this.game.gameManager.pellets.length,
-            headPosition: this.head.position.clone(),
-            magnetMode: this.magnetMode
-        });
-
-        for (let i = this.game.gameManager.pellets.length - 1; i >= 0; i--) {
-            const pellet = this.game.gameManager.pellets[i];
-            if (!pellet || !pellet.mesh) continue;
+        const pellets = this.game.gameManager.pellets;
+        for (let i = pellets.length - 1; i >= 0; i--) {
+            const pellet = pellets[i];
+            if (!pellet || !pellet.mesh || pellet.isCollected) {
+                continue;
+            }
 
             const distance = this.head.position.distanceTo(pellet.mesh.position);
-            const collisionThreshold = this.magnetMode ? 3.0 : 1.2; // Increased threshold when magnet is active
+            const collisionThreshold = this.collisionRadius + pellet.radius;
+
+            console.log('Snake: Checking pellet distance', {
+                distance,
+                threshold: collisionThreshold,
+                headPosition: this.head.position.clone(),
+                pelletPosition: pellet.mesh.position.clone()
+            });
 
             if (distance < collisionThreshold) {
                 console.log('Snake: Pellet collision detected', {
                     distance,
                     threshold: collisionThreshold,
-                    magnetMode: this.magnetMode,
                     headPosition: this.head.position.clone(),
                     pelletPosition: pellet.mesh.position.clone()
                 });
+                
+                // Let the GameManager handle the pellet collection
                 this.game.gameManager.collectPellet(pellet);
             }
         }

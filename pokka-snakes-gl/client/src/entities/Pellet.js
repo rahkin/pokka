@@ -5,6 +5,9 @@ export class Pellet {
         this.game = game;
         this.type = type;
         this.velocity = new THREE.Vector3();
+        this.radius = 0.3;  // Add radius property
+        this.isCollected = false;  // Add collection state
+        this.isSpecial = type !== 'normal';  // Add special flag
         
         // Set position or generate random position
         this.position = position || new THREE.Vector3(
@@ -29,7 +32,7 @@ export class Pellet {
 
     createMesh() {
         // Create main pellet geometry with more segments for smoother look
-        const geometry = new THREE.SphereGeometry(0.3, 24, 24);
+        const geometry = new THREE.SphereGeometry(this.radius, 24, 24);
         const color = this.type === 'normal' ? 0xFAA70D : 0xE179DA;
         const material = new THREE.MeshPhongMaterial({
             color: color,
@@ -46,7 +49,7 @@ export class Pellet {
         this.mesh.receiveShadow = true;
 
         // Create glow effect
-        const glowGeometry = new THREE.SphereGeometry(0.4, 24, 24);
+        const glowGeometry = new THREE.SphereGeometry(this.radius + 0.1, 24, 24);
         const glowMaterial = new THREE.MeshPhongMaterial({
             color: color,
             emissive: color,
@@ -60,7 +63,15 @@ export class Pellet {
         this.glow.position.copy(this.position);
     }
 
+    collect() {
+        if (this.isCollected) return;
+        this.isCollected = true;
+        this.cleanup();
+    }
+
     update(deltaTime) {
+        if (this.isCollected) return;
+        
         const time = performance.now() * 0.001;
         
         // Hover animation

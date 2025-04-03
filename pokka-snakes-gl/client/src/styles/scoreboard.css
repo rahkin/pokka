@@ -1,0 +1,47 @@
+.scoreboard {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 15px;
+    border-radius: 10px;
+    color: white;
+    font-family: 'One Little Font', monospace;
+    min-width: 200px;
+    z-index: 1000;
+}
+
+.scoreboard h2 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    font-size: 24px;
+    color: #FFD700;
+}
+
+.score-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    margin: 5px 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.score-entry.current {
+    background-color: rgba(255, 215, 0, 0.3);
+    border: 1px solid #FFD700;
+}
+
+.score-entry:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.score-entry .rank {
+    color: #FFD700;
+    font-weight: bold;
+}
+
+.score-entry .score {
+    color: #fff;
+} 
