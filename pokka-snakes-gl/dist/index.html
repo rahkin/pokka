@@ -3,12 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokka's Snakes GL</title>
-  <script type="module" crossorigin src="/pokka-snakes-gl/dist/assets/index-B_JT6Zbn.js"></script>
-  <link rel="stylesheet" crossorigin href="/pokka-snakes-gl/dist/assets/index-UZku42_H.css">
+    <title>Pokka's Snakes</title>
+    <!-- Third-party libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.7.1/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Courier New', monospace;
+        }
+        
+        /* Critical loading screen styles */
+        #loading-screen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            z-index: 1000 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            font-family: 'Courier New', monospace !important;
+            transition: opacity 0.5s ease !important;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
+        #loading-screen h1 {
+            font-size: 48px !important;
+            margin-bottom: 20px !important;
+            color: #3EE0B1 !important;
+            text-shadow: 0 0 10px rgba(62, 224, 177, 0.5) !important;
+        }
+        
+        #loading-progress {
+            width: 300px !important;
+            height: 20px !important;
+            background-color: #333333 !important;
+            border: 2px solid #666666 !important;
+            margin-top: 20px !important;
+            border-radius: 10px !important;
+            overflow: hidden !important;
+        }
+        
+        #loading-bar {
+            width: 0% !important;
+            height: 100% !important;
+            background-color: #3EE0B1 !important;
+            transition: width 0.3s ease !important;
+        }
+        
+        #loading-text {
+            margin-top: 10px !important;
+            font-size: 24px !important;
+            color: #888888 !important;
+            text-align: center !important;
+        }
+
+        /* Instructions panel styles */
+        #instructions {
+            display: none;
+            max-width: 600px !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            border: 2px solid #3EE0B1 !important;
+            border-radius: 15px !important;
+            padding: 20px !important;
+            margin-top: 20px !important;
+            color: #ffffff !important;
+            text-align: left !important;
+        }
+
+        #instructions h2 {
+            color: #3EE0B1 !important;
+            margin-bottom: 15px !important;
+            text-align: center !important;
+            font-size: 24px !important;
+        }
+
+        #instructions .section {
+            margin-bottom: 20px !important;
+        }
+
+        #instructions .section-title {
+            color: #FAA70D !important;
+            font-size: 18px !important;
+            margin-bottom: 10px !important;
+        }
+
+        #instructions ul {
+            list-style-type: none !important;
+            padding-left: 0 !important;
+            margin: 0 !important;
+        }
+
+        #instructions li {
+            margin-bottom: 8px !important;
+            line-height: 1.4 !important;
+        }
+
+        #instructions .key {
+            background: #3EE0B1 !important;
+            color: #000000 !important;
+            padding: 2px 8px !important;
+            border-radius: 4px !important;
+            margin-right: 8px !important;
+            font-weight: bold !important;
+            display: inline-block !important;
+        }
+
+        #instructions .power-up {
+            color: #E179DA !important;
+            font-weight: bold !important;
+        }
+
+        #start-button {
+            background: #3EE0B1 !important;
+            color: #000000 !important;
+            border: none !important;
+            padding: 12px 30px !important;
+            font-size: 20px !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            margin-top: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-weight: bold !important;
+            transition: all 0.3s ease !important;
+        }
+
+        #start-button:hover {
+            background: #FAA70D !important;
+            transform: scale(1.05) !important;
+        }
+        
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            visibility: visible;
+            z-index: 1;
+            background-color: #000000;
+        }
+        .scoreboard {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(139, 69, 19, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            min-width: 200px;
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid #4A3728;
+        }
+        .scoreboard h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #FFD700;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .score-entry {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .score-entry.current {
+            background: rgba(255,215,0,0.2);
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 5px rgba(255,215,0,0.5);
+        }
+        .score-entry .rank {
+            width: 30px;
+            text-align: center;
+        }
+        .score-entry .score {
+            text-align: right;
+        }
+        .score-popup {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: none;
+        }
+        .score-popup .points {
+            font-size: inherit;
+            margin-bottom: 5px;
+        }
+        .score-popup .combo {
+            font-size: 0.8em;
+            opacity: 0.9;
+            animation: pulseCombo 0.5s infinite alternate;
+        }
+        @keyframes pulseCombo {
+            from {
+                transform: scale(1);
+                text-shadow: 0 0 10px currentColor;
+            }
+            to {
+                transform: scale(1.1);
+                text-shadow: 0 0 20px currentColor;
+            }
+        }
+        .combo-level-1 { color: #00ff00; }
+        .combo-level-2 { color: #00ffff; }
+        .combo-level-3 { color: #ff00ff; }
+        .combo-level-4 { color: #ff0000; }
+        .combo-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            color: #fff;
+            text-shadow: 0 0 10px currentColor;
+            transition: all 0.3s ease;
+        }
+    </style>
+  <script type="module" crossorigin src="/pokka-snakes-gl/dist/assets/main-D2r22XGZ.js"></script>
+  <link rel="stylesheet" crossorigin href="/pokka-snakes-gl/dist/assets/main-CZkFY7mK.css">
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="gameUI"></div>
+    <div id="loading-screen">
+        <h1>Pokka's Snakes</h1>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+        <div id="loading-text">Initializing game...</div>
+        <div id="instructions">
+            <h2>How to Play</h2>
+            <div class="section">
+                <div class="section-title">Controls</div>
+                <ul>
+                    <li><span class="key">↑</span> or <span class="key">W</span> Move Up</li>
+                    <li><span class="key">↓</span> or <span class="key">S</span> Move Down</li>
+                    <li><span class="key">←</span> or <span class="key">A</span> Move Left</li>
+                    <li><span class="key">→</span> or <span class="key">D</span> Move Right</li>
+                    <li><span class="key">P</span> Pause Game</li>
+                    <li><span class="key">R</span> Restart (when game over)</li>
+                </ul>
+            </div>
+            <div class="section">
+                <div class="section-title">Power-Ups</div>
+                <ul>
+                    <li><span class="power-up">Speed Boost</span> - Temporarily increases your speed</li>
+                    <li><span class="power-up">Ghost Mode</span> - Pass through walls briefly</li>
+                    <li><span class="power-up">Double Points</span> - Score multiplier</li>
+                </ul>
+            </div>
+            <button id="start-button">Start Game</button>
+        </div>
+    </div>
+    <div id="game-container"></div>
+    <div class="scoreboard">
+        <h2>High Scores</h2>
+        <div id="scores-list"></div>
+    </div>
+    <!-- Load game script -->
 </body>
-</html>
+</html> 

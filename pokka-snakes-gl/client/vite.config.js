@@ -22,6 +22,8 @@ export default defineConfig({
                 main: resolve(__dirname, 'index.html')
             }
         },
-        copyPublicDir: true
+        copyPublicDir: true,
+        minify: 'terser',
+        sourcemap: false
     }
 }); 

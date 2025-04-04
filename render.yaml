@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: pokka-arcade
+    env: static
+    buildCommand: chmod +x build.sh && ./build.sh
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
