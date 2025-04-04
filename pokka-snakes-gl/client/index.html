@@ -249,18 +249,14 @@
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
     <div id="loading-screen">
         <h1>Pokka's Snakes</h1>
         <div id="loading-progress">
             <div id="loading-bar"></div>
         </div>
-        <div id="loading-text">Loading resources...</div>
-        
-        <!-- Instructions Panel -->
+        <div id="loading-text">Initializing game...</div>
         <div id="instructions">
             <h2>How to Play</h2>
-            
             <div class="section">
                 <div class="section-title">Controls</div>
                 <ul>
@@ -268,36 +264,26 @@
                     <li><span class="key">↓</span> or <span class="key">S</span> Move Down</li>
                     <li><span class="key">←</span> or <span class="key">A</span> Move Left</li>
                     <li><span class="key">→</span> or <span class="key">D</span> Move Right</li>
+                    <li><span class="key">P</span> Pause Game</li>
+                    <li><span class="key">R</span> Restart (when game over)</li>
                 </ul>
             </div>
-
             <div class="section">
                 <div class="section-title">Power-Ups</div>
                 <ul>
-                    <li><span class="power-up">Speed Boost</span> - Temporarily increases your movement speed</li>
-                    <li><span class="power-up">Score Multiplier</span> - Doubles your points for a short time</li>
-                    <li><span class="power-up">Shield</span> - Protects you from one collision</li>
-                    <li><span class="power-up">Size Reducer</span> - Temporarily shrinks your snake</li>
+                    <li><span class="power-up">Speed Boost</span> - Temporarily increases your speed</li>
+                    <li><span class="power-up">Ghost Mode</span> - Pass through walls briefly</li>
+                    <li><span class="power-up">Double Points</span> - Score multiplier</li>
                 </ul>
             </div>
-
-            <div class="section">
-                <div class="section-title">Objectives</div>
-                <ul>
-                    <li>Collect pellets to grow longer and score points</li>
-                    <li>Avoid hitting obstacles and your own tail</li>
-                    <li>Chain pellet collections for combo multipliers</li>
-                    <li>Try to achieve the highest score possible!</li>
-                </ul>
-            </div>
-
             <button id="start-button">Start Game</button>
         </div>
     </div>
-
-    <!-- Game Container -->
     <div id="game-container"></div>
-
+    <div class="scoreboard">
+        <h2>High Scores</h2>
+        <div id="scores-list"></div>
+    </div>
     <!-- Load game script -->
     <script type="module" src="./src/main.js"></script>
 </body>
