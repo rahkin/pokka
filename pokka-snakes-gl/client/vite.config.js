@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-    base: '/pokka-snakes-gl/dist/',
+    base: '',
     publicDir: 'public',
     server: {
         port: 3001,
@@ -10,7 +10,9 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@': resolve(__dirname, 'src')
+            '@': resolve(__dirname, 'src'),
+            'three': 'three',
+            'three/examples/jsm/controls/OrbitControls': 'three/examples/jsm/controls/OrbitControls.js'
         }
     },
     build: {
@@ -23,7 +25,12 @@ export default defineConfig({
             },
             output: {
                 assetFileNames: (assetInfo) => {
-                    if (assetInfo.name.endsWith('.mp3')) {
+                    const info = assetInfo.name.split('.');
+                    const ext = info[info.length - 1];
+                    if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
+                        return 'assets/img/[name][extname]';
+                    }
+                    if (ext === 'mp3') {
                         return 'assets/audio/[name][extname]';
                     }
                     return 'assets/[name]-[hash][extname]';
