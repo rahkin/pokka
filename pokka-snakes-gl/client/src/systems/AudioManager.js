@@ -88,24 +88,24 @@ export class AudioManager {
                 console.log('AudioManager: Initializing sounds');
                 
                 // Game sounds with MP3 format
-                const gameSounds = {
-                    eat: ['/pokka-snakes-gl/assets/audio/eat.mp3'],
-                    gameOver: ['/pokka-snakes-gl/assets/audio/gameOver.mp3'],
-                    powerUp: ['/pokka-snakes-gl/assets/audio/powerUp.mp3'],
-                    turn: ['/pokka-snakes-gl/assets/audio/turn.mp3'],
-                    background: ['/pokka-snakes-gl/assets/audio/background.mp3'],
-                    click: ['/pokka-snakes-gl/assets/audio/click.mp3']
+                const gameAudioFiles = {
+                    eat: ['assets/audio/eat.mp3'],
+                    gameOver: ['assets/audio/gameOver.mp3'],
+                    powerUp: ['assets/audio/powerUp.mp3'],
+                    turn: ['assets/audio/turn.mp3'],
+                    background: ['assets/audio/background.mp3'],
+                    click: ['assets/audio/click.mp3']
                 };
 
                 // Weather sounds (MP3 only)
-                const weatherSounds = {
-                    rain: ['/pokka-snakes-gl/assets/audio/rain.mp3'],
-                    snow: ['/pokka-snakes-gl/assets/audio/snow.mp3'],
-                    wind: ['/pokka-snakes-gl/assets/audio/wind.mp3']
+                const environmentAudioFiles = {
+                    rain: ['assets/audio/rain.mp3'],
+                    snow: ['assets/audio/snow.mp3'],
+                    wind: ['assets/audio/wind.mp3']
                 };
 
                 // Count total sounds
-                this.totalSounds = Object.keys(gameSounds).length + Object.keys(weatherSounds).length;
+                this.totalSounds = Object.keys(gameAudioFiles).length + Object.keys(environmentAudioFiles).length;
                 let loadedCount = 0;
 
                 const loadSound = async (name, paths) => {
@@ -136,8 +136,8 @@ export class AudioManager {
 
                 // Load sounds concurrently
                 const loadPromises = [
-                    ...Object.entries(gameSounds).map(([name, paths]) => loadSound(name, paths)),
-                    ...Object.entries(weatherSounds).map(([name, paths]) => loadSound(name, paths))
+                    ...Object.entries(gameAudioFiles).map(([name, paths]) => loadSound(name, paths)),
+                    ...Object.entries(environmentAudioFiles).map(([name, paths]) => loadSound(name, paths))
                 ];
 
                 // Wait for all sounds to attempt loading

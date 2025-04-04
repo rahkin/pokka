@@ -532,8 +532,8 @@ export class Game {
 
         // Define frame positions - adjusted for no wall
         const framePositions = [
-            { pos: [-20, 12, -70], rotation: 0, image: 'frame1.png' },  // Left frame
-            { pos: [20, 12, -70], rotation: 0, image: 'frame2.png' }    // Right frame
+            { pos: [-20, 12, -70], rotation: 0, image: 'assets/img/frame1.png' },  // Left frame
+            { pos: [20, 12, -70], rotation: 0, image: 'assets/img/frame2.png' }    // Right frame
         ];
 
         // Load images first
@@ -543,7 +543,7 @@ export class Game {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        `/pokka-snakes-gl/assets/img/${image}`,  // Updated path with base
+                        image,  // Updated path with base
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;

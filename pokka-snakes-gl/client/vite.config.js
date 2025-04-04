@@ -21,6 +21,7 @@ export default defineConfig({
             input: {
                 main: resolve(__dirname, 'index.html')
             }
-        }
+        },
+        copyPublicDir: true
     }
 }); 

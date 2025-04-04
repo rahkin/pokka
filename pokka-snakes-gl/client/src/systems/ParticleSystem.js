@@ -11,7 +11,7 @@ export class ParticleSystem {
         // Speed Trail
         this.registerParticleGroup('speedTrail', {
             particleCount: 100,
-            texture: 'particle_speed.png',
+            texture: 'assets/img/particle_speed.png',
             blending: THREE.AdditiveBlending,
             properties: {
                 position: {
@@ -43,7 +43,7 @@ export class ParticleSystem {
         // Ghost Trail
         this.registerParticleGroup('ghostTrail', {
             particleCount: 50,
-            texture: 'particle_ghost.png',
+            texture: 'assets/img/particle_ghost.png',
             blending: THREE.AdditiveBlending,
             properties: {
                 position: {
