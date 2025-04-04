@@ -65,23 +65,33 @@ export class Game {
         const gameContainer = document.getElementById('game-container');
         
         if (loadingScreen) {
-            loadingScreen.style.display = 'none';
-            console.log('Game: Hidden loading screen');
+            loadingScreen.classList.add('hidden');
+            console.log('Game: Added hidden class to loading screen');
+        } else {
+            console.warn('Game: Loading screen element not found');
         }
         
         if (gameContainer) {
-            gameContainer.style.display = 'block';
-            console.log('Game: Shown game container');
+            gameContainer.style.visibility = 'visible';
+            console.log('Game: Made game container visible');
+            
+            // Force a resize event to ensure proper rendering
+            window.dispatchEvent(new Event('resize'));
+        } else {
+            console.warn('Game: Game container element not found');
         }
         
         // Ensure the game is running
         if (!this.isRunning) {
+            console.log('Game: Starting game as it was not running');
             this.start();
         }
     }
 
     async initializeGame() {
         try {
+            console.log('Game: Starting initialization sequence');
+            
             // Initialize weather system first
             this.weatherSystem = new WeatherSystem(this.scene);
             this.updateLoadingProgress(20, 'Weather system initialized...');
@@ -112,11 +122,18 @@ export class Game {
             this.start();
             this.updateLoadingProgress(100, 'Ready!');
             
+            console.log('Game: All systems initialized, preparing to show game');
+            
             // Add a small delay before hiding the loading screen
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Hide loading screen and show game
             this.forceShowGame();
+            
+            // Trigger a resize event to ensure proper rendering
+            window.dispatchEvent(new Event('resize'));
+            
+            console.log('Game: Initialization sequence complete');
         } catch (error) {
             console.error('Game: Failed to initialize:', error);
             // Force show the game even if initialization fails
