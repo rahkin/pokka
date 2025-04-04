@@ -442,7 +442,7 @@ export class Game {
         
         console.log('Loading aiai texture for ground');
         textureLoader.load(
-            '/pokka-snakes-gl/assets/img/aiai_header.png',  // Updated path to include base path
+            'assets/img/aiai_header.png',  // Updated path to match our asset structure
             (texture) => {
                 console.log('Successfully loaded aiai texture');
                 texture.flipY = true; // Flip the texture vertically
