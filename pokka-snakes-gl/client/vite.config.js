@@ -22,9 +22,14 @@ export default defineConfig({
                 main: resolve(__dirname, 'index.html')
             },
             output: {
-                assetFileNames: 'assets/[name]-[hash][extname]',
+                assetFileNames: (assetInfo) => {
+                    if (assetInfo.name.endsWith('.mp3')) {
+                        return 'assets/audio/[name][extname]';
+                    }
+                    return 'assets/[name]-[hash][extname]';
+                },
                 chunkFileNames: 'assets/[name]-[hash].js',
-                entryFileNames: 'assets/[name]-[hash].js',
+                entryFileNames: 'assets/[name]-[hash].js'
             }
         }
     }
