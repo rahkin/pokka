@@ -118,8 +118,7 @@ export class Game {
             console.log('Game: Audio initialization complete');
             this.updateLoadingProgress(80, 'Audio initialized...');
 
-            // Start the game
-            this.start();
+            // Update loading progress to show we're ready
             this.updateLoadingProgress(100, 'Ready!');
             
             console.log('Game: All systems initialized, showing instructions');
@@ -130,8 +129,7 @@ export class Game {
             console.log('Game: Initialization sequence complete');
         } catch (error) {
             console.error('Game: Failed to initialize:', error);
-            // Force show the game even if initialization fails
-            this.forceShowGame();
+            this.updateLoadingProgress(0, 'Error initializing game. Please refresh the page.');
         }
     }
 
@@ -144,7 +142,7 @@ export class Game {
 
             // Hide loading progress elements
             if (loadingBar) loadingBar.style.display = 'none';
-            if (loadingText) loadingText.style.display = 'none';
+            if (loadingText) loadingText.textContent = 'Ready!';
 
             // Show instructions
             if (instructions) {
@@ -156,7 +154,9 @@ export class Game {
             if (startButton) {
                 startButton.onclick = () => {
                     console.log('Game: Start button clicked');
+                    if (instructions) instructions.style.display = 'none';
                     this.forceShowGame();
+                    this.start();
                     resolve();
                 };
             }
