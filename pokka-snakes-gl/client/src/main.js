@@ -8,8 +8,8 @@ function updateLoadingProgress(percent, text) {
     console.log(`Loading progress: ${percent}% - ${text}`);
     
     // Get elements each time to ensure we have the latest references
-    const loadingBar = document.querySelector('#loading-bar');
-    const loadingText = document.querySelector('#loading-text');
+    const loadingBar = document.getElementById('loading-bar');
+    const loadingText = document.getElementById('loading-text');
     
     if (loadingBar) {
         loadingBar.style.width = `${percent}%`;
@@ -30,6 +30,12 @@ function updateLoadingProgress(percent, text) {
 function initGame() {
     console.log('Initializing game...');
     try {
+        // Ensure loading screen is visible
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.classList.remove('hidden');
+        }
+        
         updateLoadingProgress(10, 'Creating game instance...');
         const game = new Game(updateLoadingProgress);
         
@@ -53,11 +59,7 @@ function initGame() {
 }
 
 // Start initialization when DOM is ready
-if (document.readyState === 'loading') {
-    console.log('Document still loading, adding DOMContentLoaded listener');
-    document.addEventListener('DOMContentLoaded', initGame);
-} else {
-    console.log('Document already loaded, initializing game immediately');
-    // Add a small delay to ensure DOM is fully processed
-    setTimeout(initGame, 0);
-}
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Document loaded, initializing game');
+    initGame();
+});
