@@ -449,6 +449,15 @@ function updateGhosts() {
         const gridX = Math.floor(ghost.x / CELL_SIZE);
         const gridY = Math.floor(ghost.y / CELL_SIZE);
         
+        // Ensure ghost is within valid grid bounds
+        if (gridX < 0 || gridX >= grid[0].length || gridY < 0 || gridY >= grid.length) {
+            // Reset ghost to center if out of bounds
+            ghost.x = 14 * CELL_SIZE;
+            ghost.y = 11 * CELL_SIZE;
+            ghost.direction = 'right';
+            return;
+        }
+        
         // Check if ghost is at grid center (with tighter tolerance for better cornering)
         const atGridCenter = Math.abs(ghost.x - gridX * CELL_SIZE) < speed * 0.8 &&
                            Math.abs(ghost.y - gridY * CELL_SIZE) < speed * 0.8;
@@ -458,11 +467,15 @@ function updateGhosts() {
             ghost.x = gridX * CELL_SIZE;
             ghost.y = gridY * CELL_SIZE;
             
-            // Get available directions
+            // Get available directions (with boundary checks)
             const directions = [];
-            if (gridY > 0 && grid[gridY - 1][gridX] !== 1) directions.push('up');
-            if (gridY < grid.length - 1 && grid[gridY + 1][gridX] !== 1) directions.push('down');
+            // Only check up if not at top edge
+            if (gridY > 0 && grid[gridY - 1] && grid[gridY - 1][gridX] !== 1) directions.push('up');
+            // Only check down if not at bottom edge
+            if (gridY < grid.length - 1 && grid[gridY + 1] && grid[gridY + 1][gridX] !== 1) directions.push('down');
+            // Only check left if not at left edge
             if (gridX > 0 && grid[gridY][gridX - 1] !== 1) directions.push('left');
+            // Only check right if not at right edge
             if (gridX < grid[0].length - 1 && grid[gridY][gridX + 1] !== 1) directions.push('right');
             
             // Remove opposite direction unless it's the only option (prevent back-and-forth)
