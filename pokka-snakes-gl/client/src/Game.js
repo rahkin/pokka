@@ -122,16 +122,10 @@ export class Game {
             this.start();
             this.updateLoadingProgress(100, 'Ready!');
             
-            console.log('Game: All systems initialized, preparing to show game');
+            console.log('Game: All systems initialized, showing instructions');
             
-            // Add a small delay before hiding the loading screen
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Hide loading screen and show game
-            this.forceShowGame();
-            
-            // Trigger a resize event to ensure proper rendering
-            window.dispatchEvent(new Event('resize'));
+            // Show instructions and wait for user to start
+            await this.showInstructions();
             
             console.log('Game: Initialization sequence complete');
         } catch (error) {
@@ -139,6 +133,34 @@ export class Game {
             // Force show the game even if initialization fails
             this.forceShowGame();
         }
+    }
+
+    async showInstructions() {
+        return new Promise((resolve) => {
+            const loadingBar = document.getElementById('loading-progress');
+            const loadingText = document.getElementById('loading-text');
+            const instructions = document.getElementById('instructions');
+            const startButton = document.getElementById('start-button');
+
+            // Hide loading progress elements
+            if (loadingBar) loadingBar.style.display = 'none';
+            if (loadingText) loadingText.style.display = 'none';
+
+            // Show instructions
+            if (instructions) {
+                instructions.style.display = 'block';
+                console.log('Game: Showing instructions panel');
+            }
+
+            // Handle start button click
+            if (startButton) {
+                startButton.onclick = () => {
+                    console.log('Game: Start button clicked');
+                    this.forceShowGame();
+                    resolve();
+                };
+            }
+        });
     }
 
     initializeCore() {
