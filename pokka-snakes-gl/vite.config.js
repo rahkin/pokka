@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    base: '/pokka-snakes-gl/',
+    base: '/pokka-snakes-gl/dist/',
     server: {
         port: 3000,
         proxy: {

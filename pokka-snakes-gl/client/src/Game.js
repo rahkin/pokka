@@ -437,26 +437,42 @@ export class Game {
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
 
-        // Load AIAI texture for ground
+        // Create a separate plane for the logo
+        const logoGeometry = new THREE.PlaneGeometry(30, 30); // Make it square
+        
         console.log('Loading aiai texture for ground');
-        textureLoader.load('/assets/img/aiai_header.png', (texture) => {
-            console.log('Successfully loaded aiai texture');
-            texture.flipY = true;
-            const material = new THREE.MeshStandardMaterial({
-                map: texture,
-                transparent: true,
-                opacity: 0.8,
-                depthWrite: true,
-                roughness: 0.5,
-                metalness: 0.1,
-                side: THREE.DoubleSide
-            });
-            const plane = new THREE.Mesh(groundGeometry, material);
-            plane.rotation.x = -Math.PI / 2;
-            plane.position.y = -0.5;
-            plane.receiveShadow = true;
-            this.scene.add(plane);
-        });
+        textureLoader.load(
+            '/pokka-snakes-gl/assets/img/aiai_header.png',  // Updated path to include base path
+            (texture) => {
+                console.log('Successfully loaded aiai texture');
+                texture.flipY = true; // Flip the texture vertically
+                const logoMaterial = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.8,
+                    depthWrite: true,
+                    roughness: 0.5,
+                    metalness: 0.1,
+                    side: THREE.DoubleSide // Make it visible from both sides
+                });
+                
+                const logo = new THREE.Mesh(logoGeometry, logoMaterial);
+                logo.rotation.x = -Math.PI / 2; // Align with ground
+                logo.rotation.z = -Math.PI; // Rotate 180 degrees to match reference
+                logo.position.y = 0.02; // Slightly above the ground
+                logo.position.z = 0;
+                logo.position.x = 0;
+                logo.receiveShadow = true;
+                this.scene.add(logo);
+                console.log('Added logo to scene');
+            },
+            (progress) => {
+                console.log('Texture loading progress:', (progress.loaded / progress.total * 100) + '%');
+            },
+            (error) => {
+                console.error('Error loading aiai texture:', error);
+            }
+        );
 
         // Add stylish grid with subtle colors on white
         const gridHelper = new THREE.GridHelper(100, 20, 0xE0E0E0, 0xF0F0F0);
@@ -514,20 +530,20 @@ export class Game {
             emissiveIntensity: 0.2
         });
 
-        // Add picture frames
-        const frames = [
-            { pos: [-20, 12, -70], rotation: 0, image: '/assets/img/frame1.png' },  // Left frame
-            { pos: [20, 12, -70], rotation: 0, image: '/assets/img/frame2.png' }    // Right frame
+        // Define frame positions - adjusted for no wall
+        const framePositions = [
+            { pos: [-20, 12, -70], rotation: 0, image: 'frame1.png' },  // Left frame
+            { pos: [20, 12, -70], rotation: 0, image: 'frame2.png' }    // Right frame
         ];
 
         // Load images first
         const imageLoader = new THREE.TextureLoader();
-        const images = await Promise.all(frames.map(async ({ image }) => {
+        const images = await Promise.all(framePositions.map(async ({ image }) => {
             try {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        image,  // Updated path with base
+                        `/pokka-snakes-gl/assets/img/${image}`,  // Updated path with base
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;
@@ -553,7 +569,7 @@ export class Game {
             }
         }));
 
-        frames.forEach(({ pos, rotation, image }, index) => {
+        framePositions.forEach(({ pos, rotation, image }, index) => {
             // Create main frame
             const frame = new THREE.Mesh(frameGeometry, frameMaterial);
             frame.position.set(pos[0], pos[1], pos[2]);
