@@ -11,6 +11,7 @@ export class AudioManager {
         this.totalSounds = 0;
         this.loadedCount = 0;
         this.loadingPromise = null;
+        this.isInitialized = false;
         
         console.log('AudioManager: Initializing');
         
@@ -23,8 +24,10 @@ export class AudioManager {
             this.masterGain = this.audioContext.createGain();
             this.masterGain.connect(this.audioContext.destination);
             this.masterGain.gain.value = this.volume;
+            this.isInitialized = true;
         } catch (error) {
             console.error('AudioManager: Failed to create audio context:', error);
+            this.isInitialized = false;
         }
         
         // Create audio status indicator
@@ -86,109 +89,68 @@ export class AudioManager {
                 
                 // Game sounds with MP3 format
                 const gameSounds = {
-                    eat: ['/pokka-snakes-gl/client/public/assets/audio/eat.mp3'],
-                    gameOver: ['/pokka-snakes-gl/client/public/assets/audio/gameOver.mp3'],
-                    powerUp: ['/pokka-snakes-gl/client/public/assets/audio/powerUp.mp3'],
-                    turn: ['/pokka-snakes-gl/client/public/assets/audio/turn.mp3'],
-                    background: ['/pokka-snakes-gl/client/public/assets/audio/background.mp3'],
-                    click: ['/pokka-snakes-gl/client/public/assets/audio/click.mp3']
+                    eat: ['/pokka-snakes-gl/assets/audio/eat.mp3'],
+                    gameOver: ['/pokka-snakes-gl/assets/audio/gameOver.mp3'],
+                    powerUp: ['/pokka-snakes-gl/assets/audio/powerUp.mp3'],
+                    turn: ['/pokka-snakes-gl/assets/audio/turn.mp3'],
+                    background: ['/pokka-snakes-gl/assets/audio/background.mp3'],
+                    click: ['/pokka-snakes-gl/assets/audio/click.mp3']
                 };
 
                 // Weather sounds (MP3 only)
                 const weatherSounds = {
-                    rain: ['/pokka-snakes-gl/client/public/assets/audio/rain.mp3'],
-                    snow: ['/pokka-snakes-gl/client/public/assets/audio/snow.mp3'],
-                    wind: ['/pokka-snakes-gl/client/public/assets/audio/wind.mp3']
+                    rain: ['/pokka-snakes-gl/assets/audio/rain.mp3'],
+                    snow: ['/pokka-snakes-gl/assets/audio/snow.mp3'],
+                    wind: ['/pokka-snakes-gl/assets/audio/wind.mp3']
                 };
 
                 // Count total sounds
                 this.totalSounds = Object.keys(gameSounds).length + Object.keys(weatherSounds).length;
                 let loadedCount = 0;
 
-                // Load all game sounds
-                for (const [name, paths] of Object.entries(gameSounds)) {
+                const loadSound = async (name, paths) => {
                     try {
-                        console.log('AudioManager: Loading game sound:', name);
-                        let buffer = null;
-                        let lastError = null;
-                        
-                        // Try each format until one works
+                        console.log('AudioManager: Loading sound:', name);
                         for (const path of paths) {
                             try {
-                                console.log('AudioManager: Attempting to load:', path);
-                                buffer = await this.loadSoundFile(path);
+                                const buffer = await this.loadSoundFile(path);
                                 if (buffer) {
-                                    console.log('AudioManager: Successfully loaded game sound format:', path);
-                                    break;
+                                    this.soundBuffers.set(name, buffer);
+                                    this.loadedSounds.add(name);
+                                    loadedCount++;
+                                    this.loadedCount = loadedCount;
+                                    this.updateLoadingProgress();
+                                    console.log('AudioManager: Successfully loaded sound:', name);
+                                    return true;
                                 }
                             } catch (error) {
-                                console.warn('AudioManager: Failed to load game sound format:', path, error);
-                                lastError = error;
+                                console.warn(`AudioManager: Failed to load ${path}:`, error);
                             }
                         }
-                        
-                        if (buffer) {
-                            this.soundBuffers.set(name, buffer);
-                            this.loadedSounds.add(name);
-                            loadedCount++;
-                            this.loadedCount = loadedCount;
-                            this.updateLoadingProgress();
-                            console.log('AudioManager: Successfully loaded game sound:', name);
-                        } else {
-                            console.error('AudioManager: Failed to load any format for game sound:', name, lastError);
-                        }
+                        return false;
                     } catch (error) {
-                        console.error('AudioManager: Failed to load game sound:', name, error);
+                        console.error('AudioManager: Error loading sound:', name, error);
+                        return false;
                     }
-                }
+                };
 
-                // Load all weather sounds
-                for (const [name, paths] of Object.entries(weatherSounds)) {
-                    try {
-                        console.log('AudioManager: Loading weather sound:', name);
-                        let buffer = null;
-                        let lastError = null;
-                        
-                        // Try each format until one works
-                        for (const path of paths) {
-                            try {
-                                console.log('AudioManager: Attempting to load:', path);
-                                buffer = await this.loadSoundFile(path);
-                                if (buffer) {
-                                    console.log('AudioManager: Successfully loaded weather sound format:', path);
-                                    break;
-                                }
-                            } catch (error) {
-                                console.warn('AudioManager: Failed to load weather sound format:', path, error);
-                                lastError = error;
-                            }
-                        }
-                        
-                        if (buffer) {
-                            this.soundBuffers.set(name, buffer);
-                            this.loadedSounds.add(name);
-                            loadedCount++;
-                            this.loadedCount = loadedCount;
-                            this.updateLoadingProgress();
-                            console.log('AudioManager: Successfully loaded weather sound:', name);
-                        } else {
-                            console.error('AudioManager: Failed to load any format for weather sound:', name, lastError);
-                        }
-                    } catch (error) {
-                        console.error('AudioManager: Failed to load weather sound:', name, error);
-                    }
-                }
+                // Load sounds concurrently
+                const loadPromises = [
+                    ...Object.entries(gameSounds).map(([name, paths]) => loadSound(name, paths)),
+                    ...Object.entries(weatherSounds).map(([name, paths]) => loadSound(name, paths))
+                ];
 
-                console.log('AudioManager: All sounds initialized. Loaded sounds:', Array.from(this.loadedSounds));
+                // Wait for all sounds to attempt loading
+                await Promise.all(loadPromises);
+
+                console.log('AudioManager: Sound initialization complete. Loaded:', loadedCount, 'of', this.totalSounds);
                 
-                if (loadedCount === 0) {
-                    throw new Error('No sounds were loaded successfully');
-                }
-                
+                // Resolve even if not all sounds loaded
                 resolve();
             } catch (error) {
                 console.error('AudioManager: Failed to initialize sounds:', error);
-                reject(error);
+                // Resolve anyway to not block game initialization
+                resolve();
             }
         });
 
@@ -210,7 +172,6 @@ export class AudioManager {
     }
 
     async loadSoundFile(url) {
-        console.log('AudioManager: Loading sound file:', url);
         try {
             const response = await fetch(url);
             if (!response.ok) {
@@ -218,7 +179,6 @@ export class AudioManager {
             }
             const arrayBuffer = await response.arrayBuffer();
             const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            console.log('AudioManager: Successfully loaded sound file:', url, 'Duration:', audioBuffer.duration);
             return audioBuffer;
         } catch (error) {
             console.error('AudioManager: Error loading sound file:', url, error);
@@ -227,13 +187,13 @@ export class AudioManager {
     }
 
     play(soundName, loop = false) {
-        if (!this.hasUserInteracted) {
-            console.warn('AudioManager: Cannot play sound before user interaction:', soundName);
-            return;
-        }
-
-        if (this.isMuted) {
-            console.log('AudioManager: Sound not played - muted:', soundName);
+        if (!this.isInitialized || !this.hasUserInteracted || this.isMuted) {
+            console.log('AudioManager: Sound not played - conditions not met:', {
+                isInitialized: this.isInitialized,
+                hasUserInteracted: this.hasUserInteracted,
+                isMuted: this.isMuted,
+                soundName
+            });
             return;
         }
 
@@ -256,7 +216,6 @@ export class AudioManager {
 
             // Create gain node for this sound
             const gainNode = this.audioContext.createGain();
-            // Increase volume by 50% for eat sound
             gainNode.gain.value = soundName === 'eat' ? this.volume * 1.5 : this.volume;
 
             // Connect nodes
@@ -265,10 +224,7 @@ export class AudioManager {
 
             // Start playing
             source.start(0);
-            console.log('AudioManager: Started playing sound:', soundName, {
-                volume: gainNode.gain.value,
-                isEatSound: soundName === 'eat'
-            });
+            console.log('AudioManager: Started playing sound:', soundName);
 
             // Store reference if looping
             if (loop) {
@@ -282,7 +238,6 @@ export class AudioManager {
                 if (loop) {
                     this.sounds.delete(soundName);
                 }
-                console.log('AudioManager: Sound ended:', soundName);
             };
         } catch (error) {
             console.error('AudioManager: Failed to play sound:', soundName, error);

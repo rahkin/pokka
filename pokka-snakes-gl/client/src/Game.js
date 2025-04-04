@@ -9,7 +9,6 @@ import { WeatherSystem } from './systems/WeatherSystem';
 import { AudioManager } from './systems/AudioManager';
 import { ObstacleSystem } from './systems/ObstacleSystem';
 import { Scoreboard } from './ui/Scoreboard';
-import aiaiHeaderImage from '../public/images/assets/icons/aiai_header.png';
 import './styles/scoreboard.css';
 // Import other systems as needed
 // import { NetworkManager } from './network/NetworkManager';
@@ -28,57 +27,11 @@ export class Game {
         // Initialize audio manager
         this.audioManager = new AudioManager();
         
-        // Initialize audio before other systems
-        this.audioManager.initializeSounds().then(() => {
-            console.log('Game: Audio initialized successfully');
-            this.updateLoadingProgress(30, 'Audio initialized...');
-            
-            // Initialize weather system
-            this.weatherSystem = new WeatherSystem(this.scene);
-            this.updateLoadingProgress(50, 'Weather system initialized...');
-            
-            // Then initialize game systems
-            this.initializeSystems();
-            this.updateLoadingProgress(80, 'Game systems initialized...');
-
-            // Create the scene and environment
-            this.createBasicScene();
-            this.updateLoadingProgress(90, 'Scene created...');
-
-            // Start the game
-            this.start();
-            this.updateLoadingProgress(100, 'Ready!');
-            
-            // Hide loading screen and show game after a short delay
-            setTimeout(() => {
-                const loadingScreen = document.getElementById('loading-screen');
-                const gameContainer = document.getElementById('game-container');
-                
-                if (loadingScreen && gameContainer) {
-                    loadingScreen.style.display = 'none';
-                    gameContainer.style.display = 'block';
-                }
-            }, 1000);
-        }).catch(error => {
-            console.error('Game: Failed to initialize audio:', error);
-            this.updateLoadingProgress(0, 'Error initializing audio, continuing without...');
-            
-            // Continue without audio
-            this.weatherSystem = new WeatherSystem(this.scene);
-            this.initializeSystems();
-            this.createBasicScene();
-            this.start();
-            
-            // Still hide loading screen even if audio fails
-            setTimeout(() => {
-                const loadingScreen = document.getElementById('loading-screen');
-                const gameContainer = document.getElementById('game-container');
-                
-                if (loadingScreen && gameContainer) {
-                    loadingScreen.style.display = 'none';
-                    gameContainer.style.display = 'block';
-                }
-            }, 1000);
+        // Initialize game with a more resilient approach
+        this.initializeGame().catch(error => {
+            console.error('Game: Failed to initialize:', error);
+            // Force show the game even if initialization fails
+            this.forceShowGame();
         });
         
         this.lastTime = 0;
@@ -104,6 +57,68 @@ export class Game {
                 'ArrowRight': new THREE.Vector3(1, 0, 0),
             }
         };
+    }
+
+    forceShowGame() {
+        console.log('Game: Force showing game');
+        const loadingScreen = document.getElementById('loading-screen');
+        const gameContainer = document.getElementById('game-container');
+        
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+            console.log('Game: Hidden loading screen');
+        }
+        
+        if (gameContainer) {
+            gameContainer.style.display = 'block';
+            console.log('Game: Shown game container');
+        }
+        
+        // Ensure the game is running
+        if (!this.isRunning) {
+            this.start();
+        }
+    }
+
+    async initializeGame() {
+        try {
+            // Initialize weather system first
+            this.weatherSystem = new WeatherSystem(this.scene);
+            this.updateLoadingProgress(20, 'Weather system initialized...');
+            
+            // Initialize game systems
+            await this.initializeSystems();
+            this.updateLoadingProgress(40, 'Game systems initialized...');
+
+            // Create the scene and environment
+            await this.createBasicScene();
+            this.updateLoadingProgress(60, 'Scene created...');
+
+            // Initialize audio with a timeout
+            const audioInitPromise = Promise.race([
+                this.audioManager.initializeSounds(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Audio initialization timeout')), 5000))
+            ]).catch(error => {
+                console.warn('Game: Audio initialization timed out or failed:', error);
+                return null; // Continue without audio
+            });
+
+            // Wait for audio initialization to complete
+            await audioInitPromise;
+            console.log('Game: Audio initialization complete');
+            this.updateLoadingProgress(80, 'Audio initialized...');
+
+            // Start the game
+            this.start();
+            this.updateLoadingProgress(100, 'Ready!');
+            
+            // Hide loading screen and show game immediately
+            this.forceShowGame();
+        } catch (error) {
+            console.error('Game: Failed to initialize:', error);
+            // Force show the game even if initialization fails
+            this.forceShowGame();
+        }
     }
 
     initializeCore() {
@@ -361,41 +376,48 @@ export class Game {
     createBasicScene() {
         // Create ground plane with white material for the play area
         const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const textureLoader = new THREE.TextureLoader();
+        
+        // Create base material for the ground
         const groundMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
             roughness: 0.7,
             metalness: 0.3,
             envMapIntensity: 1,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            transparent: true
         });
         
+        // Create the ground mesh
         this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
         this.ground.rotation.x = -Math.PI / 2;
         this.ground.position.y = 0.01;
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
 
-        // Create a separate plane for the logo/image
-        const logoGeometry = new THREE.PlaneGeometry(20, 20); // Size of the logo area
-        const textureLoader = new THREE.TextureLoader();
+        // Create a separate plane for the logo
+        const logoGeometry = new THREE.PlaneGeometry(30, 30); // Make it square
         
-        console.log('Loading texture from:', aiaiHeaderImage);
+        console.log('Loading aiai texture for ground');
         textureLoader.load(
-            aiaiHeaderImage,
+            '/pokka-snakes-gl/assets/img/aiai_header.png',  // Updated path to include base path
             (texture) => {
                 console.log('Successfully loaded aiai texture');
+                texture.flipY = true; // Flip the texture vertically
                 const logoMaterial = new THREE.MeshStandardMaterial({
                     map: texture,
                     transparent: true,
-                    opacity: 1.0,
-                    depthWrite: false,
+                    opacity: 0.8,
+                    depthWrite: true,
                     roughness: 0.5,
-                    metalness: 0.1
+                    metalness: 0.1,
+                    side: THREE.DoubleSide // Make it visible from both sides
                 });
                 
                 const logo = new THREE.Mesh(logoGeometry, logoMaterial);
-                logo.rotation.x = -Math.PI / 2;
-                logo.position.y = 0.02; // Slightly above the ground to prevent z-fighting
+                logo.rotation.x = -Math.PI / 2; // Align with ground
+                logo.rotation.z = -Math.PI; // Rotate 180 degrees to match reference
+                logo.position.y = 0.02; // Slightly above the ground
                 logo.position.z = 0;
                 logo.position.x = 0;
                 logo.receiveShadow = true;
@@ -410,11 +432,11 @@ export class Game {
             }
         );
 
-        // Add stylish grid with subtle colors on white - more transparent to show the image better
+        // Add stylish grid with subtle colors on white
         const gridHelper = new THREE.GridHelper(100, 20, 0xE0E0E0, 0xF0F0F0);
-        gridHelper.material.opacity = 0.2; // More transparent
+        gridHelper.material.opacity = 0.2;
         gridHelper.material.transparent = true;
-        gridHelper.position.y = 0.02; // Slightly above the ground
+        gridHelper.position.y = 0.02;
         this.scene.add(gridHelper);
 
         // Add coffee shop environment
@@ -479,14 +501,14 @@ export class Game {
                 console.log('Attempting to load image:', image);
                 const texture = await new Promise((resolve, reject) => {
                     imageLoader.load(
-                        `/pokka-snakes-gl/client/public/assets/img/${image}`,  // Updated path to match Vite's asset handling
+                        `/pokka-snakes-gl/assets/img/${image}`,  // Updated path with base
                         (texture) => {
                             console.log('Successfully loaded image:', image);
                             texture.minFilter = THREE.LinearFilter;
                             texture.magFilter = THREE.LinearFilter;
                             texture.format = THREE.RGBAFormat;
-                            texture.flipY = true;  // Changed to true to flip the image
-                            texture.needsUpdate = true;  // Force texture update
+                            texture.flipY = true;
+                            texture.needsUpdate = true;
                             resolve(texture);
                         },
                         (progress) => {
@@ -1313,35 +1335,24 @@ export class Game {
 
     start() {
         if (!this.isRunning) {
-            // Ensure we have all required components
-            if (!this.renderer || !this.scene || !this.camera) {
-                console.error('Game: Missing required components', {
-                    hasRenderer: !!this.renderer,
-                    hasScene: !!this.scene,
-                    hasCamera: !!this.camera
-                });
-                return;
-            }
-
             console.log('Game: Starting game');
             this.isRunning = true;
             this.isGameOver = false;
             this.lastTime = performance.now();
             
+            // Create snake at the center of the scene if it doesn't exist
+            if (!this.snake) {
+                const startPosition = new THREE.Vector3(0, 0.5, 0);
+                this.snake = new Snake(this, startPosition);
+                
+                // Set snake as camera target
+                if (this.cameraController) {
+                    this.cameraController.setTarget(this.snake.head);
+                }
+            }
+            
             // Start animation loop
             this.animate();
-            
-            // Show game container and hide loading screen
-            const gameContainer = document.getElementById('game-container');
-            const loadingScreen = document.getElementById('loading-screen');
-            
-            if (gameContainer) {
-                gameContainer.style.display = 'block';
-            }
-            
-            if (loadingScreen) {
-                loadingScreen.style.display = 'none';
-            }
             
             console.log('Game: Started', {
                 isRunning: this.isRunning,
