@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-    base: '/pokka-snakes-gl/',
+    base: '/pokka-snakes-gl/dist/',
     publicDir: 'public',
     server: {
         port: 3001,
