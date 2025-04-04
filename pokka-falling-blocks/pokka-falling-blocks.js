@@ -535,19 +535,15 @@ class Game {
 
     async loadLeaderboard() {
         try {
-            console.log('Loading leaderboard...');
-            const response = await fetch('https://api.pokka.ai/scores?game=falling-blocks');
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Leaderboard data:', data);
-                this.leaderboard = data;
-                this.updateLeaderboardDisplay();
-            } else {
-                console.error('Failed to load leaderboard:', await response.text());
-            }
+            console.log('Loading leaderboard from localStorage...');
+            const savedScores = localStorage.getItem('pokka-falling-blocks-scores');
+            this.leaderboard = savedScores ? JSON.parse(savedScores) : [];
+            console.log('Leaderboard data:', this.leaderboard);
+            this.updateLeaderboardDisplay();
         } catch (error) {
             console.error('Failed to load leaderboard:', error);
+            this.leaderboard = [];
+            this.updateLeaderboardDisplay();
         }
     }
 
@@ -556,27 +552,34 @@ class Game {
             const scoreData = {
                 name: this.playerName,
                 score: this.score,
-                game: 'falling-blocks'
+                timestamp: Date.now()
             };
 
             console.log('Saving score:', scoreData);
 
-            const response = await fetch('https://api.pokka.ai/scores', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(scoreData)
-            });
-            
-            if (response.ok) {
-                console.log('Score saved successfully');
-                // Refresh leaderboard after saving
-                await this.loadLeaderboard();
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to save score:', errorText);
+            // Load existing scores
+            let scores = [];
+            try {
+                const savedScores = localStorage.getItem('pokka-falling-blocks-scores');
+                scores = savedScores ? JSON.parse(savedScores) : [];
+            } catch (e) {
+                console.error('Error loading existing scores:', e);
             }
+
+            // Add new score
+            scores.push(scoreData);
+
+            // Sort by score (highest first) and keep top 10
+            scores.sort((a, b) => b.score - a.score);
+            scores = scores.slice(0, MAX_LEADERBOARD_ENTRIES);
+
+            // Save back to localStorage
+            localStorage.setItem('pokka-falling-blocks-scores', JSON.stringify(scores));
+            console.log('Score saved successfully');
+
+            // Update leaderboard
+            this.leaderboard = scores;
+            this.updateLeaderboardDisplay();
         } catch (error) {
             console.error('Failed to save score:', error);
         }
@@ -593,7 +596,7 @@ class Game {
 
         const list = document.createElement('ol');
         [...this.leaderboard]
-            .sort((a, b) => Number(b.score) - Number(a.score))
+            .sort((a, b) => b.score - a.score)
             .slice(0, MAX_LEADERBOARD_ENTRIES)
             .forEach((entry) => {
                 const item = document.createElement('li');
