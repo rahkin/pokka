@@ -112,7 +112,10 @@ export class Game {
             this.start();
             this.updateLoadingProgress(100, 'Ready!');
             
-            // Hide loading screen and show game immediately
+            // Add a small delay before hiding the loading screen
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Hide loading screen and show game
             this.forceShowGame();
         } catch (error) {
             console.error('Game: Failed to initialize:', error);
@@ -1429,7 +1432,6 @@ export class Game {
         // Store the callback function in a different property name to avoid confusion
         if (typeof this._loadingProgressCallback === 'function') {
             this._loadingProgressCallback(percent, message);
-            return;
         }
         
         const loadingBar = document.getElementById('loading-bar');
@@ -1437,13 +1439,17 @@ export class Game {
         
         if (loadingBar) {
             loadingBar.style.width = `${percent}%`;
+            console.log('Game: Updated loading bar width:', loadingBar.style.width);
+        } else {
+            console.warn('Game: Loading bar element not found');
         }
         
-        if (loadingText) {
-            loadingText.textContent = message || 'Loading...';
+        if (loadingText && message) {
+            loadingText.textContent = message;
+            console.log('Game: Updated loading text:', message);
+        } else if (!loadingText) {
+            console.warn('Game: Loading text element not found');
         }
-        
-        console.log(`Loading progress: ${percent}% - ${message}`);
     }
 
     updateScore(score) {
