@@ -3,8 +3,14 @@ services:
     name: pokka-arcade
     env: static
     buildCommand: |
-      cd pokka-snakes-gl/client && npm install && npm run build && cd ../.. && cp -r assets/* .
-    staticPublishPath: .
+      cd pokka-snakes-gl/client && npm install && npm run build && cd ../.. && \
+      mkdir -p public && \
+      cp -r pokka-snakes-gl/dist/* public/ && \
+      cp -r pokka-man public/ && \
+      cp -r pokka-falling-blocks public/ && \
+      cp -r assets public/ && \
+      cp index.html public/
+    staticPublishPath: public
     headers:
       - path: /*
         name: Cache-Control
