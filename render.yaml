@@ -2,19 +2,44 @@ services:
   - type: web
     name: pokka-arcade
     env: static
-    buildCommand: |
-      cd pokka-snakes-gl/client && npm install && npm run build && cd ../.. && \
-      mkdir -p public && \
-      cp -r pokka-snakes-gl/dist/* public/ && \
-      cp -r pokka-man public/ && \
-      cp -r pokka-falling-blocks public/ && \
-      cp -r assets public/ && \
-      cp index.html public/
-    staticPublishPath: public
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: NPM_VERSION
+        value: 9.6.7
+
+  # Legacy games support
+  - type: web
+    name: pokka-man-legacy
+    env: static
+    buildCommand: echo "Serving static files"
+    staticPublishPath: ./pokka-man
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: pokka-falling-blocks-legacy
+    env: static
+    buildCommand: echo "Serving static files"
+    staticPublishPath: ./pokka-falling-blocks
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: pokka-snakes-legacy
+    env: static
+    buildCommand: echo "Serving static files"
+    staticPublishPath: ./pokka-snakes-gl/dist
     routes:
       - type: rewrite
         source: /*
