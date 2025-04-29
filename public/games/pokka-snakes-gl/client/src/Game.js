@@ -8,8 +8,6 @@ import { PowerUpSystem } from './systems/PowerUpSystem';
 import { WeatherSystem } from './systems/WeatherSystem';
 import { AudioManager } from './systems/AudioManager';
 import { ObstacleSystem } from './systems/ObstacleSystem';
-import { Scoreboard } from './ui/Scoreboard';
-import './styles/scoreboard.css';
 // Import other systems as needed
 // import { NetworkManager } from './network/NetworkManager';
 // import { GameStateManager } from './systems/GameStateManager';
@@ -184,10 +182,6 @@ export class Game {
         
         // Set up HUD last
         this.hud = new HUD(this);
-
-        // Initialize scoreboard
-        this.scoreboard = new Scoreboard(this);
-        this.scoreboard.loadScores();
     }
 
     initializeSystems() {
@@ -233,11 +227,6 @@ export class Game {
         // Cleanup HUD
         if (this.hud) {
             this.hud.cleanup();
-        }
-
-        // Cleanup scoreboard
-        if (this.scoreboard) {
-            this.scoreboard.cleanup();
         }
 
         // Cleanup obstacle system
@@ -1119,10 +1108,11 @@ export class Game {
             }, 100);
         }
 
-        // Add the current score to the scoreboard
-        if (this.scoreboard) {
-            this.scoreboard.addScore(this.snake.score);
-        }
+        // Send final score to parent window
+        window.parent.postMessage({ 
+            type: 'gameOver', 
+            finalScore: this.snake.score 
+        }, '*');
     }
 
     stop() {
@@ -1492,8 +1482,10 @@ export class Game {
     }
 
     updateScore(score) {
-        if (this.scoreboard) {
-            this.scoreboard.updateScore(score);
-        }
+        // Send score update to parent window
+        window.parent.postMessage({ 
+            type: 'score', 
+            score: score 
+        }, '*');
     }
 } 
