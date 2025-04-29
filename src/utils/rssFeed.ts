@@ -5,39 +5,9 @@ interface RSSItem {
   pubDate: string
 }
 
-// List of trusted crypto news sources with their RSS feeds
-const TRUSTED_SOURCES = [
-  {
-    name: 'CoinDesk',
-    url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',
-    domain: 'coindesk.com'
-  },
-  {
-    name: 'CoinTelegraph',
-    url: 'https://cointelegraph.com/rss',
-    domain: 'cointelegraph.com'
-  },
-  {
-    name: 'The Block',
-    url: 'https://www.theblock.co/rss.xml',
-    domain: 'theblock.co'
-  },
-  {
-    name: 'Decrypt',
-    url: 'https://decrypt.co/feed',
-    domain: 'decrypt.co'
-  },
-  {
-    name: 'CryptoNews',
-    url: 'https://cryptonews.com/feed/',
-    domain: 'cryptonews.com'
-  },
-  {
-    name: 'Binance',
-    url: 'https://www.binance.com/bapi/composite/v1/public/cms/article/catalog/list/query?catalogId=48&pageNo=1&pageSize=20',
-    domain: 'binance.com'
-  }
-]
+// CryptoCompare API configuration
+const CRYPTOCOMPARE_API_KEY = import.meta.env.VITE_CRYPTOCOMPARE_API_KEY
+const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data/v2/news/'
 
 // Keywords to filter relevant news
 const KEYWORDS = [
@@ -54,17 +24,13 @@ const KEYWORDS = [
   'Web3'
 ]
 
-// CORS proxy URL - using a public instance
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'
-
 const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(`${CORS_PROXY}${url}`, {
+      const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'X-Requested-With': 'XMLHttpRequest'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
       })
       
@@ -81,76 +47,46 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   throw new Error('Max retries reached')
 }
 
-export const fetchRSSFeed = async (url: string): Promise<RSSItem[]> => {
-  try {
-    const response = await fetchWithRetry(url);
-    const text = await response.text();
-    
-    // Parse the XML manually since we're only interested in specific tags
-    const items: RSSItem[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match;
-
-    while ((match = itemRegex.exec(text)) !== null) {
-      const itemContent = match[1];
-      
-      // Extract individual fields
-      const title = itemContent.match(/<title>(.*?)<\/title>/)?.[1] || '';
-      const link = itemContent.match(/<link>(.*?)<\/link>/)?.[1] || '';
-      const pubDate = itemContent.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '';
-      const description = itemContent.match(/<description>(.*?)<\/description>/)?.[1] || '';
-
-      items.push({
-        title: decodeHTMLEntities(title),
-        link,
-        pubDate,
-        description: decodeHTMLEntities(description)
-      });
-    }
-
-    return items;
-  } catch (error) {
-    console.error('Error fetching RSS feed:', error);
-    return [];
-  }
-};
-
-const decodeHTMLEntities = (text: string): string => {
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = text;
-  return textarea.value;
-};
-
-const isRelevantArticle = (item: RSSItem): boolean => {
-  const searchText = `${item.title} ${item.description}`.toLowerCase();
-  return KEYWORDS.some(keyword => 
-    searchText.includes(keyword.toLowerCase())
-  );
-};
-
 export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
   try {
-    // Fetch from all sources in parallel
-    const allPromises = TRUSTED_SOURCES.map(source => 
-      fetchRSSFeed(source.url)
-    );
+    if (!CRYPTOCOMPARE_API_KEY) {
+      throw new Error('CryptoCompare API key is not configured')
+    }
 
-    const results = await Promise.allSettled(allPromises);
+    // Fetch news from CryptoCompare API
+    const response = await fetchWithRetry(
+      `${CRYPTOCOMPARE_API_URL}?` +
+      `lang=EN` +
+      `&api_key=${CRYPTOCOMPARE_API_KEY}`
+    )
     
-    // Combine all successful results
-    const allItems: RSSItem[] = results
-      .filter((result): result is PromiseFulfilledResult<RSSItem[]> => 
-        result.status === 'fulfilled'
-      )
-      .flatMap(result => result.value)
-      .filter(isRelevantArticle);
+    const data = await response.json()
+    
+    if (!data.Data || data.Data.length === 0) {
+      throw new Error('No articles found')
+    }
+
+    // Transform the articles into our RSSItem format
+    const allItems: RSSItem[] = data.Data
+      .filter((article: any) => {
+        const searchText = `${article.title} ${article.body}`.toLowerCase()
+        return KEYWORDS.some(keyword => 
+          searchText.includes(keyword.toLowerCase())
+        )
+      })
+      .map((article: any) => ({
+        title: article.title,
+        link: article.url,
+        description: article.body,
+        pubDate: article.published_on.toString()
+      }))
 
     // Sort by date, newest first
     return allItems.sort((a, b) => 
       new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-    );
+    )
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('Error fetching news:', error)
     // Return fallback news in case of error
     return [
       {
@@ -171,6 +107,6 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
         description: "New partnership aims to boost Web3 gaming on BNB",
         pubDate: new Date().toISOString()
       }
-    ];
+    ]
   }
-}; 
+} 
