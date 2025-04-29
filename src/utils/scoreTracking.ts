@@ -1,19 +1,34 @@
 import { ref, set, get, onValue, off } from 'firebase/database';
 import { database } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface Score {
   address: string;
   score: number;
   timestamp: number;
+  username?: string;
 }
 
 export const saveScore = async (gameId: string, address: string, score: number): Promise<void> => {
   try {
+    // Get username from Firestore
+    let username: string | null = null;
+    try {
+      const userDoc = await getDoc(doc(db, 'usernames', address));
+      if (userDoc.exists()) {
+        username = userDoc.data().username;
+      }
+    } catch (err) {
+      console.error('Error fetching username:', err);
+    }
+
     const scoreRef = ref(database, `scores/${gameId}/${address}`);
     await set(scoreRef, {
       address,
       score,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      username
     });
   } catch (error) {
     console.error('Error saving score:', error);

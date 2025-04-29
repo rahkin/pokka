@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { subscribeToLeaderboard } from '../utils/scoreTracking';
+import { useUsername } from '../hooks/useUsername';
+import { db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface Score {
   address: string;
   score: number;
   timestamp: number;
+  username?: string;
 }
 
 interface LeaderboardProps {
@@ -75,6 +79,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
   const [scores, setScores] = useState<Score[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { username: currentUserUsername } = useUsername();
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -83,7 +88,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
       unsubscribe = subscribeToLeaderboard(
         gameId,
         limit,
-        (newScores) => {
+        async (newScores) => {
           setIsLoading(false);
           if (Array.isArray(newScores)) {
             // Filter out invalid scores and ensure required properties exist
@@ -95,7 +100,24 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
                 typeof score.score === 'number' &&
                 typeof score.timestamp === 'number'
             );
-            setScores(validScores);
+
+            // Fetch usernames for all scores
+            const scoresWithUsernames = await Promise.all(
+              validScores.map(async (score) => {
+                try {
+                  const userDoc = await getDoc(doc(db, 'usernames', score.address));
+                  return {
+                    ...score,
+                    username: userDoc.exists() ? userDoc.data().username : null
+                  };
+                } catch (err) {
+                  console.error('Error fetching username:', err);
+                  return score;
+                }
+              })
+            );
+
+            setScores(scoresWithUsernames);
           } else {
             setScores([]);
           }
@@ -135,7 +157,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
     return scores.map((score, index) => (
       <ScoreItem key={`${score.address}-${score.timestamp}`}>
         <Address>
-          {index + 1}. {score.address.slice(-5)}
+          {index + 1}. {score.username || score.address.slice(-5)}
+          {score.username === currentUserUsername && ' (You)'}
         </Address>
         <Score>{score.score}</Score>
       </ScoreItem>
