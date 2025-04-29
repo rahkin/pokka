@@ -1,41 +1,24 @@
-import React from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import styled from 'styled-components'
+import { tokenABI } from '../config/abi'
 
-const POKKA_TOKEN_ADDRESS = '0xb82f36fb31bF0Be873879C031DE4150d40AfDda9'
-const ERC20_ABI = [
-  {
-    constant: true,
-    inputs: [{ name: 'owner', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: '', type: 'uint256' }],
-    type: 'function',
-  },
-]
+export default function Profile() {
+  const { address } = useAccount()
+  let balance = '0.00'
 
-const Profile: React.FC = () => {
-  const { address, isConnected } = useAccount()
-  const { data, isLoading } = useReadContract({
-    address: POKKA_TOKEN_ADDRESS,
-    abi: ERC20_ABI,
+  const { data } = useReadContract({
+    address: '0x0000000000000000000000000000000000000000', // Replace with actual token address
+    abi: tokenABI,
     functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    enabled: !!address,
+    args: [address as `0x${string}`],
+    query: {
+      enabled: Boolean(address)
+    }
   })
 
-  let balance = '0'
   if (data) {
-    balance = parseFloat(formatUnits(BigInt(data), 18)).toFixed(2)
-  }
-
-  if (!isConnected) {
-    return (
-      <Container>
-        <h2>Connect Your Wallet</h2>
-        <p>Please connect your wallet to view your profile.</p>
-      </Container>
-    )
+    balance = formatUnits(data as bigint, 18)
   }
 
   return (
@@ -44,7 +27,7 @@ const Profile: React.FC = () => {
       
       <Section>
         <h3>Wallet Address</h3>
-        <Address>{address}</Address>
+        <Address>{address || 'Not connected'}</Address>
       </Section>
 
       <Section>
@@ -122,6 +105,4 @@ const TradeButton = styled.a`
     transform: translateY(-2px);
     box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
   }
-`
-
-export default Profile 
+` 

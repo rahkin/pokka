@@ -1,37 +1,34 @@
 import React from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { PokkaManGame } from '../games/pokka-man'
+import { PokkaSnakeGame } from '../games/pokka-snake/PokkaSnakeGame'
 
 const Games: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>()
 
-  const getGameUrl = (id: string) => {
+  const renderGame = (id: string) => {
     switch (id) {
       case 'pokka-man':
-        return '/games/pokka-man/index.html'
+        return <PokkaManGame />
       case 'falling-blocks':
-        return '/games/pokka-falling-blocks/index.html'
+        return <Navigate to="/games/pokka-falling-blocks/index.html" replace />
       case 'snakes':
-        return '/games/pokka-snakes-gl/dist/index.html'
+        return <PokkaSnakeGame />
       default:
         return null
     }
   }
 
-  const gameUrl = gameId ? getGameUrl(gameId) : null
+  const game = gameId ? renderGame(gameId) : null
 
-  if (!gameUrl) {
+  if (!game) {
     return <Navigate to="/" replace />
   }
 
   return (
     <GameContainer>
-      <iframe
-        src={gameUrl}
-        title={`Pokka's ${gameId}`}
-        frameBorder="0"
-        allowFullScreen
-      />
+      {game}
     </GameContainer>
   )
 }
@@ -40,14 +37,9 @@ const GameContainer = styled.div`
   width: 100%;
   height: calc(100vh - 80px); // Adjust based on your header height
   padding: 1rem;
-
-  iframe {
-    width: 100%;
-    height: 100%;
-    border-radius: 16px;
-    border: 1px solid var(--pokka-cyan);
-    background: rgba(0, 0, 0, 0.6);
-  }
+  display: flex;
+  justify-content: center;
+  align-items: center;
 `
 
 export default Games 

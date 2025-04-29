@@ -7,7 +7,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'three': 'three',
+      'postprocessing': 'postprocessing'
     },
+  },
+  optimizeDeps: {
+    include: ['three', 'postprocessing']
   },
   base: '/',
   publicDir: 'public',
@@ -19,6 +24,9 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
       },
     },
+    commonjsOptions: {
+      include: [/three/, /postprocessing/]
+    }
   },
   server: {
     port: 5173,

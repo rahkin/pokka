@@ -1,0 +1,153 @@
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+import { subscribeToLeaderboard } from '../utils/scoreTracking';
+
+interface Score {
+  address: string;
+  score: number;
+  timestamp: number;
+}
+
+interface LeaderboardProps {
+  gameId: string;
+  limit?: number;
+}
+
+const LeaderboardContainer = styled.div`
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--pokka-cyan);
+  width: 300px;
+  margin: 0 auto;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+`;
+
+const Title = styled.h3`
+  color: var(--pokka-cyan);
+  margin-bottom: 0.5rem;
+  text-align: center;
+  font-size: 1.1em;
+`;
+
+const ScoreList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+`;
+
+const ScoreItem = styled.li`
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem;
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9em;
+
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const Address = styled.span`
+  color: var(--pokka-cyan);
+`;
+
+const Score = styled.span`
+  font-weight: bold;
+`;
+
+const ErrorMessage = styled.div`
+  color: var(--pokka-orange);
+  text-align: center;
+  padding: 1rem;
+`;
+
+const LoadingMessage = styled.div`
+  color: var(--pokka-cyan);
+  text-align: center;
+  padding: 1rem;
+`;
+
+export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) => {
+  const [scores, setScores] = useState<Score[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = subscribeToLeaderboard(
+        gameId,
+        limit,
+        (newScores) => {
+          setIsLoading(false);
+          if (Array.isArray(newScores)) {
+            // Filter out invalid scores and ensure required properties exist
+            const validScores = newScores.filter(
+              (score): score is Score =>
+                score &&
+                typeof score === 'object' &&
+                typeof score.address === 'string' &&
+                typeof score.score === 'number' &&
+                typeof score.timestamp === 'number'
+            );
+            setScores(validScores);
+          } else {
+            setScores([]);
+          }
+          setError(null);
+        }
+      );
+    } catch (err) {
+      setIsLoading(false);
+      setError('Failed to load leaderboard. Please try again later.');
+      console.error('Leaderboard error:', err);
+    }
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [gameId, limit]);
+
+  const renderContent = () => {
+    if (error) {
+      return <ErrorMessage>{error}</ErrorMessage>;
+    }
+
+    if (isLoading) {
+      return <LoadingMessage>Loading scores...</LoadingMessage>;
+    }
+
+    if (scores.length === 0) {
+      return (
+        <ScoreItem>
+          <span>No scores yet</span>
+        </ScoreItem>
+      );
+    }
+
+    return scores.map((score, index) => (
+      <ScoreItem key={`${score.address}-${score.timestamp}`}>
+        <Address>
+          {index + 1}. {score.address.slice(-5)}
+        </Address>
+        <Score>{score.score}</Score>
+      </ScoreItem>
+    ));
+  };
+
+  return (
+    <LeaderboardContainer>
+      <Title>Leaderboard</Title>
+      <ScoreList>
+        {renderContent()}
+      </ScoreList>
+    </LeaderboardContainer>
+  );
+}; 
