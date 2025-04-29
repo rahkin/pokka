@@ -14,7 +14,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['three', 'postprocessing']
   },
-  base: '/',
+  base: process.env.NODE_ENV === 'production' ? '/pokka/' : '/',
   publicDir: 'public',
   build: {
     outDir: 'dist',
