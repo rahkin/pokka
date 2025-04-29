@@ -2,8 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /usernames/{address} {
-      // Allow read access to all users
-      allow read: if true;
+      // Allow read access to all authenticated users
+      allow read: if request.auth != null;
       
       // Allow write only if:
       // 1. The document doesn't exist (new username)

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,5 +15,20 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// Handle authentication state
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    // If not authenticated, try to sign in anonymously
+    signInAnonymously(auth).catch((error) => {
+      console.error('Error signing in anonymously:', error);
+      if (error.code === 'auth/configuration-not-found') {
+        console.error('Please enable Anonymous Authentication in your Firebase Console');
+      }
+    });
+  }
+});
+
 export const db = getFirestore(app);
 export const database = getDatabase(app); 
