@@ -54,13 +54,17 @@ const KEYWORDS = [
   'Web3'
 ]
 
+// CORS proxy URL - using a public instance
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'
+
 const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`${CORS_PROXY}${url}`, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'X-Requested-With': 'XMLHttpRequest'
         }
       })
       
@@ -128,9 +132,7 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
   try {
     // Fetch from all sources in parallel
     const allPromises = TRUSTED_SOURCES.map(source => 
-      source.url.endsWith('.json') 
-        ? fetchWithRetry(source.url).then(res => res.json())
-        : fetchRSSFeed(source.url)
+      fetchRSSFeed(source.url)
     );
 
     const results = await Promise.allSettled(allPromises);
