@@ -8,7 +8,7 @@ export default function Profile() {
   let balance = '0.00'
 
   const { data } = useReadContract({
-    address: '0x0000000000000000000000000000000000000000', // Replace with actual token address
+    address: '0xb82f36fb31bF0Be873879C031DE4150d40AfDda9',
     abi: tokenABI,
     functionName: 'balanceOf',
     args: [address as `0x${string}`],

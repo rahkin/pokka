@@ -1,20 +1,28 @@
 import { Routes, Route } from 'react-router-dom'
-import { WagmiConfig, createConfig, http } from 'wagmi'
+import { WagmiProvider, http } from 'wagmi'
 import { bsc } from 'wagmi/chains'
-import { injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RainbowKitProvider,
+  darkTheme,
+  getDefaultConfig,
+} from '@rainbow-me/rainbowkit'
+import '@rainbow-me/rainbowkit/styles.css'
 import Home from './pages/Home'
 import Games from './pages/Games'
 import Profile from './pages/Profile'
 import TokenGate from './components/TokenGate'
 import Header from './components/Header'
 
-const config = createConfig({
+const projectId = '5d64ede87e7217f25b3f1fc4b04f451b'
+
+const config = getDefaultConfig({
+  appName: 'Pokka Games',
+  projectId,
   chains: [bsc],
   transports: {
     [bsc.id]: http(),
   },
-  connectors: [injected()],
 })
 
 const queryClient = new QueryClient()
@@ -22,19 +30,26 @@ const queryClient = new QueryClient()
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <WagmiConfig config={config}>
-        <div className="app">
-          <Header />
-          <TokenGate>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/games" element={<Games />} />
-              <Route path="/games/:gameId" element={<Games />} />
-              <Route path="/profile" element={<Profile />} />
-            </Routes>
-          </TokenGate>
-        </div>
-      </WagmiConfig>
+      <WagmiProvider config={config}>
+        <RainbowKitProvider
+          theme={darkTheme({
+            accentColor: '#00f0ff', // var(--pokka-cyan)
+            accentColorForeground: 'black',
+          })}
+        >
+          <div className="app">
+            <Header />
+            <TokenGate>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/games" element={<Games />} />
+                <Route path="/games/:gameId" element={<Games />} />
+                <Route path="/profile" element={<Profile />} />
+              </Routes>
+            </TokenGate>
+          </div>
+        </RainbowKitProvider>
+      </WagmiProvider>
     </QueryClientProvider>
   )
 }
