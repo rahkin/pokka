@@ -2,7 +2,6 @@
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
 const BLOCK_SIZE = 25;  // Reduced block size for better fit
-const MAX_LEADERBOARD_ENTRIES = 5;
 const COLORS = [
     '#FF0D0D', // red
     '#0DFF1D', // green
@@ -77,73 +76,15 @@ class Game {
         
         // Draw start screen
         this.drawStartScreen();
-        
-        // Load leaderboard but keep it hidden initially
-        this.leaderboard = [];
-        this.loadLeaderboard(); // Now async
-        this.updateLeaderboardDisplay();
-        document.getElementById('leaderboard').classList.add('hidden');
-        
-        this.playerName = '';
     }
 
     start() {
         if (!this.started) {
-            this.showNameInput();
+            this.startGame();
         }
     }
 
-    showNameInput() {
-        const nameInput = document.getElementById('nameInput');
-        const overlay = document.querySelector('.overlay');
-        const input = document.getElementById('playerNameInput');
-        const submitButton = document.getElementById('submitName');
-        
-        // Remove any existing event listeners
-        const newSubmitButton = submitButton.cloneNode(true);
-        submitButton.parentNode.replaceChild(newSubmitButton, submitButton);
-        
-        // Show the modal and overlay
-        nameInput.classList.add('visible');
-        overlay.classList.add('visible');
-        
-        // Clear and focus the input
-        input.value = '';
-        input.focus();
-        
-        // Handle submit
-        const handleSubmit = () => {
-            let name = input.value.trim();
-            
-            if (name.length === 0) {
-                alert('Please enter a name to play!');
-                return;
-            }
-            
-            if (name.length > 20) {
-                name = name.substring(0, 20);
-            }
-            
-            // Hide the modal
-            nameInput.classList.remove('visible');
-            overlay.classList.remove('visible');
-            
-            // Start the game
-            this.startGame(name);
-        };
-
-        // Add event listeners
-        newSubmitButton.addEventListener('click', handleSubmit);
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleSubmit();
-            }
-        });
-    }
-
-    startGame(playerName) {
-        this.playerName = playerName;
-        
+    startGame() {
         this.started = true;
         this.gameOver = false;
         this.score = 0;
@@ -158,10 +99,6 @@ class Game {
         this.nextPiece = SHAPES[Math.floor(Math.random() * SHAPES.length)];
         this.nextColor = COLORS[Math.floor(Math.random() * COLORS.length)];
         this.spawnPiece();
-
-        // Show leaderboard
-        document.getElementById('leaderboard').classList.remove('hidden');
-        document.getElementById('leaderboard').classList.add('visible');
         
         // Reset game timing
         this.dropInterval = 1000;
@@ -189,9 +126,6 @@ class Game {
         this.ctx.fillText('Click START to play!', 
             this.canvas.width / 2,
             this.canvas.height / 2 + 30);
-        this.ctx.fillText('Enter your name to join the leaderboard', 
-            this.canvas.width / 2,
-            this.canvas.height / 2 + 60);
     }
     
     spawnPiece() {
@@ -212,12 +146,11 @@ class Game {
         if (!this.isValidMove(0, 0)) {
             this.gameOver = true;
             window.soundManager.play('gameover');
-            // Save score immediately when game is over
-            if (this.score > 0) {
-                this.saveScore().then(() => {
-                    this.loadLeaderboard(); // Refresh leaderboard after saving
-                });
-            }
+            // Send game over message to parent window
+            window.parent.postMessage({
+                type: 'gameOver',
+                finalScore: this.score
+            }, '*');
         }
     }
     
@@ -345,6 +278,12 @@ class Game {
             document.getElementById('score').textContent = this.score;
             window.soundManager.play('clear');
             
+            // Send score update to parent window
+            window.parent.postMessage({
+                type: 'score',
+                score: this.score
+            }, '*');
+            
             // Level up every 10 lines
             const newLevel = Math.floor(this.score / 1000) + 1;
             if (newLevel > this.level) {
@@ -357,11 +296,11 @@ class Game {
         
         // Check for game over after landing
         if (this.gameOver) {
-            if (this.score > 0) {
-                this.saveScore().then(() => {
-                    this.loadLeaderboard(); // Refresh leaderboard after saving
-                });
-            }
+            // Send game over message to parent window
+            window.parent.postMessage({
+                type: 'gameOver',
+                finalScore: this.score
+            }, '*');
         }
         
         // Spawn new piece if not game over
@@ -532,138 +471,6 @@ class Game {
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
     }
-
-    async loadLeaderboard() {
-        try {
-            console.log('Loading leaderboard from localStorage...');
-            const savedScores = localStorage.getItem('pokka-falling-blocks-scores');
-            this.leaderboard = savedScores ? JSON.parse(savedScores) : [];
-            console.log('Leaderboard data:', this.leaderboard);
-            this.updateLeaderboardDisplay();
-        } catch (error) {
-            console.error('Failed to load leaderboard:', error);
-            this.leaderboard = [];
-            this.updateLeaderboardDisplay();
-        }
-    }
-
-    async saveScore() {
-        try {
-            const scoreData = {
-                name: this.playerName,
-                score: this.score,
-                timestamp: Date.now()
-            };
-
-            console.log('Saving score:', scoreData);
-
-            // Load existing scores
-            let scores = [];
-            try {
-                const savedScores = localStorage.getItem('pokka-falling-blocks-scores');
-                scores = savedScores ? JSON.parse(savedScores) : [];
-            } catch (e) {
-                console.error('Error loading existing scores:', e);
-            }
-
-            // Add new score
-            scores.push(scoreData);
-
-            // Sort by score (highest first) and keep top 10
-            scores.sort((a, b) => b.score - a.score);
-            scores = scores.slice(0, MAX_LEADERBOARD_ENTRIES);
-
-            // Save back to localStorage
-            localStorage.setItem('pokka-falling-blocks-scores', JSON.stringify(scores));
-            console.log('Score saved successfully');
-
-            // Update leaderboard
-            this.leaderboard = scores;
-            this.updateLeaderboardDisplay();
-        } catch (error) {
-            console.error('Failed to save score:', error);
-        }
-    }
-
-    updateLeaderboardDisplay() {
-        const leaderboardElement = document.getElementById('leaderboard');
-        leaderboardElement.innerHTML = '<h3>Leaderboard</h3>';
-        
-        if (!this.leaderboard || this.leaderboard.length === 0) {
-            leaderboardElement.innerHTML += '<p>No scores yet!</p>';
-            return;
-        }
-
-        const list = document.createElement('ol');
-        [...this.leaderboard]
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_LEADERBOARD_ENTRIES)
-            .forEach((entry) => {
-                const item = document.createElement('li');
-                const name = entry.name || 'Anonymous';
-                const score = Number(entry.score).toLocaleString();
-                item.textContent = `${name} - ${score}`;
-                if (entry.name === this.playerName) {
-                    item.style.color = 'var(--pokka-cyan)';
-                    item.style.textShadow = '0 0 5px var(--pokka-cyan)';
-                }
-                list.appendChild(item);
-            });
-        leaderboardElement.appendChild(list);
-    }
-
-    setupTouchControls() {
-        console.log('Setting up mobile controls...');
-        
-        const buttons = {
-            left: document.querySelector('.control-left'),
-            right: document.querySelector('.control-right'),
-            down: document.querySelector('.control-down'),
-            rotate: document.querySelector('.control-rotate'),
-            drop: document.querySelector('.control-drop')
-        };
-        
-        console.log('Buttons found:', buttons);
-        
-        // Check if all buttons exist
-        if (!Object.values(buttons).every(button => button)) {
-            console.warn('Some mobile control buttons were not found');
-            return;
-        }
-        
-        // Add touch event listeners
-        Object.entries(buttons).forEach(([direction, button]) => {
-            button.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (direction === 'drop') {
-                    while (this.moveDown());
-                } else {
-                    this.handleDirection(direction);
-                }
-            });
-            
-            // For continuous movement while holding
-            if (direction === 'left' || direction === 'right' || direction === 'down') {
-                let intervalId = null;
-                
-                button.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    intervalId = setInterval(() => {
-                        this.handleDirection(direction);
-                    }, 100);
-                });
-                
-                button.addEventListener('touchend', () => {
-                    if (intervalId) {
-                        clearInterval(intervalId);
-                        intervalId = null;
-                    }
-                });
-            }
-        });
-        
-        console.log('Mobile controls setup complete');
-    }
 }
 
 // Initialize game when page loads
@@ -674,18 +481,5 @@ window.addEventListener('load', () => {
     // Add start button listener
     document.getElementById('startButton').addEventListener('click', () => {
         window.game.start();
-    });
-
-    // Add leaderboard toggle listener
-    document.getElementById('showLeaderboard').addEventListener('click', () => {
-        const leaderboard = document.getElementById('leaderboard');
-        if (leaderboard.classList.contains('visible')) {
-            leaderboard.classList.remove('visible');
-            leaderboard.classList.add('hidden');
-        } else {
-            leaderboard.classList.remove('hidden');
-            leaderboard.classList.add('visible');
-            window.game.updateLeaderboardDisplay(); // Refresh leaderboard data
-        }
     });
 }); 

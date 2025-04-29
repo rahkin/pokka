@@ -385,7 +385,15 @@ export class GameManager {
         this.isGameOver = true;
         this.isRunning = false;
         this.collisionChecksEnabled = false;
-        
+
+        // Send final score to parent window
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'gameOver',
+                finalScore: this.game.snake.score
+            }, '*');
+        }
+
         // Show game over screen
         this.showGameOverScreen();
     }

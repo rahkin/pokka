@@ -496,44 +496,31 @@ export class Snake {
     }
 
     checkPelletCollisions() {
-        if (!this.game.gameManager || !this.game.gameManager.pellets) {
-            console.log('Snake: Pellet collision check skipped - missing gameManager or pellets', {
-                hasGameManager: !!this.game.gameManager,
-                hasPellets: this.game.gameManager?.pellets,
-                isInitialized: this.initialized,
-                movementEnabled: this.movementEnabled,
-                collisionChecksEnabled: this.collisionChecksEnabled
-            });
-            return;
-        }
+        if (!this.game.gameManager.collisionChecksEnabled) return;
 
         const pellets = this.game.gameManager.pellets;
         for (let i = pellets.length - 1; i >= 0; i--) {
             const pellet = pellets[i];
-            if (!pellet || !pellet.mesh || pellet.isCollected) {
-                continue;
-            }
-
             const distance = this.head.position.distanceTo(pellet.mesh.position);
-            const collisionThreshold = this.collisionRadius + pellet.radius;
 
-            console.log('Snake: Checking pellet distance', {
-                distance,
-                threshold: collisionThreshold,
-                headPosition: this.head.position.clone(),
-                pelletPosition: pellet.mesh.position.clone()
-            });
-
-            if (distance < collisionThreshold) {
-                console.log('Snake: Pellet collision detected', {
-                    distance,
-                    threshold: collisionThreshold,
-                    headPosition: this.head.position.clone(),
-                    pelletPosition: pellet.mesh.position.clone()
-                });
+            if (distance < this.collisionRadius + pellet.radius) {
+                // Remove pellet
+                this.game.gameManager.removePellet(pellet);
                 
-                // Let the GameManager handle the pellet collection
-                this.game.gameManager.collectPellet(pellet);
+                // Add segment and update score
+                this.addSegment();
+                this.score += 10 * this.pointMultiplier;
+                
+                // Play sound
+                this.game.audioManager.play('eat');
+                
+                // Send score update to parent window
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'score',
+                        score: this.score
+                    }, '*');
+                }
             }
         }
     }

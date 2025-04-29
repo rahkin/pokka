@@ -254,15 +254,6 @@ input[type="text"]:focus {
     box-shadow: 0 0 15px rgba(64, 224, 208, 0.3);
 }
 
-#leaderboardList {
-    margin: 1rem 0;
-    max-height: 300px;
-    overflow-y: auto;
-    text-align: left;
-    font-size: 0.8em;
-    line-height: 1.6;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .game-container {

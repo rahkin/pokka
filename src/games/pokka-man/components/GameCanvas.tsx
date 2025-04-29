@@ -162,6 +162,29 @@ const getAvailableDirections = (x: number, y: number, maze: number[][]) => {
   return directions;
 };
 
+const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+};
+
+// Helper to check if a ghost's position is valid (not a wall)
+const isValidGhostPosition = (x: number, y: number, maze: number[][]) => {
+  const points = [
+    { x: x + CELL_SIZE * 0.2, y: y + CELL_SIZE * 0.2 },
+    { x: x + CELL_SIZE * 0.8, y: y + CELL_SIZE * 0.2 },
+    { x: x + CELL_SIZE * 0.2, y: y + CELL_SIZE * 0.8 },
+    { x: x + CELL_SIZE * 0.8, y: y + CELL_SIZE * 0.8 },
+    { x: x + CELL_SIZE * 0.5, y: y + CELL_SIZE * 0.5 }
+  ];
+  return points.every(point => {
+    const gridX = Math.floor(point.x / CELL_SIZE);
+    const gridY = Math.floor(point.y / CELL_SIZE);
+    return gridX >= 0 && gridX < maze[0].length &&
+           gridY >= 0 && gridY < maze.length &&
+           maze[gridY][gridX] !== 1;
+  });
+};
+
+// Helper to get the opposite direction
 const getOppositeDirection = (direction: string): string => {
   switch (direction) {
     case 'up': return 'down';
@@ -170,30 +193,6 @@ const getOppositeDirection = (direction: string): string => {
     case 'right': return 'left';
     default: return '';
   }
-};
-
-const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
-  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-};
-
-// Add this new helper function after calculateDistance
-const isValidGhostPosition = (x: number, y: number, maze: number[][]): boolean => {
-  // Check all corners of the ghost sprite
-  const points = [
-    { x: x, y: y },                         // Top-left
-    { x: x + CELL_SIZE - 1, y: y },         // Top-right
-    { x: x, y: y + CELL_SIZE - 1 },         // Bottom-left
-    { x: x + CELL_SIZE - 1, y: y + CELL_SIZE - 1 }, // Bottom-right
-    { x: x + CELL_SIZE / 2, y: y + CELL_SIZE / 2 }  // Center
-  ];
-
-  return points.every(point => {
-    const gridX = Math.floor(point.x / CELL_SIZE);
-    const gridY = Math.floor(point.y / CELL_SIZE);
-    return gridX >= 0 && gridX < maze[0].length &&
-           gridY >= 0 && gridY < maze.length &&
-           maze[gridY][gridX] !== 1;
-  });
 };
 
 // Add this function after the existing helper functions
@@ -433,35 +432,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setGameState(prev => ({ ...prev, dots, powerPellets }));
   }, []);
 
-  // Check if a position is centered in a grid cell
-  const isCentered = useCallback((position: number): boolean => {
-    return position % CELL_SIZE === 0;
-  }, []);
-
-  // Check if a move to a new position would hit a wall
-  const willHitWall = useCallback((x: number, y: number, direction: string): boolean => {
-    const gridX = pixelToGrid(x);
-    const gridY = pixelToGrid(y);
-    
-    // Get the next grid position based on direction
-    let nextGridX = gridX;
-    let nextGridY = gridY;
-    
-    switch (direction) {
-      case 'up': nextGridY = gridY - 1; break;
-      case 'down': nextGridY = gridY + 1; break;
-      case 'left': nextGridX = gridX - 1; break;
-      case 'right': nextGridX = gridX + 1; break;
-    }
-    
-    // Check if the next position is within bounds and not a wall
-    return nextGridX < 0 || 
-           nextGridX >= MAZE_LAYOUT[0].length || 
-           nextGridY < 0 || 
-           nextGridY >= MAZE_LAYOUT.length || 
-           MAZE_LAYOUT[nextGridY][nextGridX] === 1;
-  }, []);
-
   // Update the GameCanvas component's handleCollisions function
   const handleCollisions = useCallback((newX: number, newY: number) => {
     const centerX = newX + CELL_SIZE / 2;
@@ -624,33 +594,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     });
   }, [getCornerOffsets]);
 
-  const getNextPosition = useCallback((x: number, y: number, direction: string, speed: number) => {
+  const getNextPosition = useCallback((currentX: number, currentY: number, direction: string): { x: number, y: number } => {
+    const speed = 2;
+    let nextX = currentX;
+    let nextY = currentY;
+
     switch (direction) {
-      case 'up': return { x, y: y - speed };
-      case 'down': return { x, y: y + speed };
-      case 'left': return { x: x - speed, y };
-      case 'right': return { x: x + speed, y };
-      default: return { x, y };
+      case 'up': nextY -= speed; break;
+      case 'down': nextY += speed; break;
+      case 'left': nextX -= speed; break;
+      case 'right': nextX += speed; break;
     }
+
+    return { x: nextX, y: nextY };
   }, []);
-
-  const calculateSlideMovement = useCallback((pacman: GameState['pacman'], speed: number) => {
-    const isVertical = ['up', 'down'].includes(pacman.direction);
-    const slideDir = isVertical ? 
-      (pacman.nextDirection === 'left' ? -1 : 1) :
-      (pacman.nextDirection === 'up' ? -1 : 1);
-    
-    const testPos = {
-      x: pacman.x + (isVertical ? slideDir * speed : 0),
-      y: pacman.y + (!isVertical ? slideDir * speed : 0)
-    };
-
-    if (canMoveInDirection(pixelToGrid(testPos.x), pixelToGrid(testPos.y), pacman.nextDirection)) {
-      return testPos;
-    }
-
-    return null;
-  }, [canMoveInDirection]);
 
   // Update Pokka's position and handle movement
   const updatePokka = useCallback((deltaTime: number) => {
