@@ -47,6 +47,27 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   throw new Error('Max retries reached')
 }
 
+// Helper function to truncate text
+const truncateText = (text: string, maxLength: number): string => {
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength).trim() + '...'
+}
+
+// Helper function to format date
+const formatDate = (timestamp: number): string => {
+  try {
+    const date = new Date(timestamp * 1000) // Convert Unix timestamp to milliseconds
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return 'N/A'
+  }
+}
+
 export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
   try {
     if (!CRYPTOCOMPARE_API_KEY) {
@@ -77,8 +98,8 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
       .map((article: any) => ({
         title: article.title,
         link: article.url,
-        description: article.body,
-        pubDate: article.published_on.toString()
+        description: truncateText(article.body, 200), // Truncate description to 200 characters
+        pubDate: formatDate(article.published_on)
       }))
 
     // Sort by date, newest first
@@ -93,19 +114,31 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
         title: "Binance Launches New Web3 Gaming Platform",
         link: "https://example.com",
         description: "Binance announces new gaming platform on BNB Chain",
-        pubDate: new Date().toISOString()
+        pubDate: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
       },
       {
         title: "PancakeSwap V3 Goes Live on BNB Chain",
         link: "https://example.com",
         description: "Major upgrade brings new features to DeFi on BNB",
-        pubDate: new Date().toISOString()
+        pubDate: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
       },
       {
         title: "AIAI Society Partners with Binance",
         link: "https://example.com",
         description: "New partnership aims to boost Web3 gaming on BNB",
-        pubDate: new Date().toISOString()
+        pubDate: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
       }
     ]
   }
