@@ -5,20 +5,41 @@ interface RSSItem {
   pubDate: string
 }
 
-interface NewsAPIResponse {
-  articles: Array<{
-    title: string
-    url: string
-    description: string
-    publishedAt: string
-  }>
-}
+// List of trusted crypto news sources with their RSS feeds
+const TRUSTED_SOURCES = [
+  {
+    name: 'CoinDesk',
+    url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',
+    domain: 'coindesk.com'
+  },
+  {
+    name: 'CoinTelegraph',
+    url: 'https://cointelegraph.com/rss',
+    domain: 'cointelegraph.com'
+  },
+  {
+    name: 'The Block',
+    url: 'https://www.theblock.co/rss.xml',
+    domain: 'theblock.co'
+  },
+  {
+    name: 'Decrypt',
+    url: 'https://decrypt.co/feed',
+    domain: 'decrypt.co'
+  },
+  {
+    name: 'CryptoNews',
+    url: 'https://cryptonews.com/feed/',
+    domain: 'cryptonews.com'
+  },
+  {
+    name: 'Binance',
+    url: 'https://www.binance.com/bapi/composite/v1/public/cms/article/catalog/list/query?catalogId=48&pageNo=1&pageSize=20',
+    domain: 'binance.com'
+  }
+]
 
-// Using NewsAPI for reliable news fetching
-const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY
-const NEWS_API_URL = 'https://newsapi.org/v2/everything'
-
-// Updated keywords to focus on blockchain and crypto
+// Keywords to filter relevant news
 const KEYWORDS = [
   'Binance',
   'BNB Chain',
@@ -31,16 +52,6 @@ const KEYWORDS = [
   'crypto',
   'DeFi',
   'Web3'
-]
-
-// List of trusted crypto news sources
-const TRUSTED_SOURCES = [
-  'coindesk.com',
-  'cointelegraph.com',
-  'theblock.co',
-  'decrypt.co',
-  'cryptonews.com',
-  'binance.com'
 ]
 
 const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
@@ -68,7 +79,7 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
 
 export const fetchRSSFeed = async (url: string): Promise<RSSItem[]> => {
   try {
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const text = await response.text();
     
     // Parse the XML manually since we're only interested in specific tags
@@ -106,49 +117,38 @@ const decodeHTMLEntities = (text: string): string => {
   return textarea.value;
 };
 
+const isRelevantArticle = (item: RSSItem): boolean => {
+  const searchText = `${item.title} ${item.description}`.toLowerCase();
+  return KEYWORDS.some(keyword => 
+    searchText.includes(keyword.toLowerCase())
+  );
+};
+
 export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
   try {
-    if (!NEWS_API_KEY) {
-      throw new Error('NewsAPI key is not configured')
-    }
+    // Fetch from all sources in parallel
+    const allPromises = TRUSTED_SOURCES.map(source => 
+      source.url.endsWith('.json') 
+        ? fetchWithRetry(source.url).then(res => res.json())
+        : fetchRSSFeed(source.url)
+    );
 
-    // Create a query string from our keywords
-    const query = KEYWORDS.join(' OR ')
+    const results = await Promise.allSettled(allPromises);
     
-    // Create a domains string from trusted sources
-    const domains = TRUSTED_SOURCES.join(',')
-    
-    // Fetch news from NewsAPI with specific parameters
-    const response = await fetchWithRetry(
-      `${NEWS_API_URL}?` +
-      `q=${encodeURIComponent(query)}` +
-      `&domains=${encodeURIComponent(domains)}` +
-      `&sortBy=publishedAt` +
-      `&language=en` +
-      `&pageSize=20` +
-      `&apiKey=${NEWS_API_KEY}`
-    )
-    
-    const data: NewsAPIResponse = await response.json()
-    
-    if (!data.articles || data.articles.length === 0) {
-      throw new Error('No articles found')
-    }
-
-    // Transform the articles into our RSSItem format
-    const allItems: RSSItem[] = data.articles.map(article => ({
-      title: article.title,
-      link: article.url,
-      description: article.description,
-      pubDate: article.publishedAt
-    }))
+    // Combine all successful results
+    const allItems: RSSItem[] = results
+      .filter((result): result is PromiseFulfilledResult<RSSItem[]> => 
+        result.status === 'fulfilled'
+      )
+      .flatMap(result => result.value)
+      .filter(isRelevantArticle);
 
     // Sort by date, newest first
     return allItems.sort((a, b) => 
       new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-    )
+    );
   } catch (error) {
-    console.error('Error fetching news:', error)
+    console.error('Error fetching news:', error);
     // Return fallback news in case of error
     return [
       {
@@ -169,6 +169,6 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
         description: "New partnership aims to boost Web3 gaming on BNB",
         pubDate: new Date().toISOString()
       }
-    ]
+    ];
   }
-} 
+}; 
