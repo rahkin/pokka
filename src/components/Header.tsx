@@ -2,50 +2,120 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-
-const Header: React.FC = () => {
-  return (
-    <HeaderContainer>
-      <Logo to="/">POKKA</Logo>
-      <Nav>
-        <NavLink to="/games">Games</NavLink>
-        <NavLink to="/profile">Profile</NavLink>
-        <ConnectButton />
-      </Nav>
-    </HeaderContainer>
-  )
-}
+import { useAccount } from 'wagmi'
+import { usePokkaBalance } from '../hooks/usePokkaBalance'
 
 const HeaderContainer = styled.header`
-  background: rgba(0, 0, 0, 0.8);
-  padding: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--pokka-cyan);
-`
-
-const Logo = styled(Link)`
-  color: var(--pokka-cyan);
-  text-decoration: none;
-  font-size: 1.5rem;
-  font-weight: bold;
+  padding: 1rem 2rem;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
 `
 
 const Nav = styled.nav`
   display: flex;
   gap: 2rem;
   align-items: center;
-`
 
-const NavLink = styled(Link)`
-  color: white;
-  text-decoration: none;
-  transition: color 0.3s ease;
-
-  &:hover {
-    color: var(--pokka-cyan);
+  a {
+    color: #fff;
+    text-decoration: none;
+    &:hover {
+      color: #0cf;
+    }
   }
 `
+
+const CustomConnectButton = styled.button`
+  background: #333;
+  border: 1px solid #0cf;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-size: 1rem;
+
+  &:hover {
+    background: #444;
+  }
+
+  img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+  }
+`
+
+const BalanceDisplay = styled.span`
+  color: #0cf;
+  margin-right: 0.5rem;
+`
+
+const Header = () => {
+  const { address } = useAccount()
+  const balance = usePokkaBalance(address)
+
+  return (
+    <HeaderContainer>
+      <Nav>
+        <Link to="/">Home</Link>
+        <Link to="/games">Games</Link>
+        <Link to="/profile">Profile</Link>
+      </Nav>
+      <ConnectButton.Custom>
+        {({
+          account,
+          chain,
+          openAccountModal,
+          openChainModal,
+          openConnectModal,
+          mounted,
+        }) => {
+          const ready = mounted
+          const connected = ready && account && chain
+
+          return (
+            <div
+              {...(!ready && {
+                'aria-hidden': true,
+                style: {
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                },
+              })}
+            >
+              {(() => {
+                if (!connected) {
+                  return (
+                    <CustomConnectButton onClick={openConnectModal}>
+                      Connect Wallet
+                    </CustomConnectButton>
+                  )
+                }
+
+                return (
+                  <CustomConnectButton onClick={openAccountModal}>
+                    {account.ensAvatar && (
+                      <img src={account.ensAvatar} alt={account.displayName} />
+                    )}
+                    <BalanceDisplay>{Number(balance).toFixed(2)} POKKA</BalanceDisplay>
+                    {account.displayName}
+                  </CustomConnectButton>
+                )
+              })()}
+            </div>
+          )
+        }}
+      </ConnectButton.Custom>
+    </HeaderContainer>
+  )
+}
 
 export default Header 
