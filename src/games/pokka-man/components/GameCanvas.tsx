@@ -223,14 +223,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   isPlaying,
   gameOver
 }) => {
-  const [score, setScore] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
-  const animationFrameId = useRef<number>();
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
-  const requestRef = useRef<number>();
-  const previousTimeRef = useRef<number>();
 
   const [gameState, setGameState] = useState<GameState>(() => ({
     score: 0,
@@ -560,54 +555,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       });
     };
   }, [isPlaying]);
-
-  const getCornerOffsets = useCallback((direction: string) => {
-    const size = CELL_SIZE - 1;
-    switch (direction) {
-      case 'up': return [{ x: 0, y: 0 }, { x: size, y: 0 }];
-      case 'down': return [{ x: 0, y: size }, { x: size, y: size }];
-      case 'left': return [{ x: 0, y: 0 }, { x: 0, y: size }];
-      case 'right': return [{ x: size, y: 0 }, { x: size, y: size }];
-      default: return [];
-    }
-  }, []);
-
-  const canMoveInDirection = useCallback((gridX: number, gridY: number, direction: string) => {
-    if (gridX < 0 || gridX >= MAZE_LAYOUT[0].length || 
-        gridY < 0 || gridY >= MAZE_LAYOUT.length) {
-      return false;
-    }
-
-    // Check if the next cell in the direction is a wall
-    if (MAZE_LAYOUT[gridY][gridX] === 1) {
-      return false;
-    }
-
-    // Check corners based on direction
-    const cornerOffsets = getCornerOffsets(direction);
-    return cornerOffsets.every(offset => {
-      const cornerGridX = pixelToGrid(gridX * CELL_SIZE + offset.x);
-      const cornerGridY = pixelToGrid(gridY * CELL_SIZE + offset.y);
-      return cornerGridX >= 0 && cornerGridX < MAZE_LAYOUT[0].length &&
-             cornerGridY >= 0 && cornerGridY < MAZE_LAYOUT.length &&
-             MAZE_LAYOUT[cornerGridY][cornerGridX] !== 1;
-    });
-  }, [getCornerOffsets]);
-
-  const getNextPosition = useCallback((currentX: number, currentY: number, direction: string): { x: number, y: number } => {
-    const speed = 2;
-    let nextX = currentX;
-    let nextY = currentY;
-
-    switch (direction) {
-      case 'up': nextY -= speed; break;
-      case 'down': nextY += speed; break;
-      case 'left': nextX -= speed; break;
-      case 'right': nextX += speed; break;
-    }
-
-    return { x: nextX, y: nextY };
-  }, []);
 
   // Update Pokka's position and handle movement
   const updatePokka = useCallback((deltaTime: number) => {

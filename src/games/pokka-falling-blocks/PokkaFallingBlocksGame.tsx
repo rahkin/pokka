@@ -437,7 +437,6 @@ export const PokkaFallingBlocksGame: React.FC = () => {
   }, [isValidMove]);
 
   const spawnPiece = useCallback(() => {
-    const shapeIndex = Math.floor(Math.random() * SHAPES.length);
     const nextShapeIndex = Math.floor(Math.random() * SHAPES.length);
     
     gameStateRef.current.currentPiece = gameStateRef.current.nextPiece;

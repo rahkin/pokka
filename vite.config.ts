@@ -12,20 +12,31 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['three', 'postprocessing']
+    include: ['three', 'postprocessing', 'react', 'react-dom', 'react-router-dom', '@rainbow-me/rainbowkit', 'wagmi'],
+    esbuildOptions: {
+      target: 'es2020'
+    }
   },
   base: process.env.NODE_ENV === 'production' ? '/pokka/' : '/',
   publicDir: 'public',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    target: 'es2020',
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
       },
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'web3-vendor': ['@rainbow-me/rainbowkit', 'wagmi', 'viem']
+        }
+      }
     },
     commonjsOptions: {
-      include: [/three/, /postprocessing/]
+      include: [/node_modules/],
+      transformMixedEsModules: true
     }
   },
   server: {

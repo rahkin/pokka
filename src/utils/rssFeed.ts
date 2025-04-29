@@ -1,5 +1,3 @@
-import { parseString } from 'xml2js'
-
 interface RSSItem {
   title: string
   link: string
@@ -45,13 +43,6 @@ const TRUSTED_SOURCES = [
   'binance.com'
 ]
 
-const cleanHtml = (html: string): string => {
-  return html
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-    .trim()
-}
-
 const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -75,7 +66,47 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   throw new Error('Max retries reached')
 }
 
-export const fetchRSSFeed = async (): Promise<RSSItem[]> => {
+export const fetchRSSFeed = async (url: string): Promise<RSSItem[]> => {
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    
+    // Parse the XML manually since we're only interested in specific tags
+    const items: RSSItem[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(text)) !== null) {
+      const itemContent = match[1];
+      
+      // Extract individual fields
+      const title = itemContent.match(/<title>(.*?)<\/title>/)?.[1] || '';
+      const link = itemContent.match(/<link>(.*?)<\/link>/)?.[1] || '';
+      const pubDate = itemContent.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '';
+      const description = itemContent.match(/<description>(.*?)<\/description>/)?.[1] || '';
+
+      items.push({
+        title: decodeHTMLEntities(title),
+        link,
+        pubDate,
+        description: decodeHTMLEntities(description)
+      });
+    }
+
+    return items;
+  } catch (error) {
+    console.error('Error fetching RSS feed:', error);
+    return [];
+  }
+};
+
+const decodeHTMLEntities = (text: string): string => {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
+
+export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
   try {
     if (!NEWS_API_KEY) {
       throw new Error('NewsAPI key is not configured')

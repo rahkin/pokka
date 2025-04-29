@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokka's Snakes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Third-party libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.7.1/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Press Start 2P', monospace;
+        }
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: 1;
+        }
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            color: #fff;
+            z-index: 9999;
+        }
+        #loading-progress {
+            width: 300px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #666;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #loading-bar {
+            width: 0%;
+            height: 100%;
+            background: #3EE0B1;
+            transition: width 0.3s ease;
+        }
+        #loading-text {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+        }
+        .scoreboard {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(139, 69, 19, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            min-width: 200px;
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid #4A3728;
+        }
+        .scoreboard h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #FFD700;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .score-entry {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .score-entry.current {
+            background: rgba(255,215,0,0.2);
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 5px rgba(255,215,0,0.5);
+        }
+        .score-entry .rank {
+            width: 30px;
+            text-align: center;
+        }
+        .score-entry .score {
+            text-align: right;
+        }
+        .score-popup {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: none;
+        }
+        .score-popup .points {
+            font-size: inherit;
+            margin-bottom: 5px;
+        }
+        .score-popup .combo {
+            font-size: 0.8em;
+            opacity: 0.9;
+            animation: pulseCombo 0.5s infinite alternate;
+        }
+        @keyframes pulseCombo {
+            from {
+                transform: scale(1);
+                text-shadow: 0 0 10px currentColor;
+            }
+            to {
+                transform: scale(1.1);
+                text-shadow: 0 0 20px currentColor;
+            }
+        }
+        .combo-level-1 { color: #00ff00; }
+        .combo-level-2 { color: #00ffff; }
+        .combo-level-3 { color: #ff00ff; }
+        .combo-level-4 { color: #ff0000; }
+        .combo-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 24px;
+            color: #fff;
+            text-shadow: 0 0 10px currentColor;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <h1>Pokka's Snakes</h1>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+        <div id="loading-text">Initializing game...</div>
+        <div id="instructions">
+            <h2>How to Play</h2>
+            <div class="section">
+                <div class="section-title">Controls</div>
+                <ul>
+                    <li><span class="key">↑</span> or <span class="key">W</span> Move Up</li>
+                    <li><span class="key">↓</span> or <span class="key">S</span> Move Down</li>
+                    <li><span class="key">←</span> or <span class="key">A</span> Move Left</li>
+                    <li><span class="key">→</span> or <span class="key">D</span> Move Right</li>
+                    <li><span class="key">P</span> Pause Game</li>
+                    <li><span class="key">R</span> Restart (when game over)</li>
+                </ul>
+            </div>
+            <div class="section">
+                <div class="section-title">Power-Ups</div>
+                <ul>
+                    <li><span class="power-up">Speed Boost</span> - Temporarily increases your speed</li>
+                    <li><span class="power-up">Ghost Mode</span> - Pass through walls briefly</li>
+                    <li><span class="power-up">Double Points</span> - Score multiplier</li>
+                </ul>
+    </div>
+            <button id="start-button">Start Game</button>
+        </div>
+    </div>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+    <!-- Load game script -->
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html> 

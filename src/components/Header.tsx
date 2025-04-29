@@ -1,4 +1,3 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
@@ -73,7 +72,6 @@ const Header = () => {
           account,
           chain,
           openAccountModal,
-          openChainModal,
           openConnectModal,
           mounted,
         }) => {

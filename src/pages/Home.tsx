@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { Link } from 'react-router-dom'
 import GameTiles from '../components/GameTiles'
 import { RefreshCw, TrendingUp, AlertCircle } from 'lucide-react'
-import { fetchRSSFeed } from '../utils/rssFeed'
+import { fetchRSSFeedFromNewsAPI } from '../utils/rssFeed'
 
 const Container = styled.div`
   max-width: 1200px;
@@ -217,7 +216,7 @@ const Home: React.FC = () => {
   const fetchNews = async () => {
     setLoading(true)
     try {
-      const articles = await fetchRSSFeed()
+      const articles = await fetchRSSFeedFromNewsAPI()
       setNews(articles)
       setVisibleCount(6) // Reset visible count on refresh
     } catch (error) {
