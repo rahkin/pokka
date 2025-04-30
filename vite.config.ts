@@ -16,12 +16,20 @@ export default defineConfig({
     assetsDir: 'assets',
     emptyOutDir: true,
     manifest: true,
+    minify: 'terser',
     rollupOptions: {
-      input: path.resolve(__dirname, 'index.html'),
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      },
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'web3-vendor': ['@web3modal/ethereum', '@web3modal/react', '@web3modal/core', 'wagmi', 'viem'],
+          'web3-vendor': [
+            'wagmi',
+            'viem',
+            '@rainbow-me/rainbowkit',
+            '@wagmi/core'
+          ],
         },
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
@@ -33,6 +41,12 @@ export default defineConfig({
           }
           return 'assets/[name].[hash][extname]';
         }
+      }
+    },
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
       }
     }
   },
@@ -46,4 +60,20 @@ export default defineConfig({
       }
     }
   },
+  optimizeDeps: {
+    include: [
+      'wagmi',
+      'viem',
+      '@rainbow-me/rainbowkit',
+      '@wagmi/core'
+    ],
+    exclude: [],
+    esbuildOptions: {
+      target: 'es2020',
+      supported: {
+        'top-level-await': true
+      }
+    },
+    force: true
+  }
 }) 

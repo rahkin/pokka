@@ -44,13 +44,13 @@ const Games: React.FC = () => {
   }
 
   switch (gameId) {
-    case 'pokka-man':
-      return <PokkaManGame />
+      case 'pokka-man':
+        return <PokkaManGame />
     case 'snakes':
       return <PokkaSnakeGame />
-    case 'falling-blocks':
-      return <PokkaFallingBlocksGame />
-    default:
+      case 'falling-blocks':
+        return <PokkaFallingBlocksGame />
+      default:
       return (
         <Container>
           <Header>

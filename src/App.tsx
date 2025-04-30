@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { WagmiProvider, http } from 'wagmi'
+import { WagmiProvider } from 'wagmi'
 import { bsc } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -7,6 +7,7 @@ import {
   darkTheme,
   getDefaultConfig,
 } from '@rainbow-me/rainbowkit'
+import { http } from 'viem'
 import '@rainbow-me/rainbowkit/styles.css'
 import Home from './pages/Home'
 import Games from './pages/Games'
