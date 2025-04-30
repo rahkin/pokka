@@ -13,7 +13,6 @@ interface TokenPrices {
 
 const POKKA_CONTRACT = '0xb82f36fb31bf0be873879c031de4150d40afdda9';
 const WBNB_CONTRACT = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // Wrapped BNB contract
-const CHAIN_ID = 'bsc'; // BSC chain ID for DexScreener
 
 export const useTokenPrices = () => {
   const [prices, setPrices] = useState<TokenPrices>({
