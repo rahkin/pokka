@@ -33,6 +33,9 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     target: 'es2020',
+    modulePreload: {
+      polyfill: true
+    },
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
@@ -43,9 +46,17 @@ export default defineConfig({
           'web3-vendor': ['@rainbow-me/rainbowkit', 'wagmi', 'viem']
         },
         format: 'es',
-        entryFileNames: '[name].[hash].mjs',
-        chunkFileNames: '[name].[hash].mjs',
-        assetFileNames: 'assets/[name].[hash].[ext]'
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name.endsWith('.css')) {
+            return 'assets/css/[name].[hash][extname]';
+          }
+          if (/\.(woff|woff2|eot|ttf|otf)$/.test(assetInfo.name)) {
+            return 'assets/fonts/[name].[hash][extname]';
+          }
+          return 'assets/[name].[hash][extname]';
+        }
       }
     },
     commonjsOptions: {
