@@ -396,7 +396,7 @@ const Home: React.FC = () => {
 
       <CTABanner>
         <h2>🚀 Ready to Train Your Own AI Twin?</h2>
-        <p>Let Pokka handle your memes, posts, and even your own memecoin.</p>
+        <p>Join the Digital Nation with AIAI Society.</p>
         <a
           href="https://aiai.now/"
           target="_blank"
