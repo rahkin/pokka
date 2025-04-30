@@ -48,49 +48,6 @@ const MAZE_LAYOUT = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ];
 
-// Ghost target corners for scatter mode
-const GHOST_CORNERS = {
-  pink: { x: 2, y: 0 },     // Top-left
-  blue: { x: 17, y: 0 },    // Top-right
-  purple: { x: 0, y: 20 },  // Bottom-left
-  skin: { x: 19, y: 20 }    // Bottom-right
-} as const;
-
-// Ghost personalities
-const GHOST_PERSONALITIES = {
-  pink: {
-    name: 'Andy',
-    getTarget: (pacman: GameState['pacman']) => ({
-      x: pixelToGrid(pacman.x),
-      y: pixelToGrid(pacman.y)
-    })
-  },
-  blue: {
-    name: 'Siren',
-    getTarget: (pacman: GameState['pacman']) => {
-      const gridX = pixelToGrid(pacman.x);
-      const gridY = pixelToGrid(pacman.y);
-      return { x: gridX, y: gridY };
-    }
-  },
-  purple: {
-    name: 'Aicz',
-    getTarget: (pacman: GameState['pacman']) => {
-      const gridX = pixelToGrid(pacman.x);
-      const gridY = pixelToGrid(pacman.y);
-      return { x: gridX, y: gridY };
-    }
-  },
-  skin: {
-    name: 'Banana',
-    getTarget: (pacman: GameState['pacman']) => {
-      const gridX = pixelToGrid(pacman.x);
-      const gridY = pixelToGrid(pacman.y);
-      return { x: gridX, y: gridY };
-    }
-  }
-} as const;
-
 type GhostMode = 'scatter' | 'chase' | 'frightened';
 
 interface GameCanvasProps {
@@ -269,10 +226,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       visualY: gridToPixel(16)
     },
     ghosts: [
-      { x: gridToPixel(8), y: gridToPixel(10), direction: 'right', type: 'pink', mode: 'scatter', targetX: 2, targetY: 0, isReleased: true },
-      { x: gridToPixel(9), y: gridToPixel(10), direction: 'left', type: 'blue', mode: 'scatter', targetX: 17, targetY: 0, isReleased: false },
-      { x: gridToPixel(10), y: gridToPixel(10), direction: 'up', type: 'purple', mode: 'scatter', targetX: 0, targetY: 20, isReleased: false },
-      { x: gridToPixel(11), y: gridToPixel(10), direction: 'right', type: 'skin', mode: 'scatter', targetX: 19, targetY: 20, isReleased: false }
+      { x: gridToPixel(8), y: gridToPixel(10), direction: 'right', type: 'pink', mode: 'scatter', targetX: 0, targetY: 0, isReleased: true },
+      { x: gridToPixel(9), y: gridToPixel(10), direction: 'left', type: 'blue', mode: 'scatter', targetX: MAZE_LAYOUT[0].length - 1, targetY: 0, isReleased: false },
+      { x: gridToPixel(10), y: gridToPixel(10), direction: 'up', type: 'purple', mode: 'scatter', targetX: 0, targetY: MAZE_LAYOUT.length - 1, isReleased: false },
+      { x: gridToPixel(11), y: gridToPixel(10), direction: 'right', type: 'skin', mode: 'scatter', targetX: MAZE_LAYOUT[0].length - 1, targetY: MAZE_LAYOUT.length - 1, isReleased: false }
     ],
     maze: MAZE_LAYOUT,
     dots: [],
