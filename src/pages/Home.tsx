@@ -302,7 +302,7 @@ const Home: React.FC = () => {
                 borderRadius: '8px',
                 padding: '0.75rem 2rem',
                 fontSize: '1.1rem',
-                fontFamily: "'One Little Font', sans-serif",
+                fontFamily: "Roboto, sans-serif",
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 transition: 'background 0.2s',
