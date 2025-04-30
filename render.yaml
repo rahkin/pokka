@@ -14,15 +14,18 @@ services:
       - path: /*.js
         name: Content-Type
         value: application/javascript
-      - path: /*.mjs
-        name: Content-Type
-        value: application/javascript
       - path: /*.css
         name: Content-Type
         value: text/css
       - path: /*.png
         name: Content-Type
         value: image/png
+      - path: /*.jpg
+        name: Content-Type
+        value: image/jpeg
+      - path: /*.svg
+        name: Content-Type
+        value: image/svg+xml
     routes:
       - type: rewrite
         source: /*
