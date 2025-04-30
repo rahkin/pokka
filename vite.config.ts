@@ -16,16 +16,21 @@ export default defineConfig({
     assetsDir: 'assets',
     emptyOutDir: true,
     copyPublicDir: true,
+    modulePreload: {
+      polyfill: true
+    },
     rollupOptions: {
       input: path.resolve(__dirname, 'index.html'),
       output: {
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name].[hash].mjs',
+        chunkFileNames: 'assets/[name].[hash].mjs',
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith('.png')) {
+          const info = assetInfo.name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
             return 'assets/images/[name][extname]';
           }
-          return 'assets/[name]-[hash][extname]';
+          return 'assets/[name].[hash][extname]';
         }
       }
     }
