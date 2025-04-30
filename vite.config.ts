@@ -17,7 +17,7 @@ export default defineConfig({
       target: 'es2020'
     }
   },
-  base: process.env.NODE_ENV === 'production' ? '/pokka/' : '/',
+  base: '/',
   publicDir: 'public',
   build: {
     outDir: 'dist',
