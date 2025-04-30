@@ -11,12 +11,21 @@ const HeaderContainer = styled.header`
   padding: 1rem 2rem;
   background: #1a1a1a;
   border-bottom: 1px solid #333;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
 `
 
 const Nav = styled.nav`
   display: flex;
   gap: 2rem;
   align-items: center;
+
+  @media (max-width: 768px) {
+    gap: 1rem;
+  }
 
   a {
     color: #fff;
@@ -40,6 +49,12 @@ const CustomConnectButton = styled.button`
   font-family: inherit;
   font-size: 1rem;
 
+  @media (max-width: 768px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    gap: 0.3rem;
+  }
+
   &:hover {
     background: #444;
   }
@@ -48,12 +63,21 @@ const CustomConnectButton = styled.button`
     width: 24px;
     height: 24px;
     border-radius: 50%;
+
+    @media (max-width: 768px) {
+      width: 20px;
+      height: 20px;
+    }
   }
 `
 
 const BalanceDisplay = styled.span`
   color: #0cf;
   margin-right: 0.5rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+  }
 `
 
 const Header = () => {

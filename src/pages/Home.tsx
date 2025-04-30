@@ -10,11 +10,19 @@ const Container = styled.div`
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `
 
 const Hero = styled.div`
   text-align: center;
   margin-bottom: 4rem;
+
+  @media (max-width: 768px) {
+    margin-bottom: 2rem;
+  }
 
   h1 {
     font-size: 3rem;
@@ -22,6 +30,10 @@ const Hero = styled.div`
     color: var(--pokka-white);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
       Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 2rem;
+    }
   }
 
   p {
@@ -29,6 +41,10 @@ const Hero = styled.div`
     color: var(--pokka-cyan);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
       Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 1rem;
+    }
   }
 `
 
@@ -47,6 +63,11 @@ const NewsSection = styled.section`
   border: 1px solid var(--pokka-cyan);
   border-radius: 16px;
 
+  @media (max-width: 768px) {
+    margin: 2rem 0;
+    padding: 1rem;
+  }
+
   h2 {
     color: var(--pokka-cyan);
     font-size: 2rem;
@@ -55,6 +76,11 @@ const NewsSection = styled.section`
     align-items: center;
     gap: 1rem;
     font-family: 'One Little Font', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
   }
 `
 
@@ -62,6 +88,11 @@ const NewsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 `
 
 const NewsCard = styled.article`
@@ -72,6 +103,10 @@ const NewsCard = styled.article`
   transition: transform 0.3s ease;
   font-family: 'One Little Font', sans-serif;
 
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+
   &:hover {
     transform: translateY(-5px);
   }
@@ -79,6 +114,11 @@ const NewsCard = styled.article`
   h3 {
     margin-bottom: 1rem;
     font-family: 'One Little Font', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
 
     a {
       color: var(--pokka-cyan);
@@ -95,12 +135,21 @@ const NewsCard = styled.article`
     color: var(--pokka-white);
     margin-bottom: 1rem;
     font-family: 'One Little Font', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
   }
 
   time {
     color: var(--pokka-orange);
     font-size: 0.9rem;
     font-family: 'One Little Font', sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 0.8rem;
+    }
   }
 `
 
