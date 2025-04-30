@@ -61,8 +61,14 @@ export const PokkaSnakeGame: React.FC = () => {
   // Handle messages from the iframe
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // For local development, check if origin is localhost
-      if (!event.origin.startsWith('http://localhost:')) return;
+      // Check if the origin is from our domain
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'https://dev-pokka.onrender.com',
+        window.location.origin
+      ];
+
+      if (!allowedOrigins.includes(event.origin)) return;
 
       // Handle score updates from the game
       if (event.data.type === 'score') {

@@ -19,7 +19,8 @@ const POWER_PELLET_DURATION = 8000;
 const POINT_VALUE = 10;
 const POWER_PELLET_VALUE = 50;
 const CHARACTER_SCALE = 1.0;
-const FRAME_TIME = 16.67; // ~60 FPS
+const TARGET_FPS = 60;
+const FRAME_TIME = 1000 / TARGET_FPS;
 
 // Maze layout (1 = wall, 0 = path, 2 = dot, 3 = power pellet)
 const MAZE_LAYOUT = [
@@ -168,11 +169,8 @@ const calculateDistance = (x1: number, y1: number, x2: number, y2: number): numb
 
 // Helper to check if a ghost's position is valid (not a wall)
 const isValidGhostPosition = (x: number, y: number, maze: number[][]) => {
+  // Use a simpler collision box for ghosts
   const points = [
-    { x: x + CELL_SIZE * 0.2, y: y + CELL_SIZE * 0.2 },
-    { x: x + CELL_SIZE * 0.8, y: y + CELL_SIZE * 0.2 },
-    { x: x + CELL_SIZE * 0.2, y: y + CELL_SIZE * 0.8 },
-    { x: x + CELL_SIZE * 0.8, y: y + CELL_SIZE * 0.8 },
     { x: x + CELL_SIZE * 0.5, y: y + CELL_SIZE * 0.5 }
   ];
   return points.every(point => {
@@ -214,6 +212,39 @@ const checkGhostCollision = (
   }
 
   return 'none';
+};
+
+// Add isValidPosition function before it's used
+const isValidPosition = (x: number, y: number): boolean => {
+  const gridX = Math.floor(x / CELL_SIZE);
+  const gridY = Math.floor(y / CELL_SIZE);
+  return gridX >= 0 && gridX < MAZE_LAYOUT[0].length &&
+         gridY >= 0 && gridY < MAZE_LAYOUT.length &&
+         MAZE_LAYOUT[gridY][gridX] !== 1;
+};
+
+// Move checkCollisions function declaration before it's used
+const checkCollisions = (
+  pacman: GameState['pacman'],
+  ghosts: GameState['ghosts'],
+  isPoweredUp: boolean,
+  onGameOver?: () => void
+) => {
+  ghosts.forEach((ghost, index) => {
+    const collisionResult = checkGhostCollision(pacman.x, pacman.y, ghost, isPoweredUp);
+    
+    if (collisionResult === 'death') {
+      soundManager.play('death');
+      if (onGameOver) {
+        onGameOver();
+      }
+    } else if (collisionResult === 'eatGhost') {
+      soundManager.play('eatGhost');
+      // Points for eating a ghost
+      return { ghostIndex: index, points: 200 };
+    }
+  });
+  return null;
 };
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -796,27 +827,49 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let animationFrameId: number;
     let lastTime = performance.now();
 
+    // Update the animate function to use the moved functions
     const animate = (currentTime: number) => {
-      if (!isPlaying || gameOver) {
-        return;
+      if (!lastTime) {
+        lastTime = currentTime;
       }
 
       const deltaTime = currentTime - lastTime;
+      const timeStep = Math.min(deltaTime / FRAME_TIME, 2.0); // Cap the time step
+
+      // Update game state based on deltaTime
+      if (isPlaying && !gameOver) {
+        // Update Pacman position with deltaTime
+        const pacmanStep = PACMAN_SPEED * timeStep;
+        updatePokka(pacmanStep);
+
+        // Update Ghost positions with deltaTime
+        const ghostStep = GHOST_SPEED * timeStep;
+        updateGhosts(ghostStep);
+
+        // Check collisions and update score
+        const collisionResult = checkCollisions(
+          gameState.pacman,
+          gameState.ghosts,
+          gameState.isPoweredUp,
+          onGameOver
+        );
+
+        if (collisionResult) {
+          const { ghostIndex, points } = collisionResult;
+          // Reset ghost position and update score
+          gameState.ghosts[ghostIndex] = {
+            ...gameState.ghosts[ghostIndex],
+            x: gridToPixel(10),
+            y: gridToPixel(10)
+          };
+          gameState.score += points;
+        }
+      }
+
+      // Draw the game state
+      draw();
+
       lastTime = currentTime;
-
-      // Update game state
-      updatePokka(deltaTime);
-      updateGhosts(deltaTime);
-
-      // Clear and redraw
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawMaze(ctx);
-      drawDots(ctx);
-      drawPowerPellets(ctx);
-      drawGhosts(ctx);
-      drawPokka(ctx);
-
-      // Request next frame
       animationFrameId = requestAnimationFrame(animate);
     };
 
@@ -830,7 +883,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPlaying, gameOver, drawMaze, drawDots, drawPowerPellets, drawGhosts, drawPokka, updatePokka, updateGhosts]);
+  }, [isPlaying, gameOver, drawMaze, drawDots, drawPowerPellets, drawGhosts, drawPokka, updatePokka, updateGhosts, checkCollisions]);
 
   // Ghost mode switching effect
   useEffect(() => {
@@ -864,6 +917,83 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (modeTimer) clearTimeout(modeTimer);
     };
   }, []);
+
+  // Add these helper functions
+  const updatePacmanPosition = (step: number) => {
+    const { direction, x, y } = gameState.pacman;
+    let newX = x;
+    let newY = y;
+
+    switch (direction) {
+      case 'up':
+        newY -= step;
+        break;
+      case 'down':
+        newY += step;
+        break;
+      case 'left':
+        newX -= step;
+        break;
+      case 'right':
+        newX += step;
+        break;
+    }
+
+    // Check if new position is valid
+    if (isValidPosition(newX, newY)) {
+      gameState.pacman.x = newX;
+      gameState.pacman.y = newY;
+    }
+  };
+
+  const updateGhostPositions = (step: number) => {
+    gameState.ghosts.forEach(ghost => {
+      if (!ghost.isReleased) return;
+
+      const dx = ghost.targetX - ghost.x;
+      const dy = ghost.targetY - ghost.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > 0) {
+        const moveX = (dx / distance) * step;
+        const moveY = (dy / distance) * step;
+
+        const newX = ghost.x + moveX;
+        const newY = ghost.y + moveY;
+
+        if (isValidGhostPosition(newX, newY, gameState.maze)) {
+          ghost.x = newX;
+          ghost.y = newY;
+        }
+      }
+    });
+  };
+
+  // Draw the game state
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw maze
+    drawMaze(ctx);
+
+    // Draw dots
+    drawDots(ctx);
+
+    // Draw power pellets
+    drawPowerPellets(ctx);
+
+    // Draw ghosts
+    drawGhosts(ctx);
+
+    // Draw Pokka
+    drawPokka(ctx);
+  }, [drawMaze, drawDots, drawPowerPellets, drawGhosts, drawPokka]);
 
   return <Canvas ref={canvasRef} />;
 }; 
