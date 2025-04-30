@@ -918,57 +918,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, []);
 
-  // Add these helper functions
-  const updatePacmanPosition = (step: number) => {
-    const { direction, x, y } = gameState.pacman;
-    let newX = x;
-    let newY = y;
-
-    switch (direction) {
-      case 'up':
-        newY -= step;
-        break;
-      case 'down':
-        newY += step;
-        break;
-      case 'left':
-        newX -= step;
-        break;
-      case 'right':
-        newX += step;
-        break;
-    }
-
-    // Check if new position is valid
-    if (isValidPosition(newX, newY)) {
-      gameState.pacman.x = newX;
-      gameState.pacman.y = newY;
-    }
-  };
-
-  const updateGhostPositions = (step: number) => {
-    gameState.ghosts.forEach(ghost => {
-      if (!ghost.isReleased) return;
-
-      const dx = ghost.targetX - ghost.x;
-      const dy = ghost.targetY - ghost.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance > 0) {
-        const moveX = (dx / distance) * step;
-        const moveY = (dy / distance) * step;
-
-        const newX = ghost.x + moveX;
-        const newY = ghost.y + moveY;
-
-        if (isValidGhostPosition(newX, newY, gameState.maze)) {
-          ghost.x = newX;
-          ghost.y = newY;
-        }
-      }
-    });
-  };
-
   // Draw the game state
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
