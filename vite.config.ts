@@ -10,16 +10,23 @@ export default defineConfig({
     }
   },
   base: '/',
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
+    copyPublicDir: true,
     rollupOptions: {
       input: path.resolve(__dirname, 'index.html'),
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name.endsWith('.png')) {
+            return 'assets/images/[name][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
       }
     }
   },
