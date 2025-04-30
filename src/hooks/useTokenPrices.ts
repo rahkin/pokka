@@ -12,7 +12,8 @@ interface TokenPrices {
 }
 
 const POKKA_CONTRACT = '0xb82f36fb31bf0be873879c031de4150d40afdda9';
-const BNB_ID = 'binancecoin';
+const WBNB_CONTRACT = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // Wrapped BNB contract
+const CHAIN_ID = 'bsc'; // BSC chain ID for DexScreener
 
 export const useTokenPrices = () => {
   const [prices, setPrices] = useState<TokenPrices>({
@@ -28,26 +29,33 @@ export const useTokenPrices = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch BNB price from CoinGecko
-        const bnbResponse = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${BNB_ID}&vs_currencies=usd&include_24hr_change=true`
-        );
-        const bnbData = await bnbResponse.json();
+        // Fetch both POKKA and BNB prices from DexScreener
+        const [pokkaResponse, bnbResponse] = await Promise.all([
+          fetch(`https://api.dexscreener.com/latest/dex/tokens/${POKKA_CONTRACT}`),
+          fetch(`https://api.dexscreener.com/latest/dex/tokens/${WBNB_CONTRACT}`)
+        ]);
 
-        // Fetch POKKA price from PancakeSwap
-        const pokkaResponse = await fetch(
-          `https://api.pancakeswap.info/api/v2/tokens/${POKKA_CONTRACT}`
-        );
-        const pokkaData = await pokkaResponse.json();
+        const [pokkaData, bnbData] = await Promise.all([
+          pokkaResponse.json(),
+          bnbResponse.json()
+        ]);
+
+        // Get the main pair data (usually the one with highest liquidity)
+        const pokkaPair = pokkaData.pairs?.[0];
+        const bnbPair = bnbData.pairs?.[0];
+        
+        if (!pokkaPair || !bnbPair) {
+          throw new Error('No price data available');
+        }
 
         setPrices({
-          bnb: {
-            price: bnbData[BNB_ID].usd,
-            priceChange24h: bnbData[BNB_ID].usd_24h_change || 0
-          },
           pokka: {
-            price: parseFloat(pokkaData.data.price),
-            priceChange24h: parseFloat(pokkaData.data.price_change_24h) || 0
+            price: parseFloat(pokkaPair.priceUsd),
+            priceChange24h: parseFloat(pokkaPair.priceChange24h) || 0
+          },
+          bnb: {
+            price: parseFloat(bnbPair.priceUsd),
+            priceChange24h: parseFloat(bnbPair.priceChange24h) || 0
           }
         });
       } catch (err) {
