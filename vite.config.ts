@@ -39,14 +39,17 @@ export default defineConfig({
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
             return 'assets/images/[name][extname]';
           }
+          if (/css/i.test(ext)) {
+            return 'assets/css/[name].[hash][extname]';
+          }
           return 'assets/[name].[hash][extname]';
         }
       }
     },
     terserOptions: {
       compress: {
-        drop_console: true,
-        drop_debugger: true
+        drop_console: false,
+        drop_debugger: false
       }
     }
   },
@@ -58,7 +61,14 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       }
+    },
+    fs: {
+      strict: false
     }
+  },
+  preview: {
+    port: 5173,
+    host: true
   },
   optimizeDeps: {
     include: [

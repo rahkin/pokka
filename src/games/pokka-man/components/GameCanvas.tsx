@@ -13,8 +13,8 @@ const Canvas = styled.canvas`
 
 // Game Constants
 const CELL_SIZE = 30;
-const PACMAN_SPEED = 4;
-const GHOST_SPEED = 3;
+const PACMAN_SPEED = 8;
+const GHOST_SPEED = 6;
 const POWER_PELLET_DURATION = 8000;
 const POINT_VALUE = 10;
 const POWER_PELLET_VALUE = 50;
