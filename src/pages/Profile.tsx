@@ -196,7 +196,8 @@ const EditButton = styled.button`
   background: transparent;
   color: var(--pokka-orange);
   border: none;
-  font-family: 'One Little Font', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   cursor: pointer;
   padding: 0.5rem;
   font-size: 0.9rem;
@@ -213,7 +214,8 @@ const Input = styled.input`
   border: 1px solid var(--pokka-cyan);
   border-radius: 6px;
   color: var(--pokka-white);
-  font-family: 'One Little Font', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   font-size: 1rem;
 
   &:focus {
@@ -234,7 +236,8 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
   border: 2px solid var(--pokka-cyan);
   border-radius: 6px;
   padding: 0.75rem 1.5rem;
-  font-family: 'One Little Font', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;

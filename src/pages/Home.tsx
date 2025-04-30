@@ -8,7 +8,8 @@ const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 `
 
 const Hero = styled.div`
@@ -19,13 +20,15 @@ const Hero = styled.div`
     font-size: 3rem;
     margin-bottom: 1rem;
     color: var(--pokka-white);
-    font-family: Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
 
   p {
     font-size: 1.2rem;
     color: var(--pokka-cyan);
-    font-family: Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
 `
 
@@ -33,7 +36,8 @@ const Note = styled.p`
   color: var(--pokka-orange) !important;
   font-style: italic;
   margin-top: 1rem;
-  font-family: Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 `
 
 const NewsSection = styled.section`
@@ -50,7 +54,7 @@ const NewsSection = styled.section`
     display: flex;
     align-items: center;
     gap: 1rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -66,7 +70,7 @@ const NewsCard = styled.article`
   border-radius: 12px;
   padding: 1.5rem;
   transition: transform 0.3s ease;
-  font-family: Roboto, sans-serif;
+  font-family: 'One Little Font', sans-serif;
 
   &:hover {
     transform: translateY(-5px);
@@ -74,7 +78,7 @@ const NewsCard = styled.article`
 
   h3 {
     margin-bottom: 1rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
 
     a {
       color: var(--pokka-cyan);
@@ -90,13 +94,13 @@ const NewsCard = styled.article`
   p {
     color: var(--pokka-white);
     margin-bottom: 1rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 
   time {
     color: var(--pokka-orange);
     font-size: 0.9rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -108,7 +112,7 @@ const FeaturedGames = styled.section`
     font-size: 2rem;
     margin-bottom: 2rem;
     text-align: center;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -123,7 +127,7 @@ const CryptoDashboard = styled.section`
     color: var(--pokka-cyan);
     font-size: 2rem;
     margin-bottom: 2rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -139,25 +143,25 @@ const DashboardCard = styled.div`
   border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
-  font-family: Roboto, sans-serif;
+  font-family: 'One Little Font', sans-serif;
 
   h3 {
     color: var(--pokka-cyan);
     margin-bottom: 1rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 
   .value {
     font-size: 1.5rem;
     color: var(--pokka-white);
     margin-bottom: 0.5rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 
   .trend {
     color: var(--pokka-orange);
     font-size: 0.9rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -173,14 +177,14 @@ const CTABanner = styled.section`
     color: var(--pokka-cyan);
     font-size: 2.5rem;
     margin-bottom: 1rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 
   p {
     color: var(--pokka-white);
     font-size: 1.2rem;
     margin-bottom: 2rem;
-    font-family: Roboto, sans-serif;
+    font-family: 'One Little Font', sans-serif;
   }
 `
 
@@ -190,7 +194,7 @@ const Footer = styled.footer`
   text-align: center;
   color: var(--pokka-white);
   opacity: 0.7;
-  font-family: Roboto, sans-serif;
+  font-family: 'One Little Font', sans-serif;
 `
 
 const RefreshButton = styled.button`
@@ -201,7 +205,7 @@ const RefreshButton = styled.button`
   padding: 0.5rem;
   border-radius: 50%;
   transition: transform 0.3s ease;
-  font-family: Roboto, sans-serif;
+  font-family: 'One Little Font', sans-serif;
 
   &:hover {
     transform: rotate(180deg);
@@ -302,7 +306,7 @@ const Home: React.FC = () => {
                 borderRadius: '8px',
                 padding: '0.75rem 2rem',
                 fontSize: '1.1rem',
-                fontFamily: "Roboto, sans-serif",
+                fontFamily: "'One Little Font', sans-serif",
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 transition: 'background 0.2s',

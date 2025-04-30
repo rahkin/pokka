@@ -701,7 +701,7 @@ export const PokkaFallingBlocksGame: React.FC = () => {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '20px "One Little Font"';
+        ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
         ctx.textAlign = 'center';
         
         if (gameState.gameOver) {
