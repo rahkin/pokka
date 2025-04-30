@@ -312,14 +312,31 @@ const Home: React.FC = () => {
   }
 
   const formatPrice = (price: number) => {
-    return price < 0.01 
-      ? price.toExponential(2) 
-      : price.toLocaleString('en-US', { 
-          style: 'currency', 
-          currency: 'USD',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 6
-        });
+    if (price < 0.000001) {
+      // For extremely small numbers, show up to 8 decimal places
+      return price.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 8,
+        maximumFractionDigits: 8
+      });
+    } else if (price < 0.01) {
+      // For small numbers, show up to 6 decimal places
+      return price.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 6,
+        maximumFractionDigits: 6
+      });
+    } else {
+      // For regular numbers, show up to 2 decimal places
+      return price.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
   }
 
   const formatChange = (change: number) => {
