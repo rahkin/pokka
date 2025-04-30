@@ -7,42 +7,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'three': 'three',
-      'postprocessing': 'postprocessing'
-    },
-  },
-  optimizeDeps: {
-    include: ['three', 'postprocessing', 'react', 'react-dom', 'react-router-dom', '@rainbow-me/rainbowkit', 'wagmi'],
-    esbuildOptions: {
-      target: 'es2020'
     }
   },
   base: '/',
-  publicDir: 'public',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    target: 'es2020',
-    sourcemap: true,
     rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: [
-            'react', 
-            'react-dom', 
-            'react-router-dom',
-            '@rainbow-me/rainbowkit',
-            'wagmi',
-            'viem',
-            'three',
-            'postprocessing'
-          ],
-        }
+      input: {
+        main: path.resolve(__dirname, 'index.html')
       }
-    },
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true
     }
   },
   server: {
