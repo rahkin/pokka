@@ -17,7 +17,7 @@ export default defineConfig({
       target: 'es2020'
     }
   },
-  base: process.env.NODE_ENV === 'production' ? '/pokka/' : '/',
+  base: '/',
   publicDir: 'public',
   build: {
     outDir: 'dist',
@@ -31,7 +31,11 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'web3-vendor': ['@rainbow-me/rainbowkit', 'wagmi', 'viem']
-        }
+        },
+        format: 'es',
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
       }
     },
     commonjsOptions: {
