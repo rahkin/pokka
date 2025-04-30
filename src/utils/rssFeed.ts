@@ -29,27 +29,47 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
 
   for (let i = 0; i < retries; i++) {
     try {
+      console.log(`Attempt ${i + 1} to fetch news with API key: ${CRYPTOCOMPARE_API_KEY ? 'present' : 'missing'}`);
+      
       const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Apikey ${CRYPTOCOMPARE_API_KEY}`,
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1'
+          'authorization': `Apikey ${CRYPTOCOMPARE_API_KEY}`,
+          'Accept': '*/*',
+          'Access-Control-Allow-Origin': '*',
         },
-        mode: 'cors',
-        cache: 'no-cache'
+        referrerPolicy: 'no-referrer'
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`API Response not OK:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        throw new Error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}, error: ${errorText}`);
       }
       
       return response;
     } catch (error) {
       lastError = error as Error;
-      console.warn(`Attempt ${i + 1} failed:`, error);
+      console.error(`Attempt ${i + 1} failed:`, {
+        error,
+        url,
+        retryCount: i + 1,
+        headers: {
+          'authorization': 'Apikey [hidden]',
+          'Accept': '*/*',
+          'Access-Control-Allow-Origin': '*',
+        }
+      });
+      
       if (i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        const delay = 1000 * (i + 1);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
@@ -125,9 +145,9 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
     // Construct the API URL with parameters
     const apiUrl = new URL(CRYPTOCOMPARE_API_URL);
     apiUrl.searchParams.append('lang', 'EN');
-    apiUrl.searchParams.append('api_key', CRYPTOCOMPARE_API_KEY);
-
-    console.log('Fetching news from:', apiUrl.toString());
+    // Don't append api_key as parameter, we're using it in the header
+    
+    console.log('Attempting to fetch news from:', apiUrl.toString());
 
     // Fetch news from CryptoCompare API
     const response = await fetchWithRetry(apiUrl.toString());
