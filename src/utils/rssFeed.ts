@@ -31,14 +31,21 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
     try {
       console.log(`Attempt ${i + 1} to fetch news with API key: ${CRYPTOCOMPARE_API_KEY ? 'present' : 'missing'}`);
       
+      // Detect if we're on a mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'authorization': `Apikey ${CRYPTOCOMPARE_API_KEY}`,
-          'Accept': '*/*',
-          'Access-Control-Allow-Origin': '*',
+          'Accept': 'application/json',
+          'User-Agent': isMobile 
+            ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1'
+            : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        referrerPolicy: 'no-referrer'
+        mode: 'cors',
+        cache: 'no-cache',
+        credentials: 'omit'
       });
       
       if (!response.ok) {
@@ -47,7 +54,8 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
           status: response.status,
           statusText: response.statusText,
           errorText,
-          headers: Object.fromEntries(response.headers.entries())
+          headers: Object.fromEntries(response.headers.entries()),
+          isMobile
         });
         throw new Error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}, error: ${errorText}`);
       }
@@ -59,15 +67,11 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
         error,
         url,
         retryCount: i + 1,
-        headers: {
-          'authorization': 'Apikey [hidden]',
-          'Accept': '*/*',
-          'Access-Control-Allow-Origin': '*',
-        }
+        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       });
       
       if (i < retries - 1) {
-        const delay = 1000 * (i + 1);
+        const delay = 2000 * (i + 1); // Increased delay for mobile
         console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
