@@ -84,3 +84,32 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  - type: web
+    name: pokka-games
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*.css
+        name: Content-Type
+        value: text/css
+      - path: /*.js
+        name: Content-Type
+        value: application/javascript
+      - path: /games/*
+        name: Content-Type
+        value: text/html
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0

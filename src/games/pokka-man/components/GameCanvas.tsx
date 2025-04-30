@@ -169,10 +169,15 @@ const calculateDistance = (x1: number, y1: number, x2: number, y2: number): numb
 
 // Helper to check if a ghost's position is valid (not a wall)
 const isValidGhostPosition = (x: number, y: number, maze: number[][]) => {
-  // Use a simpler collision box for ghosts
+  // Check multiple points around the ghost to prevent wall clipping
   const points = [
+    { x: x + CELL_SIZE * 0.3, y: y + CELL_SIZE * 0.3 },
+    { x: x + CELL_SIZE * 0.7, y: y + CELL_SIZE * 0.3 },
+    { x: x + CELL_SIZE * 0.3, y: y + CELL_SIZE * 0.7 },
+    { x: x + CELL_SIZE * 0.7, y: y + CELL_SIZE * 0.7 },
     { x: x + CELL_SIZE * 0.5, y: y + CELL_SIZE * 0.5 }
   ];
+
   return points.every(point => {
     const gridX = Math.floor(point.x / CELL_SIZE);
     const gridY = Math.floor(point.y / CELL_SIZE);
@@ -671,7 +676,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const updateGhosts = useCallback((deltaTime: number) => {
     setGameState((prevState) => {
       const newGhosts = prevState.ghosts.map(ghost => {
-        if (!ghost.isReleased) return ghost;
+        if (!ghost.isReleased) return {...ghost};  // Return a copy of the ghost instead of the original
 
         const speed = (GHOST_SPEED * deltaTime) / FRAME_TIME;
         const gridX = pixelToGrid(ghost.x);
@@ -688,109 +693,76 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           return ghost;
         }
 
-        // Get available directions excluding the opposite of current direction
-        // and excluding directions that would lead back to spawn
-        const availableDirections = getAvailableDirections(ghost.x, ghost.y, MAZE_LAYOUT)
-          .filter(dir => {
-            // Don't allow moving back to spawn area
-            let testX = gridX;
-            let testY = gridY;
-            switch (dir) {
-              case 'up': testY--; break;
-              case 'down': testY++; break;
-              case 'left': testX--; break;
-              case 'right': testX++; break;
-            }
-            const wouldEnterSpawn = testY >= 9 && testY <= 11 && testX >= 8 && testX <= 12;
-            return !wouldEnterSpawn && dir !== getOppositeDirection(ghost.direction);
-          });
-
-        // Update ghost target based on personality and mode
-        if (ghost.mode === 'scatter') {
-          const corner = GHOST_CORNERS[ghost.type as keyof typeof GHOST_CORNERS];
-          ghost.targetX = corner.x;
-          ghost.targetY = corner.y;
-        } else if (ghost.mode === 'chase') {
-          const personality = GHOST_PERSONALITIES[ghost.type as keyof typeof GHOST_PERSONALITIES];
-          const target = personality.getTarget(prevState.pacman);
-          ghost.targetX = target.x;
-          ghost.targetY = target.y;
-        } else if (ghost.mode === 'frightened') {
-          // Random movement when frightened, but avoid spawn area
-          let newTarget: { x: number; y: number };
-          do {
-            newTarget = {
-              x: Math.floor(Math.random() * MAZE_LAYOUT[0].length),
-              y: Math.floor(Math.random() * MAZE_LAYOUT.length)
-            };
-          } while (
-            newTarget.y >= 9 && newTarget.y <= 11 && 
-            newTarget.x >= 8 && newTarget.x <= 12
-          );
-          ghost.targetX = newTarget.x;
-          ghost.targetY = newTarget.y;
-        }
-
         // Only allow direction changes when centered in a cell
-        const isCentered = ghost.x % CELL_SIZE === 0 && ghost.y % CELL_SIZE === 0;
+        const isCentered = Math.abs(ghost.x % CELL_SIZE) < speed && Math.abs(ghost.y % CELL_SIZE) < speed;
         if (isCentered) {
+          // Align to grid when centered
+          ghost.x = Math.round(ghost.x / CELL_SIZE) * CELL_SIZE;
+          ghost.y = Math.round(ghost.y / CELL_SIZE) * CELL_SIZE;
+
+          const availableDirections = getAvailableDirections(ghost.x, ghost.y, MAZE_LAYOUT)
+            .filter(dir => dir !== getOppositeDirection(ghost.direction));
+
           if (availableDirections.length > 0) {
-            // Choose the direction that gets closest to the target
-            let bestDirection = availableDirections[0];
-            let shortestDistance = Infinity;
+            // Choose direction based on mode
+            if (ghost.mode === 'frightened') {
+              // Random movement when frightened
+              ghost.direction = availableDirections[Math.floor(Math.random() * availableDirections.length)];
+            } else {
+              // Choose direction that gets closest to target
+              let bestDirection = availableDirections[0];
+              let shortestDistance = Infinity;
 
-            availableDirections.forEach(direction => {
-              let nextX = gridX;
-              let nextY = gridY;
+              availableDirections.forEach(direction => {
+                let nextX = gridX;
+                let nextY = gridY;
 
-              switch (direction) {
-                case 'up': nextY--; break;
-                case 'down': nextY++; break;
-                case 'left': nextX--; break;
-                case 'right': nextX++; break;
-              }
+                switch (direction) {
+                  case 'up': nextY--; break;
+                  case 'down': nextY++; break;
+                  case 'left': nextX--; break;
+                  case 'right': nextX++; break;
+                }
 
-              const distance = calculateDistance(nextX, nextY, ghost.targetX, ghost.targetY);
-              const randomFactor = ghost.mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.5;
-              
-              if (distance + randomFactor < shortestDistance) {
-                shortestDistance = distance + randomFactor;
-                bestDirection = direction;
-              }
-            });
+                const distance = calculateDistance(nextX, nextY, ghost.targetX, ghost.targetY);
+                if (distance < shortestDistance) {
+                  shortestDistance = distance;
+                  bestDirection = direction;
+                }
+              });
 
-            ghost.direction = bestDirection;
-          } else if (ghost.direction === '') {
-            // If no direction is set and no preferred directions available,
-            // allow any valid direction including reverse
-            const allDirections = getAvailableDirections(ghost.x, ghost.y, MAZE_LAYOUT);
-            if (allDirections.length > 0) {
-              ghost.direction = allDirections[Math.floor(Math.random() * allDirections.length)];
+              ghost.direction = bestDirection;
             }
           }
         }
 
-        // Calculate and validate next position
+        // Move ghost in current direction
         let nextX = ghost.x;
         let nextY = ghost.y;
         
-        const currentSpeed = ghost.mode === 'frightened' ? speed * 0.5 : speed * 1.2;
-        
         switch (ghost.direction) {
-          case 'up': nextY = ghost.y - currentSpeed; break;
-          case 'down': nextY = ghost.y + currentSpeed; break;
-          case 'left': nextX = ghost.x - currentSpeed; break;
-          case 'right': nextX = ghost.x + currentSpeed; break;
+          case 'up': nextY -= speed; break;
+          case 'down': nextY += speed; break;
+          case 'left': nextX -= speed; break;
+          case 'right': nextX += speed; break;
         }
 
-        // Validate next position
+        // Check if next position is valid
         if (isValidGhostPosition(nextX, nextY, MAZE_LAYOUT)) {
           ghost.x = nextX;
           ghost.y = nextY;
         } else {
-          // If next position is invalid, align to grid and force direction recalculation
-          ghost.x = gridX * CELL_SIZE;
-          ghost.y = gridY * CELL_SIZE;
+          // If next position is invalid, try to slide along the wall
+          const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
+          const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
+          
+          if (isValidGhostPosition(slideX, ghost.y, MAZE_LAYOUT)) {
+            ghost.x = slideX;
+          } else if (isValidGhostPosition(ghost.x, slideY, MAZE_LAYOUT)) {
+            ghost.y = slideY;
+          }
+          
+          // Force direction recalculation on next update
           ghost.direction = '';
         }
 
