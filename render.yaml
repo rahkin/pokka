@@ -3,7 +3,7 @@ services:
     name: dev-pokka
     env: node
     buildCommand: npm install && npm run build
-    startCommand: npm run start
+    startCommand: npm run preview --host
     envVars:
       - key: NODE_ENV
         value: production

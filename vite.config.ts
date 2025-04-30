@@ -23,14 +23,20 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     target: 'es2020',
+    sourcemap: true,
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'index.html'),
-      },
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'web3-vendor': ['@rainbow-me/rainbowkit', 'wagmi', 'viem']
+          vendor: [
+            'react', 
+            'react-dom', 
+            'react-router-dom',
+            '@rainbow-me/rainbowkit',
+            'wagmi',
+            'viem',
+            'three',
+            'postprocessing'
+          ],
         }
       }
     },
