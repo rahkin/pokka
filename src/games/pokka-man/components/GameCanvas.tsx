@@ -214,15 +214,6 @@ const checkGhostCollision = (
   return 'none';
 };
 
-// Add isValidPosition function before it's used
-const isValidPosition = (x: number, y: number): boolean => {
-  const gridX = Math.floor(x / CELL_SIZE);
-  const gridY = Math.floor(y / CELL_SIZE);
-  return gridX >= 0 && gridX < MAZE_LAYOUT[0].length &&
-         gridY >= 0 && gridY < MAZE_LAYOUT.length &&
-         MAZE_LAYOUT[gridY][gridX] !== 1;
-};
-
 // Move checkCollisions function declaration before it's used
 const checkCollisions = (
   pacman: GameState['pacman'],
