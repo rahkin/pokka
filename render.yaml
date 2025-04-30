@@ -8,28 +8,6 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-    headers:
-      - path: /*
-        name: Content-Type
-        value: text/javascript
-      - path: /assets/*
-        name: Content-Type
-        value: text/javascript
-      - path: /*.js
-        name: Content-Type
-        value: text/javascript
-      - path: /*.mjs
-        name: Content-Type
-        value: text/javascript
-      - path: /*.jsx
-        name: Content-Type
-        value: text/javascript
-      - path: /*.ts
-        name: Content-Type
-        value: text/javascript
-      - path: /*.tsx
-        name: Content-Type
-        value: text/javascript
     envVars:
       - key: NODE_VERSION
         value: 20.11.5

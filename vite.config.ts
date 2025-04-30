@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import fs from 'fs'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'copy-headers',
+      writeBundle() {
+        // Copy _headers file to dist
+        fs.copyFileSync('public/_headers', 'dist/_headers')
+      }
+    }
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -33,8 +43,8 @@ export default defineConfig({
           'web3-vendor': ['@rainbow-me/rainbowkit', 'wagmi', 'viem']
         },
         format: 'es',
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
+        entryFileNames: '[name].[hash].mjs',
+        chunkFileNames: '[name].[hash].mjs',
         assetFileNames: 'assets/[name].[hash].[ext]'
       }
     },
