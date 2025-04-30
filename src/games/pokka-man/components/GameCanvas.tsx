@@ -13,8 +13,8 @@ const Canvas = styled.canvas`
 
 // Game Constants
 const CELL_SIZE = 30;
-const PACMAN_SPEED = 2;
-const GHOST_SPEED = 1.5;
+const PACMAN_SPEED = 4;
+const GHOST_SPEED = 3;
 const POWER_PELLET_DURATION = 8000;
 const POINT_VALUE = 10;
 const POWER_PELLET_VALUE = 50;
@@ -825,7 +825,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       const deltaTime = currentTime - lastTime;
-      const timeStep = Math.min(deltaTime / FRAME_TIME, 2.0); // Cap the time step
+      const timeStep = Math.min(deltaTime / FRAME_TIME, 1.0); // Cap the time step at 1.0
 
       // Update game state based on deltaTime
       if (isPlaying && !gameOver) {

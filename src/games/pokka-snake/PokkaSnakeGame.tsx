@@ -73,9 +73,13 @@ export const PokkaSnakeGame: React.FC = () => {
       // Handle score updates from the game
       if (event.data.type === 'score') {
         setScore(event.data.score);
+        // Save score to leaderboard immediately when it updates
+        if (address) {
+          saveScore('pokka-snake', address, event.data.score);
+        }
       }
       
-      // Handle game over and submit score
+      // Handle game over and submit final score
       if (event.data.type === 'gameOver' && address) {
         saveScore('pokka-snake', address, event.data.finalScore);
       }
