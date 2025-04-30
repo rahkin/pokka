@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import GameTiles from '../components/GameTiles'
 import { RefreshCw, TrendingUp, AlertCircle } from 'lucide-react'
 import { fetchRSSFeedFromNewsAPI } from '../utils/rssFeed'
+import { useTokenPrices } from '../hooks/useTokenPrices'
 
 const Container = styled.div`
   max-width: 1200px;
@@ -265,6 +266,7 @@ const Home: React.FC = () => {
   const [news, setNews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [visibleCount, setVisibleCount] = useState(6)
+  const { prices, loading: pricesLoading, error: pricesError } = useTokenPrices()
 
   const fetchNews = async () => {
     setLoading(true)
@@ -307,6 +309,21 @@ const Home: React.FC = () => {
 
   const handleShowMore = () => {
     setVisibleCount((prev) => prev + 6)
+  }
+
+  const formatPrice = (price: number) => {
+    return price < 0.01 
+      ? price.toExponential(2) 
+      : price.toLocaleString('en-US', { 
+          style: 'currency', 
+          currency: 'USD',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 6
+        });
+  }
+
+  const formatChange = (change: number) => {
+    return change > 0 ? `+${change.toFixed(2)}%` : `${change.toFixed(2)}%`;
   }
 
   return (
@@ -371,17 +388,23 @@ const Home: React.FC = () => {
         <h2>📈 Crypto Dashboard</h2>
         <DashboardGrid>
           <DashboardCard>
-            <h3>$AIAI</h3>
-            <div className="value">$0.000123</div>
+            <h3>BNB</h3>
+            <div className="value">
+              {pricesLoading ? 'Loading...' : formatPrice(prices.bnb.price)}
+            </div>
             <div className="trend">
-              <TrendingUp size={16} /> +2.5% (24h)
+              <TrendingUp size={16} />
+              {pricesLoading ? ' Loading...' : ` ${formatChange(prices.bnb.priceChange24h)} (24h)`}
             </div>
           </DashboardCard>
           <DashboardCard>
             <h3>$POKKA</h3>
-            <div className="value">$0.000456</div>
+            <div className="value">
+              {pricesLoading ? 'Loading...' : formatPrice(prices.pokka.price)}
+            </div>
             <div className="trend">
-              <TrendingUp size={16} /> +1.8% (24h)
+              <TrendingUp size={16} />
+              {pricesLoading ? ' Loading...' : ` ${formatChange(prices.pokka.priceChange24h)} (24h)`}
             </div>
           </DashboardCard>
           <DashboardCard>
@@ -392,6 +415,11 @@ const Home: React.FC = () => {
             </div>
           </DashboardCard>
         </DashboardGrid>
+        {pricesError && (
+          <div style={{ color: 'var(--pokka-orange)', textAlign: 'center', marginTop: '1rem' }}>
+            {pricesError}
+          </div>
+        )}
       </CryptoDashboard>
 
       <CTABanner>
