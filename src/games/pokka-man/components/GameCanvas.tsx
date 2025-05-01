@@ -964,7 +964,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       if (gameOverRef.current) { cancelAnimationFrame(animationFrameId); return; }
       const deltaTime = currentTime - lastTime;
       lastTime = currentTime;
-      console.log('deltaTime:', deltaTime); // Log delta time
 
       // Update game state
       updatePokka(deltaTime);
