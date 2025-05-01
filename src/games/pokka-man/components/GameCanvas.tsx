@@ -623,6 +623,25 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
       const { pacman, maze } = prevState;
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
 
+      // --- Initial Movement --- 
+      if (!pacman.currentMovingDirection && nextDirection) {
+          // Check if the initial direction is valid from the current spot
+          let startCheckX = pacman.x;
+          let startCheckY = pacman.y;
+          const startCheckDistance = speed > 0 ? speed : 1;
+          switch (nextDirection) {
+              case 'right': startCheckX += startCheckDistance; break;
+              case 'left': startCheckX -= startCheckDistance; break;
+              case 'down': startCheckY += startCheckDistance; break;
+              case 'up': startCheckY -= startCheckDistance; break;
+          }
+          if (isValidPosition(startCheckX, startCheckY, maze)) {
+              pacman.currentMovingDirection = nextDirection; // Set initial direction
+              onTurnTaken(); // Clear the buffer immediately for initial move
+          }
+      }
+      // --- End Initial Movement ---
+
       // --- Turn Handling --- 
       const centerX = pacman.x + CELL_SIZE / 2;
       const centerY = pacman.y + CELL_SIZE / 2;
@@ -653,7 +672,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
           pacman.y = gridToPixel(currentGridY);
           pacman.currentMovingDirection = nextDirection; // Update internal direction
           potentialNewDirection = nextDirection;         // Use new direction for this update cycle
-          onTurnTaken(); // Clear the buffered direction in parent
         }
       }
       // --- End Turn Handling ---
@@ -709,7 +727,15 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
       const updatedPacman = { ...pacman }; // Create a copy to modify
       return { ...prevState, pacman: updatedPacman, score: prevState.score + (scoreChange || 0) }; 
     });
-  }, [nextDirection, onTurnTaken, handleCollisions]);
+  }, [nextDirection, handleCollisions]);
+
+  // Effect to handle clearing the turn buffer asynchronously
+  useEffect(() => {
+    if (nextDirection && gameState.pacman.currentMovingDirection === nextDirection) {
+      // Turn was successfully processed in the last update, now clear the parent's buffer
+      onTurnTaken();
+    }
+  }, [gameState.pacman.currentMovingDirection, nextDirection, onTurnTaken]);
 
   // Update ghosts with improved movement using GhostBehavior
   const updateGhosts = useCallback((deltaTime: number) => {
