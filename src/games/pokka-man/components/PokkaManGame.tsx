@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { GameCanvas } from './GameCanvas';
-import { StartScreen } from './StartScreen';
 
 const GameContainer = styled.div`
   position: relative;
@@ -9,6 +8,12 @@ const GameContainer = styled.div`
   height: 660px;
   margin: 0 auto;
   background: #000;
+`;
+
+const GameSection = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
 `;
 
 const ScoreDisplay = styled.div`
@@ -22,17 +27,67 @@ const ScoreDisplay = styled.div`
   z-index: 1;
 `;
 
+const GameOverOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+`;
+
+const GameOverText = styled.h2`
+  color: #ff0;
+  font-size: 48px;
+  margin-bottom: 20px;
+`;
+
+const FinalScore = styled.div`
+  color: white;
+  font-size: 24px;
+  margin-bottom: 20px;
+`;
+
+const RestartButton = styled.button`
+  padding: 10px 20px;
+  font-size: 24px;
+  background: #ff0;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+
+  &:hover {
+    background: #ff6;
+  }
+`;
+
+const StartButton = styled(RestartButton)`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+`;
+
 export const PokkaManGame: React.FC = () => {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentDirection, setCurrentDirection] = useState('up');
   const [nextDirection, setNextDirection] = useState('');
+  const [gameKey, setGameKey] = useState(0);
 
-  const handleStart = useCallback(() => {
-    setIsPlaying(true);
-    setGameOver(false);
-    setScore(0);
+  const handleScoreUpdate = useCallback((newScore: number) => {
+    setScore(newScore);
+  }, []);
+
+  const handleTurnTaken = useCallback(() => {
+    setNextDirection('');
   }, []);
 
   const handleGameOver = useCallback(() => {
@@ -40,30 +95,40 @@ export const PokkaManGame: React.FC = () => {
     setIsPlaying(false);
   }, []);
 
-  const handleScoreUpdate = useCallback((newScore: number) => {
-    setScore(newScore);
-  }, []);
-
-  const handleTurnTaken = useCallback(() => {
-    setCurrentDirection(nextDirection);
+  const startGame = useCallback(() => {
+    setGameOver(false);
+    setIsPlaying(true);
+    setScore(0);
+    setCurrentDirection('up');
     setNextDirection('');
-  }, [nextDirection]);
+    setGameKey(prev => prev + 1);
+  }, []);
 
   return (
     <GameContainer>
-      <ScoreDisplay>Score: {score}</ScoreDisplay>
-      <GameCanvas
-        onScoreUpdate={handleScoreUpdate}
-        onGameOver={handleGameOver}
-        currentDirection={currentDirection}
-        nextDirection={nextDirection}
-        onTurnTaken={handleTurnTaken}
-        isPlaying={isPlaying}
-        gameOver={gameOver}
-      />
-      {(!isPlaying || gameOver) && (
-        <StartScreen onStart={handleStart} />
-      )}
+      <GameSection>
+        <ScoreDisplay>Score: {score}</ScoreDisplay>
+        <GameCanvas 
+          key={gameKey}
+          onScoreUpdate={handleScoreUpdate}
+          onGameOver={handleGameOver}
+          currentDirection={currentDirection}
+          nextDirection={nextDirection}
+          onTurnTaken={handleTurnTaken}
+          isPlaying={isPlaying}
+          gameOver={gameOver}
+        />
+        {!isPlaying && !gameOver && (
+          <StartButton onClick={startGame}>Start Game</StartButton>
+        )}
+        {gameOver && (
+          <GameOverOverlay>
+            <GameOverText>Game Over</GameOverText>
+            <FinalScore>Final Score: {score}</FinalScore>
+            <RestartButton onClick={startGame}>Play Again</RestartButton>
+          </GameOverOverlay>
+        )}
+      </GameSection>
     </GameContainer>
   );
 }; 
