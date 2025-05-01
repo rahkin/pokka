@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
+import { GhostBehavior } from '../utils/ghostBehavior';
+import { isValidPosition } from '../utils/collision';
 import { interpret } from 'xstate';
 import {
   CELL_SIZE,
@@ -23,7 +25,9 @@ import {
   GRID_ALIGNMENT_THRESHOLD,
   GHOST_PERSONALITIES,
   GHOST_SPAWN_POSITIONS,
-  GHOST_EXIT_POSITION
+  GHOST_EXIT_POSITION,
+  GHOST_HOUSE_POSITION,
+  GHOST_SCATTER_TARGETS
 } from '../utils/gameConstants';
 
 const Canvas = styled.canvas`
@@ -52,6 +56,7 @@ interface Ghost {
   targetY: number;
   isReleased: boolean;
   stateMachine: any;
+  behavior: GhostBehavior;
   path: Array<{ x: number; y: number }>;
   lastPathUpdate: number;
   baseSpeed: number;
@@ -90,68 +95,6 @@ interface GameCanvasProps {
 // Convert between grid and pixel coordinates
 const gridToPixel = (grid: number) => grid * CELL_SIZE;
 const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
-
-// Helper function to check if a position is valid (no wall collision)
-const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
-  // First check if the position is in bounds
-  const leftX = x + CHARACTER_SIZE * 0.2;  // Reduce effective size by 20% on each side
-  const rightX = x + CHARACTER_SIZE * 0.8;
-  const topY = y + CHARACTER_SIZE * 0.2;
-  const bottomY = y + CHARACTER_SIZE * 0.8;
-  
-  const leftGridX = Math.floor(leftX / CELL_SIZE);
-  const rightGridX = Math.floor(rightX / CELL_SIZE);
-  const topGridY = Math.floor(topY / CELL_SIZE);
-  const bottomGridY = Math.floor(bottomY / CELL_SIZE);
-  
-  // Check bounds
-  if (leftGridX < 0 || rightGridX >= maze[0].length || 
-      topGridY < 0 || bottomGridY >= maze.length) {
-    return false;
-  }
-
-  // Check the four corners and center with reduced hitbox
-  const points = [
-    { x: leftX + CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },     // Top-left
-    { x: rightX - CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },    // Top-right
-    { x: leftX + CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 },  // Bottom-left
-    { x: rightX - CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 }, // Bottom-right
-    { x: x + CHARACTER_SIZE * 0.5, y: y + CHARACTER_SIZE * 0.5 }            // Center
-  ];
-
-  // Check each point
-  return points.every(point => {
-    const gridX = Math.floor(point.x / CELL_SIZE);
-    const gridY = Math.floor(point.y / CELL_SIZE);
-    
-    // Check if this point is in a wall
-    if (maze[gridY][gridX] === 1) {
-      return false;
-    }
-
-    // Check wall margins with increased margin for non-center points
-    if (point !== points[4]) {  // If not center point
-      const xInCell = point.x % CELL_SIZE;
-      const yInCell = point.y % CELL_SIZE;
-      const increasedMargin = WALL_MARGIN * 1.5;  // Increase wall margin by 50%
-      
-      // Check adjacent cells based on position within cell
-      if (xInCell < increasedMargin) {
-        if (gridX > 0 && maze[gridY][gridX - 1] === 1) return false;
-      } else if (xInCell > CELL_SIZE - increasedMargin) {
-        if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) return false;
-      }
-      
-      if (yInCell < increasedMargin) {
-        if (gridY > 0 && maze[gridY - 1][gridX] === 1) return false;
-      } else if (yInCell > CELL_SIZE - increasedMargin) {
-        if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) return false;
-      }
-    }
-    
-    return true;
-  });
-};
 
 // Helper function to get available directions at a position
 const getAvailableDirections = (x: number, y: number, maze: number[][], testDistance?: number): string[] => {
@@ -360,24 +303,23 @@ const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): nu
   const gridX = Math.floor(x / CELL_SIZE);
   const gridY = Math.floor(y / CELL_SIZE);
   let bonus = 0;
-  const penaltyFactor = 3; // Increased penalty for walls
+  const penaltyFactor = 3; // Increased penalty for adjacent walls
 
   // Check adjacent cells for walls and add stronger penalty
   if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += penaltyFactor;
   if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += penaltyFactor;
   if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += penaltyFactor;
   if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += penaltyFactor;
-  
+
   // Add smaller penalty for diagonal walls (corners)
-  const diagonalPenalty = penaltyFactor / 2;
+  const diagonalPenalty = penaltyFactor / 2; // Penalty for being near a corner
   if (gridX > 0 && gridY > 0 && maze[gridY - 1][gridX - 1] === 1) bonus += diagonalPenalty;
   if (gridX < maze[0].length - 1 && gridY > 0 && maze[gridY - 1][gridX + 1] === 1) bonus += diagonalPenalty;
   if (gridX > 0 && gridY < maze.length - 1 && maze[gridY + 1][gridX - 1] === 1) bonus += diagonalPenalty;
   if (gridX < maze[0].length - 1 && gridY < maze.length - 1 && maze[gridY + 1][gridX + 1] === 1) bonus += diagonalPenalty;
 
-  // Bonus is actually a penalty, so it should encourage moving away from walls
-  // In the scoring function: score = -distance + random + direction + ghostAvoidance + wallAvoidance
-  // A higher wallAvoidanceBonus here will make directions leading to walls less desirable.
+  // This bonus is added to the score. Since distance is negative,
+  // a higher positive bonus here makes directions towards walls LESS likely.
   return bonus;
 };
 
@@ -432,16 +374,19 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
         const personality = GHOST_PERSONALITIES[type];
+        const scatterTarget = GHOST_SCATTER_TARGETS[index];
+        const behavior = new GhostBehavior(type, scatterTarget, MAZE_LAYOUT, GHOST_HOUSE_POSITION);
         return {
           x: gridToPixel(pos.x),
           y: gridToPixel(pos.y),
           direction: 'up',
           type,
           mode: 'scatter' as GhostMode,
-          targetX: 0,
-          targetY: 0,
+          targetX: scatterTarget.x * CELL_SIZE,
+          targetY: scatterTarget.y * CELL_SIZE,
           isReleased: index === 0,
-          stateMachine: interpret(createGhostStateMachine(scatterTargets[index])).start(),
+          stateMachine: interpret(createGhostStateMachine(scatterTarget)).start(),
+          behavior,
           path: [],
           lastPathUpdate: 0,
           baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
@@ -854,15 +799,23 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       }
       
       // Handle collisions with dots, power pellets, and ghosts
-      handleCollisions(pacman.x, pacman.y);
+      const scoreChange = handleCollisions(pacman.x, pacman.y);
 
-      return { ...prevState, pacman };
+      return { ...prevState, pacman, score: prevState.score + scoreChange };
     });
   }, [currentDirection, handleCollisions]);
 
-  // Update ghosts with improved movement
+  // Update ghosts with improved movement using GhostBehavior
   const updateGhosts = useCallback((deltaTime: number) => {
     setGameState(prevState => {
+      const pacmanState = {
+        position: { x: prevState.pacman.x, y: prevState.pacman.y },
+        direction: prevState.pacman.direction
+      };
+
+      const redGhost = prevState.ghosts.find(g => g.type === 'pink');
+      const redGhostPos = redGhost ? { x: redGhost.x, y: redGhost.y } : undefined;
+
       const newGhosts = prevState.ghosts.map(ghost => {
         if (!ghost.isReleased) return ghost;
 
@@ -873,37 +826,29 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           baseSpeed * GHOST_FRIGHTENED_SPEED_MULTIPLIER : 
           baseSpeed * (mode === 'chase' ? 1.1 : 0.9);
 
-        // Get current grid position
         const centerX = ghost.x + CELL_SIZE / 2;
         const centerY = ghost.y + CELL_SIZE / 2;
         const currentGridX = Math.floor(centerX / CELL_SIZE);
         const currentGridY = Math.floor(centerY / CELL_SIZE);
 
-        // Calculate offset from grid center
         const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
         const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
         
-        // Check if we're close enough to grid center to make a decision
         const atGridCenter = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
                             Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
 
-        // If at grid center or no valid direction, choose new direction
         if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x, ghost.y, prevState.maze)) {
-          // Snap to grid when at center
           if (atGridCenter) {
             ghost.x = currentGridX * CELL_SIZE;
             ghost.y = currentGridY * CELL_SIZE;
           }
 
-          // Get available directions
           let availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze);
           
-          // If no directions available (trapped), increase test distance
           if (availableDirections.length === 0) {
             availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze, CELL_SIZE * 0.8);
           }
 
-          // Filter out opposite direction unless it's the only option
           availableDirections = availableDirections.filter(dir => {
             if (dir === getOppositeDirection(ghost.direction)) {
               return availableDirections.length === 1;
@@ -912,10 +857,16 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           });
 
           if (availableDirections.length > 0) {
-            // Calculate target based on mode and ghost type
-            const target = calculateGhostTarget(ghost, prevState, mode);
+            const ghostState = {
+              position: { x: ghost.x, y: ghost.y },
+              mode: mode,
+              isReleased: ghost.isReleased,
+              currentSpeed: speed, 
+              lastUpdateTime: Date.now()
+            };
             
-            // Score each direction
+            const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, redGhostPos);
+            
             const directionScores = availableDirections.map(dir => {
               let nextX = ghost.x;
               let nextY = ghost.y;
@@ -930,16 +881,15 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
               const nextGridX = Math.floor(nextX / CELL_SIZE);
               const nextGridY = Math.floor(nextY / CELL_SIZE);
               
-              // Calculate distance to target
-              const distanceToTarget = Math.abs(nextGridX - target.x) + Math.abs(nextGridY - target.y);
+              const targetGridX = Math.floor(target.x / CELL_SIZE);
+              const targetGridY = Math.floor(target.y / CELL_SIZE);
               
-              // Add randomness factor based on mode
+              const distanceToTarget = Math.abs(nextGridX - targetGridX) + Math.abs(nextGridY - targetGridY);
+              
               const randomFactor = mode === 'frightened' ? Math.random() * 4 : Math.random() * 0.5;
               
-              // Prefer current direction slightly to reduce jittery movement
               const directionBonus = dir === ghost.direction ? 0.8 : 0;
               
-              // Enhanced ghost avoidance with personality-based radius
               const personality = GHOST_PERSONALITIES[ghost.type];
               const ghostAvoidanceBonus = prevState.ghosts.reduce((bonus, otherGhost) => {
                 if (otherGhost === ghost) return bonus;
@@ -947,16 +897,13 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
                 const otherGridY = Math.floor(otherGhost.y / CELL_SIZE);
                 const distanceToGhost = Math.abs(nextGridX - otherGridX) + Math.abs(nextGridY - otherGridY);
                 
-                // Use personality-based avoidance radius
                 if (distanceToGhost < personality.avoidanceRadius) {
-                  // Stronger avoidance when closer
                   const avoidanceStrength = Math.pow(1 - (distanceToGhost / personality.avoidanceRadius), 2);
                   return bonus + (avoidanceStrength * 2);
                 }
                 return bonus;
               }, 0);
               
-              // Add wall avoidance bonus
               const wallAvoidanceBonus = calculateWallAvoidanceBonus(nextX, nextY, prevState.maze);
               
               return {
@@ -965,7 +912,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
               };
             });
 
-            // Choose best direction
             const bestDirection = directionScores.reduce((best, current) => 
               current.score > best.score ? current : best
             );
@@ -974,7 +920,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           }
         }
 
-        // Move in current direction with improved position checking
         let nextX = ghost.x;
         let nextY = ghost.y;
         
@@ -985,9 +930,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           case 'right': nextX += speed; break;
         }
 
-        // Validate next position with multiple collision points
         if (isValidPosition(nextX, nextY, prevState.maze)) {
-          // Apply movement with grid alignment when close to center
           if (Math.abs(offsetX) < speed && (ghost.direction === 'up' || ghost.direction === 'down')) {
             nextX = currentGridX * CELL_SIZE;
           }
@@ -995,17 +938,16 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             nextY = currentGridY * CELL_SIZE;
           }
           
-          return { ...ghost, x: nextX, y: nextY, mode };
-        }
-
-        // If next position is invalid, try to slide along walls
-        const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
-        const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
-        
-        if (isValidPosition(ghost.x, slideY, prevState.maze)) {
-          return { ...ghost, y: slideY, mode };
-        } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
-          return { ...ghost, x: slideX, mode };
+          return { ...ghost, x: nextX, y: nextY, mode, targetX: ghost.targetX, targetY: ghost.targetY };
+        } else {
+          const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
+          const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
+          
+          if (isValidPosition(ghost.x, slideY, prevState.maze)) {
+            return { ...ghost, y: slideY, mode, targetX: ghost.targetX, targetY: ghost.targetY };
+          } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
+            return { ...ghost, x: slideX, mode, targetX: ghost.targetX, targetY: ghost.targetY };
+          }
         }
 
         return ghost;
@@ -1015,45 +957,19 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
     });
   }, []);
 
-  // Helper function to calculate wall avoidance bonus
-  const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
-    const gridX = Math.floor(x / CELL_SIZE);
-    const gridY = Math.floor(y / CELL_SIZE);
-    let bonus = 0;
-    
-    // Check adjacent cells for walls
-    if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += 1;
-    if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += 1;
-    if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += 1;
-    if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += 1;
-    
-    return bonus;
-  };
-
   // Update ghost targets when Pacman moves
   useEffect(() => {
     if (!isPlaying) return;
 
     setGameState(prevState => {
+      const pacmanGridPos = { x: pixelToGrid(prevState.pacman.x), y: pixelToGrid(prevState.pacman.y) };
       const newGhosts = prevState.ghosts.map(ghost => {
-        if (!ghost.isReleased) return ghost;
-
-        // Update chase target to Pacman's position
-        ghost.stateMachine.send({
-          type: 'UPDATE_CHASE_TARGET',
-          target: {
-            x: pixelToGrid(prevState.pacman.x),
-            y: pixelToGrid(prevState.pacman.y)
-          }
-        });
-
+        if (ghost.isReleased) {
+          ghost.stateMachine.send({ type: 'UPDATE_CHASE_TARGET', target: pacmanGridPos });
+        }
         return ghost;
       });
-
-      return {
-        ...prevState,
-        ghosts: newGhosts
-      };
+      return { ...prevState, ghosts: newGhosts };
     });
   }, [isPlaying, gameState.pacman.x, gameState.pacman.y]);
 
@@ -1084,14 +1000,14 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
   // Update the animation loop
   useEffect(() => {
-    if (!isPlaying) return;
-
+    if (!isPlaying || gameOverRef.current) return;
     let lastTime = performance.now();
     let animationFrameId: number;
 
     const animate = (currentTime: number) => {
+      if (gameOverRef.current) { cancelAnimationFrame(animationFrameId); return; }
       const deltaTime = currentTime - lastTime;
-        lastTime = currentTime;
+      lastTime = currentTime;
 
       // Update game state
       updatePokka(deltaTime);
@@ -1102,10 +1018,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
       // Add collision checking
       const collisionResult = checkCollisions(gameState.pacman, gameState.ghosts, gameState.isPoweredUp, onGameOver);
-        if (collisionResult) {
-          const { ghostIndex, points } = collisionResult;
+      if (collisionResult) {
+        const { ghostIndex, points } = collisionResult;
         gameState.ghosts[ghostIndex].mode = 'eaten';
-          gameState.score += points;
+        gameState.score += points;
         if (onScoreUpdate) {
           onScoreUpdate(gameState.score);
         }
@@ -1114,7 +1030,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       animationFrameId = requestAnimationFrame(animate);
     };
 
-      animationFrameId = requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
 
     return () => {
       if (animationFrameId) {
@@ -1125,26 +1041,24 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
   // Ghost mode switching effect
   useEffect(() => {
+    if (!isPlaying) return;
     let modeTimer: NodeJS.Timeout;
 
     const switchMode = () => {
+      if (!isPlaying || gameOverRef.current) return;
       setGameState(prev => {
-        const newGhosts = prev.ghosts.map(ghost => ({
-          ...ghost,
-          mode: prev.isPoweredUp ? ('frightened' as GhostMode) :
-                prev.isScatterMode ? ('scatter' as GhostMode) : ('chase' as GhostMode)
-        }));
-        return {
-          ...prev,
-          isScatterMode: !prev.isScatterMode,
-          ghosts: newGhosts
-        };
+        if (prev.isPoweredUp) {
+          const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: 'frightened' as GhostMode }));
+          return { ...prev, ghosts: updatedGhosts, isScatterMode: false };
+        }
+        const nextScatterMode = !prev.isScatterMode;
+        const nextMode = nextScatterMode ? 'scatter' : 'chase';
+        const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: nextMode as GhostMode }));
+        return { ...prev, isScatterMode: nextScatterMode, ghosts: updatedGhosts };
       });
-
-      modeTimer = setTimeout(
-        switchMode,
-        gameState.isScatterMode ? GHOST_SCATTER_DURATION : GHOST_CHASE_DURATION
-      );
+      if (isPlaying && !gameOverRef.current) {
+        modeTimer = setTimeout(switchMode, gameState.isScatterMode ? GHOST_SCATTER_DURATION : GHOST_CHASE_DURATION);
+      }
     };
 
     switchMode();
@@ -1152,7 +1066,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
     return () => {
       if (modeTimer) clearTimeout(modeTimer);
     };
-  }, []);
+  }, [isPlaying, gameState.isPoweredUp, gameState.isScatterMode]);
 
   // Helper function to get opposite direction
   const getOppositeDirection = (direction: string): string => {
