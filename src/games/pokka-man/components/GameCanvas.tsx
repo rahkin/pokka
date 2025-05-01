@@ -112,60 +112,75 @@ const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 
 // Helper function to check if a position is valid (no wall collision)
 const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
-  // First check if the center point is in bounds
-  const centerGridX = Math.floor((x + CELL_SIZE / 2) / CELL_SIZE);
-  const centerGridY = Math.floor((y + CELL_SIZE / 2) / CELL_SIZE);
+  // First check if the position is in bounds
+  const leftX = x;
+  const rightX = x + CHARACTER_SIZE;
+  const topY = y;
+  const bottomY = y + CHARACTER_SIZE;
   
-  if (centerGridX < 0 || centerGridX >= maze[0].length || 
-      centerGridY < 0 || centerGridY >= maze.length) {
+  const leftGridX = Math.floor(leftX / CELL_SIZE);
+  const rightGridX = Math.floor(rightX / CELL_SIZE);
+  const topGridY = Math.floor(topY / CELL_SIZE);
+  const bottomGridY = Math.floor(bottomY / CELL_SIZE);
+  
+  // Check bounds
+  if (leftGridX < 0 || rightGridX >= maze[0].length || 
+      topGridY < 0 || bottomGridY >= maze.length) {
     return false;
   }
 
-  // Check all collision points
-  return COLLISION_POINTS.every(point => {
-    // Calculate absolute position of this collision point
-    const absoluteX = x + point.x * CHARACTER_SIZE;
-    const absoluteY = y + point.y * CHARACTER_SIZE;
+  // Check the four corners and center
+  const points = [
+    { x: leftX + CHARACTER_SIZE * 0.2, y: topY + CHARACTER_SIZE * 0.2 },    // Top-left
+    { x: rightX - CHARACTER_SIZE * 0.2, y: topY + CHARACTER_SIZE * 0.2 },   // Top-right
+    { x: leftX + CHARACTER_SIZE * 0.2, y: bottomY - CHARACTER_SIZE * 0.2 }, // Bottom-left
+    { x: rightX - CHARACTER_SIZE * 0.2, y: bottomY - CHARACTER_SIZE * 0.2 }, // Bottom-right
+    { x: x + CHARACTER_SIZE * 0.5, y: y + CHARACTER_SIZE * 0.5 }            // Center
+  ];
+
+  // Check each point
+  return points.every(point => {
+    const gridX = Math.floor(point.x / CELL_SIZE);
+    const gridY = Math.floor(point.y / CELL_SIZE);
     
-    // Convert to grid coordinates
-    const gridX = Math.floor(absoluteX / CELL_SIZE);
-    const gridY = Math.floor(absoluteY / CELL_SIZE);
-    
-    // Check bounds
-    if (gridX < 0 || gridX >= maze[0].length || 
-        gridY < 0 || gridY >= maze.length) {
-      return false;
-    }
-    
-    // Check for wall collision with margin
+    // Check if this point is in a wall
     if (maze[gridY][gridX] === 1) {
       return false;
     }
+
+    // Check wall margins only for non-center points
+    if (point !== points[4]) {  // If not center point
+      const xInCell = point.x % CELL_SIZE;
+      const yInCell = point.y % CELL_SIZE;
+      
+      // Check adjacent cells based on position within cell
+      if (xInCell < WALL_MARGIN) {
+        if (gridX > 0 && maze[gridY][gridX - 1] === 1) return false;
+      } else if (xInCell > CELL_SIZE - WALL_MARGIN) {
+        if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) return false;
+      }
+      
+      if (yInCell < WALL_MARGIN) {
+        if (gridY > 0 && maze[gridY - 1][gridX] === 1) return false;
+      } else if (yInCell > CELL_SIZE - WALL_MARGIN) {
+        if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) return false;
+      }
+    }
     
-    // Check adjacent cells with improved margin checks
-    const checkAdjacent = (x: number, y: number, margin: number) => {
-      if (x < margin && gridX > 0 && maze[y][gridX - 1] === 1) return false;
-      if (x > CELL_SIZE - margin && gridX < maze[0].length - 1 && maze[y][gridX + 1] === 1) return false;
-      if (y < margin && gridY > 0 && maze[gridY - 1][x] === 1) return false;
-      if (y > CELL_SIZE - margin && gridY < maze.length - 1 && maze[gridY + 1][x] === 1) return false;
-      return true;
-    };
-    
-    return checkAdjacent(gridX, gridY, WALL_MARGIN);
+    return true;
   });
 };
 
 // Helper function to get available directions at a position
 const getAvailableDirections = (x: number, y: number, maze: number[][]): string[] => {
   const directions: string[] = [];
-  const gridX = Math.floor(x / CELL_SIZE);
-  const gridY = Math.floor(y / CELL_SIZE);
+  const testDistance = CELL_SIZE / 2;  // Test half a cell in each direction
   
-  // Check each direction
-  if (gridY > 0 && maze[gridY - 1][gridX] !== 1) directions.push('up');
-  if (gridY < maze.length - 1 && maze[gridY + 1][gridX] !== 1) directions.push('down');
-  if (gridX > 0 && maze[gridY][gridX - 1] !== 1) directions.push('left');
-  if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] !== 1) directions.push('right');
+  // Test each direction
+  if (isValidPosition(x, y - testDistance, maze)) directions.push('up');
+  if (isValidPosition(x, y + testDistance, maze)) directions.push('down');
+  if (isValidPosition(x - testDistance, y, maze)) directions.push('left');
+  if (isValidPosition(x + testDistance, y, maze)) directions.push('right');
   
   return directions;
 };
