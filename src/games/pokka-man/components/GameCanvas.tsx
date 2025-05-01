@@ -229,17 +229,17 @@ const checkCollisions = (
 const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
   const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
   const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
-  const gridX = Math.floor(ghost.x / CELL_SIZE);
-  const gridY = Math.floor(ghost.y / CELL_SIZE);
+  const currentGridX = Math.floor(ghost.x / CELL_SIZE);
+  const currentGridY = Math.floor(ghost.y / CELL_SIZE);
 
   if (mode === 'frightened') {
     // In frightened mode, move randomly but avoid Pokka
-    const distanceToPokka = Math.abs(gridX - pacmanGridX) + Math.abs(gridY - pacmanGridY);
+    const distanceToPokka = Math.abs(currentGridX - pacmanGridX) + Math.abs(currentGridY - pacmanGridY);
     if (distanceToPokka < 4) {
       // Try to move away from Pokka
       return {
-        x: gridX + (gridX - pacmanGridX),
-        y: gridY + (gridY - pacmanGridY)
+        x: currentGridX + (currentGridX - pacmanGridX),
+        y: currentGridY + (currentGridY - pacmanGridY)
       };
     }
     // Random movement
@@ -289,7 +289,7 @@ const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMod
         };
 
       case 'purple': // Patrol and intercept
-        const distanceToTarget = Math.abs(gridX - pacmanGridX) + Math.abs(gridY - pacmanGridY);
+        const distanceToTarget = Math.abs(currentGridX - pacmanGridX) + Math.abs(currentGridY - pacmanGridY);
         if (distanceToTarget < 6) {
           // Close enough to chase directly
           return { x: pacmanGridX, y: pacmanGridY };
