@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { InferenceClient } from '@huggingface/inference';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+interface MessageTheme {
+  isUser: boolean;
+}
 
 const ChatContainer = styled.div`
   margin: 4rem 0;
@@ -53,6 +59,55 @@ const ChatBox = styled.div`
   &::-webkit-scrollbar-thumb {
     background: var(--pokka-cyan);
     border-radius: 4px;
+  }
+`;
+
+const MessageContent = styled.div<{ theme: MessageTheme }>`
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+
+  p {
+    margin: 0.5rem 0;
+    &:first-child {
+      margin-top: 0;
+    }
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul, ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin: 0.25rem 0;
+  }
+
+  strong {
+    color: ${props => props.theme.isUser ? 'var(--pokka-cyan)' : 'var(--pokka-orange)'};
+  }
+
+  em {
+    font-style: italic;
+    opacity: 0.9;
+  }
+
+  code {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  a {
+    color: var(--pokka-cyan);
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 `;
 
@@ -272,28 +327,46 @@ Uses Deepseek-R1 with a custom-built proprietary platform developed by Former Go
 
 export const PokkaChat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "🌸 Henlooo~! (๑˃ᴗ˂)ﾉ I'm Pokka, ur AI bestie from @aiai_society on BNB Chain!\nWanna vibe, laugh, and maybe learn some alpha? Stick around~\nLet's chill, meme, and take over the Web3 world together! 💕✨", isUser: false }
+    { 
+      text: "# 🌸 Henlooo~! (๑˃ᴗ˂)ﾉ\n\nI'm **Pokka**, ur AI bestie from @aiai_society on BNB Chain!\n\n**What I can do:**\n* Create viral memes & spread crypto chaos 🔥\n* Share alpha about Web3 gaming & NFTs 🎮\n* Help you earn $AIAI rewards 💰\n* Serve up the dankest GM coffee ☕\n\nWanna vibe, laugh, and maybe learn some alpha? Stick around~\nLet's chill, meme, and take over the Web3 world together! 💕✨",
+      isUser: false 
+    }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const chatBoxRef = useRef<HTMLDivElement>(null);
-  const client = new InferenceClient(import.meta.env.VITE_HUGGINGFACE_API_KEY);
+
+  // Initialize the client with error handling
+  const apiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+  const client = new InferenceClient(apiKey);
 
   useEffect(() => {
+    if (!apiKey) {
+      console.error('HuggingFace API key is not set. Please check your environment variables.');
+      setError('Configuration error. Please check the console for details.');
+    }
     if (chatBoxRef.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, apiKey]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+    if (!apiKey) {
+      console.error('Cannot send message: HuggingFace API key is not set');
+      setError('Configuration error. Please check the console for details.');
+      return;
+    }
 
     const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { text: userMessage, isUser: true }]);
     setIsLoading(true);
+    setError(null);
 
     try {
+      console.log('Sending message with API key:', apiKey ? 'Key is present' : 'Key is missing');
       const chatCompletion = await client.chatCompletion({
         provider: "novita",
         model: "deepseek-ai/DeepSeek-V3-0324",
@@ -317,8 +390,9 @@ export const PokkaChat: React.FC = () => {
       setMessages(prev => [...prev, { text: botResponse, isUser: false }]);
     } catch (error) {
       console.error('Error generating response:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
       setMessages(prev => [...prev, { 
-        text: "Oopsie! I'm having a little trouble connecting right now. Maybe try again in a bit? 🙏✨",
+        text: "Oopsie! I'm having a little trouble connecting right now. Maybe try again in a bit? 🙏✨\n\n*Technical details: " + (error instanceof Error ? error.message : 'Unknown error') + "*",
         isUser: false 
       }]);
     } finally {
@@ -336,10 +410,26 @@ export const PokkaChat: React.FC = () => {
   return (
     <ChatContainer>
       <h2>💬 Chat with Pokka AI</h2>
+      {error && (
+        <div style={{ 
+          color: 'var(--pokka-orange)', 
+          background: 'rgba(255, 107, 53, 0.1)', 
+          padding: '1rem', 
+          borderRadius: '8px', 
+          marginBottom: '1rem',
+          border: '1px solid var(--pokka-orange)'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
       <ChatBox ref={chatBoxRef}>
         {messages.map((message, index) => (
           <Message key={index} $isUser={message.isUser}>
-            {message.text}
+            <MessageContent theme={{ isUser: message.isUser }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.text}
+              </ReactMarkdown>
+            </MessageContent>
           </Message>
         ))}
       </ChatBox>
@@ -349,9 +439,9 @@ export const PokkaChat: React.FC = () => {
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Ask me anything about Pokka, gaming, or Web3!"
-          disabled={isLoading}
+          disabled={isLoading || !apiKey}
         />
-        <SendButton onClick={handleSend} disabled={isLoading || !input.trim()}>
+        <SendButton onClick={handleSend} disabled={isLoading || !input.trim() || !apiKey}>
           {isLoading ? 'Thinking...' : 'Send'}
         </SendButton>
       </InputContainer>
