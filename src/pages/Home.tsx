@@ -208,6 +208,13 @@ const DashboardCard = styled.div`
     font-family: 'One Little Font', sans-serif;
   }
 
+  .market-cap {
+    font-size: 1.1rem;
+    color: var(--pokka-orange);
+    margin-bottom: 0.5rem;
+    font-family: 'One Little Font', sans-serif;
+  }
+
   .trend {
     color: var(--pokka-orange);
     font-size: 0.9rem;
@@ -343,6 +350,19 @@ const Home: React.FC = () => {
     return change > 0 ? `+${change.toFixed(2)}%` : `${change.toFixed(2)}%`;
   }
 
+  const formatMarketCap = (marketCap: number) => {
+    if (marketCap >= 1e12) {
+      return `$${(marketCap / 1e12).toFixed(2)}T`;
+    } else if (marketCap >= 1e9) {
+      return `$${(marketCap / 1e9).toFixed(2)}B`;
+    } else if (marketCap >= 1e6) {
+      return `$${(marketCap / 1e6).toFixed(2)}M`;
+    } else if (marketCap >= 1e3) {
+      return `$${(marketCap / 1e3).toFixed(2)}K`;
+    }
+    return `$${marketCap.toFixed(2)}`;
+  };
+
   return (
     <Container>
       <Hero>
@@ -409,6 +429,9 @@ const Home: React.FC = () => {
             <div className="value">
               {pricesLoading ? 'Loading...' : formatPrice(prices.bnb.price)}
             </div>
+            <div className="market-cap">
+              {pricesLoading ? 'Loading...' : formatMarketCap(prices.bnb.marketCap)}
+            </div>
             <div className="trend">
               <TrendingUp size={16} />
               {pricesLoading ? ' Loading...' : ` ${formatChange(prices.bnb.priceChange24h)} (24h)`}
@@ -419,16 +442,25 @@ const Home: React.FC = () => {
             <div className="value">
               {pricesLoading ? 'Loading...' : formatPrice(prices.pokka.price)}
             </div>
+            <div className="market-cap">
+              {pricesLoading ? 'Loading...' : formatMarketCap(prices.pokka.marketCap)}
+            </div>
             <div className="trend">
               <TrendingUp size={16} />
               {pricesLoading ? ' Loading...' : ` ${formatChange(prices.pokka.priceChange24h)} (24h)`}
             </div>
           </DashboardCard>
           <DashboardCard>
-            <h3>BNB Gas</h3>
-            <div className="value">5 Gwei</div>
+            <h3>Bitcoin</h3>
+            <div className="value">
+              {pricesLoading ? 'Loading...' : formatPrice(prices.btc.price)}
+            </div>
+            <div className="market-cap">
+              {pricesLoading ? 'Loading...' : formatMarketCap(prices.btc.marketCap)}
+            </div>
             <div className="trend">
-              <AlertCircle size={16} /> Low
+              <TrendingUp size={16} />
+              {pricesLoading ? ' Loading...' : ` ${formatChange(prices.btc.priceChange24h)} (24h)`}
             </div>
           </DashboardCard>
         </DashboardGrid>
