@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
 import { GhostBehavior } from '../utils/ghostBehavior';
+import { isValidPosition } from '../utils/collision';
 import { interpret } from 'xstate';
 import {
   CELL_SIZE,
@@ -95,74 +96,11 @@ interface GameCanvasProps {
 const gridToPixel = (grid: number) => grid * CELL_SIZE;
 const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 
-// Helper function to check if a position is valid (no wall collision)
-const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
-  // First check if the position is in bounds
-  const leftX = x + CHARACTER_SIZE * 0.2;  // Reduce effective size by 20% on each side
-  const rightX = x + CHARACTER_SIZE * 0.8;
-  const topY = y + CHARACTER_SIZE * 0.2;
-  const bottomY = y + CHARACTER_SIZE * 0.8;
-  
-  const leftGridX = Math.floor(leftX / CELL_SIZE);
-  const rightGridX = Math.floor(rightX / CELL_SIZE);
-  const topGridY = Math.floor(topY / CELL_SIZE);
-  const bottomGridY = Math.floor(bottomY / CELL_SIZE);
-  
-  // Check bounds
-  if (leftGridX < 0 || rightGridX >= maze[0].length || 
-      topGridY < 0 || bottomGridY >= maze.length) {
-    return false;
-  }
-
-  // Check the four corners and center with reduced hitbox
-  const points = [
-    { x: leftX + CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },     // Top-left
-    { x: rightX - CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },    // Top-right
-    { x: leftX + CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 },  // Bottom-left
-    { x: rightX - CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 }, // Bottom-right
-    { x: x + CHARACTER_SIZE * 0.5, y: y + CHARACTER_SIZE * 0.5 }            // Center
-  ];
-
-  // Check each point
-  return points.every(point => {
-    const gridX = Math.floor(point.x / CELL_SIZE);
-    const gridY = Math.floor(point.y / CELL_SIZE);
-    
-    // Check if this point is in a wall
-    if (maze[gridY][gridX] === 1) {
-      return false;
-    }
-
-    // Check wall margins with increased margin for non-center points
-    if (point !== points[4]) {  // If not center point
-      const xInCell = point.x % CELL_SIZE;
-      const yInCell = point.y % CELL_SIZE;
-      const increasedMargin = WALL_MARGIN * 1.5;  // Increase wall margin by 50%
-      
-      // Check adjacent cells based on position within cell
-      if (xInCell < increasedMargin) {
-        if (gridX > 0 && maze[gridY][gridX - 1] === 1) return false;
-      } else if (xInCell > CELL_SIZE - increasedMargin) {
-        if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) return false;
-      }
-      
-      if (yInCell < increasedMargin) {
-        if (gridY > 0 && maze[gridY - 1][gridX] === 1) return false;
-      } else if (yInCell > CELL_SIZE - increasedMargin) {
-        if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) return false;
-      }
-    }
-    
-    return true;
-  });
-};
-
 // Helper function to get available directions at a position
 const getAvailableDirections = (x: number, y: number, maze: number[][], testDistance?: number): string[] => {
   const directions: string[] = [];
-  const distance = testDistance || CELL_SIZE * 0.6;  // Use provided distance or default
+  const distance = testDistance || CELL_SIZE * 0.6;
   
-  // Test each direction with a small offset to prevent wall touching
   if (isValidPosition(x, y - distance, maze)) directions.push('up');
   if (isValidPosition(x, y + distance, maze)) directions.push('down');
   if (isValidPosition(x - distance, y, maze)) directions.push('left');
@@ -685,7 +623,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       const { pacman } = prevState;
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
       
-      // Calculate next position based on current direction
       let nextX = pacman.x;
       let nextY = pacman.y;
       

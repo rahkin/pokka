@@ -208,33 +208,16 @@ export const getNextDirection = (
   }
 
   // Ensure the next position is valid
-  if (!isValidPosition(nextPosition.x, nextPosition.y, maze)) {
-    nextPosition = { x: currentX, y: currentY };
-  }
+  // TODO: If getNextDirection is used later, import and use shared isValidPosition from utils/collision
+  // if (!isValidPosition(nextPosition.x, nextPosition.y, maze)) {
+  //   nextPosition = { x: currentX, y: currentY };
+  // }
 
   return {
     direction: newDirection,
     canTurnCorner,
     nextPosition
   };
-};
-
-// Helper function to check if a position is valid (not in a wall)
-const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
-  // Check the main position and surrounding points
-  const points = [
-    [x, y],
-    [x + WALL_MARGIN, y],
-    [x - WALL_MARGIN, y],
-    [x, y + WALL_MARGIN],
-    [x, y - WALL_MARGIN]
-  ];
-
-  return points.every(([px, py]) => {
-    const checkX = Math.floor(px / CELL_SIZE);
-    const checkY = Math.floor(py / CELL_SIZE);
-    return isValidGridPosition(checkX, checkY, maze);
-  });
 };
 
 export const isValidMove = (x: number, y: number, maze: number[][]): boolean => {
