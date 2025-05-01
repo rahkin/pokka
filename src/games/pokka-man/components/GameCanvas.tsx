@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
-import { createPathfinder } from '../utils/pathfinding';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
 import { interpret } from 'xstate';
 import {
