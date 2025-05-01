@@ -810,8 +810,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
     setGameState((prevState) => {
       const { pacman } = prevState;
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
-      const gridX = Math.floor(pacman.x / CELL_SIZE);
-      const gridY = Math.floor(pacman.y / CELL_SIZE);
       
       // Calculate next position based on current direction
       let nextX = pacman.x;
@@ -823,7 +821,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         case 'down': nextY += speed; break;
         case 'up': nextY -= speed; break;
       }
-      
+
       // Check if next position is valid
       if (isValidPosition(nextX, nextY, prevState.maze)) {
         pacman.x = nextX;
@@ -843,7 +841,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       
       // Handle collisions with dots, power pellets, and ghosts
       handleCollisions(pacman.x, pacman.y);
-      
+
       return { ...prevState, pacman };
     });
   }, [currentDirection, handleCollisions]);
