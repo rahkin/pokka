@@ -141,4 +141,29 @@ export const MAZE_LAYOUT = [
   [1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1],
   [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-]; 
+];
+
+// Helper function to calculate wall avoidance bonus
+const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
+  const gridX = Math.floor(x / CELL_SIZE);
+  const gridY = Math.floor(y / CELL_SIZE);
+  let bonus = 0;
+  const penaltyFactor = 3; // Increased penalty for adjacent walls
+
+  // Check adjacent cells for walls and add stronger penalty
+  if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += penaltyFactor;
+  if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += penaltyFactor;
+  if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += penaltyFactor;
+  if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += penaltyFactor;
+
+  // Add smaller penalty for diagonal walls (corners)
+  const diagonalPenalty = penaltyFactor / 2; // Penalty for being near a corner
+  if (gridX > 0 && gridY > 0 && maze[gridY - 1][gridX - 1] === 1) bonus += diagonalPenalty;
+  if (gridX < maze[0].length - 1 && gridY > 0 && maze[gridY - 1][gridX + 1] === 1) bonus += diagonalPenalty;
+  if (gridX > 0 && gridY < maze.length - 1 && maze[gridY + 1][gridX - 1] === 1) bonus += diagonalPenalty;
+  if (gridX < maze[0].length - 1 && gridY < maze.length - 1 && maze[gridY + 1][gridX + 1] === 1) bonus += diagonalPenalty;
+
+  // This bonus is added to the score. Since distance is negative,
+  // a higher positive bonus here makes directions towards walls LESS likely.
+  return bonus;
+}; 
