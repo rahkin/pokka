@@ -1,4 +1,4 @@
-import { createMachine, interpret } from 'xstate';
+import { createMachine } from 'xstate';
 
 export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
 

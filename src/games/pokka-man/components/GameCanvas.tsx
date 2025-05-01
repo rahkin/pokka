@@ -156,29 +156,25 @@ const checkCollisions = (
 };
 
 // Helper function to calculate wall avoidance bonus
-const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
-  const gridX = Math.floor(x / CELL_SIZE);
-  const gridY = Math.floor(y / CELL_SIZE);
-  let bonus = 0;
-  const penaltyFactor = 3; // Increased penalty for adjacent walls
-
-  // Check adjacent cells for walls and add stronger penalty
-  if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += penaltyFactor;
-  if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += penaltyFactor;
-  if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += penaltyFactor;
-  if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += penaltyFactor;
-
-  // Add smaller penalty for diagonal walls (corners)
-  const diagonalPenalty = penaltyFactor / 2; // Penalty for being near a corner
-  if (gridX > 0 && gridY > 0 && maze[gridY - 1][gridX - 1] === 1) bonus += diagonalPenalty;
-  if (gridX < maze[0].length - 1 && gridY > 0 && maze[gridY - 1][gridX + 1] === 1) bonus += diagonalPenalty;
-  if (gridX > 0 && gridY < maze.length - 1 && maze[gridY + 1][gridX - 1] === 1) bonus += diagonalPenalty;
-  if (gridX < maze[0].length - 1 && gridY < maze.length - 1 && maze[gridY + 1][gridX + 1] === 1) bonus += diagonalPenalty;
-
-  // This bonus is added to the score. Since distance is negative,
-  // a higher positive bonus here makes directions towards walls LESS likely.
-  return bonus;
-};
+// const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
+//   const gridX = Math.floor(x / CELL_SIZE);
+//   const gridY = Math.floor(y / CELL_SIZE);
+//   let bonus = 0;
+//   const penaltyFactor = 3;
+//   
+//   if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += penaltyFactor;
+//   if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += penaltyFactor;
+//   if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += penaltyFactor;
+//   if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += penaltyFactor;
+//   
+//   const diagonalPenalty = penaltyFactor / 2;
+//   if (gridX > 0 && gridY > 0 && maze[gridY - 1][gridX - 1] === 1) bonus += diagonalPenalty;
+//   if (gridX < maze[0].length - 1 && gridY > 0 && maze[gridY - 1][gridX + 1] === 1) bonus += diagonalPenalty;
+//   if (gridX > 0 && gridY < maze.length - 1 && maze[gridY + 1][gridX - 1] === 1) bonus += diagonalPenalty;
+//   if (gridX < maze[0].length - 1 && gridY < maze.length - 1 && maze[gridY + 1][gridX + 1] === 1) bonus += diagonalPenalty;
+//   
+//   return bonus;
+// };
 
 // Change from const to function component and add proper export
 export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
@@ -778,7 +774,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         const currentState = ghost.stateMachine.getSnapshot();
         const mode = currentState.context.mode;
         
-        // Increase base speed and adjust mode multipliers
         const baseSpeed = ghost.baseSpeed * 1.5 * (deltaTime / FRAME_TIME);
         const speed = mode === 'frightened' ? 
           baseSpeed * GHOST_FRIGHTENED_SPEED_MULTIPLIER : 
@@ -786,13 +781,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
         const centerX = ghost.x + CELL_SIZE / 2;
         const centerY = ghost.y + CELL_SIZE / 2;
-        const currentGridX = Math.floor(centerX / CELL_SIZE);
-        const currentGridY = Math.floor(centerY / CELL_SIZE);
 
         const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
         const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
         
-        // Reduced threshold for grid alignment check
         const atGridCenter = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD * 2 && 
                             Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD * 2;
 
