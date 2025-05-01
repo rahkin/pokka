@@ -19,14 +19,14 @@ const GameContainer = styled.div`
 const GameSection = styled.div`
   position: relative;
   width: 100%;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 150px);
   background: #000;
   border-radius: 8px;
   overflow: hidden;
   margin: 30px auto;
 
   @media (max-width: 768px) {
-    height: calc(100vh - 220px);
+    height: calc(100vh - 170px);
     margin: 20px auto;
   }
 `;
