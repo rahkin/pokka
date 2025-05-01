@@ -76,28 +76,6 @@ interface CollisionPoint {
   y: number;
 }
 
-// More collision points for better coverage
-const COLLISION_POINTS: CollisionPoint[] = [
-  // Center cross
-  { x: 0.5, y: 0.5 },  // Center
-  { x: 0.5, y: 0.3 },  // Top center
-  { x: 0.5, y: 0.7 },  // Bottom center
-  { x: 0.3, y: 0.5 },  // Left center
-  { x: 0.7, y: 0.5 },  // Right center
-  
-  // Corners with slight inset
-  { x: 0.3, y: 0.3 },  // Top-left
-  { x: 0.7, y: 0.3 },  // Top-right
-  { x: 0.3, y: 0.7 },  // Bottom-left
-  { x: 0.7, y: 0.7 },  // Bottom-right
-  
-  // Additional diagonal points
-  { x: 0.4, y: 0.4 },  // Top-left diagonal
-  { x: 0.6, y: 0.4 },  // Top-right diagonal
-  { x: 0.4, y: 0.6 },  // Bottom-left diagonal
-  { x: 0.6, y: 0.6 }   // Bottom-right diagonal
-];
-
 interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: () => void;
