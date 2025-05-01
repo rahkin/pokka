@@ -146,15 +146,15 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
 };
 
 // Helper function to get available directions at a position
-const getAvailableDirections = (x: number, y: number, maze: number[][]): string[] => {
+const getAvailableDirections = (x: number, y: number, maze: number[][], testDistance?: number): string[] => {
   const directions: string[] = [];
-  const testDistance = CELL_SIZE * 0.6;  // Test a bit more than half a cell in each direction
+  const distance = testDistance || CELL_SIZE * 0.6;  // Use provided distance or default
   
   // Test each direction with a small offset to prevent wall touching
-  if (isValidPosition(x, y - testDistance, maze)) directions.push('up');
-  if (isValidPosition(x, y + testDistance, maze)) directions.push('down');
-  if (isValidPosition(x - testDistance, y, maze)) directions.push('left');
-  if (isValidPosition(x + testDistance, y, maze)) directions.push('right');
+  if (isValidPosition(x, y - distance, maze)) directions.push('up');
+  if (isValidPosition(x, y + distance, maze)) directions.push('down');
+  if (isValidPosition(x - distance, y, maze)) directions.push('left');
+  if (isValidPosition(x + distance, y, maze)) directions.push('right');
   
   return directions;
 };
@@ -870,15 +870,21 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             ghost.y = currentGridY * CELL_SIZE;
           }
 
-          // Get available directions excluding the opposite of current direction
-          const availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze)
-            .filter(dir => {
-              // Don't allow reversing unless it's the only option
-              if (dir === getOppositeDirection(ghost.direction)) {
-                return getAvailableDirections(ghost.x, ghost.y, prevState.maze).length === 1;
-              }
-              return true;
-            });
+          // Get available directions
+          let availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze);
+          
+          // If no directions available (trapped), increase test distance
+          if (availableDirections.length === 0) {
+            availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze, CELL_SIZE * 0.8);
+          }
+
+          // Filter out opposite direction unless it's the only option
+          availableDirections = availableDirections.filter(dir => {
+            if (dir === getOppositeDirection(ghost.direction)) {
+              return availableDirections.length === 1;
+            }
+            return true;
+          });
 
           if (availableDirections.length > 0) {
             // Calculate target based on mode and ghost type
@@ -906,11 +912,20 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
               const randomFactor = mode === 'frightened' ? Math.random() * 4 : Math.random() * 0.5;
               
               // Prefer current direction slightly to reduce jittery movement
-              const directionBonus = dir === ghost.direction ? 0.5 : 0;
+              const directionBonus = dir === ghost.direction ? 0.8 : 0;
+              
+              // Add bonus for moving away from other ghosts to prevent clustering
+              const ghostAvoidanceBonus = prevState.ghosts.reduce((bonus, otherGhost) => {
+                if (otherGhost === ghost) return bonus;
+                const otherGridX = Math.floor(otherGhost.x / CELL_SIZE);
+                const otherGridY = Math.floor(otherGhost.y / CELL_SIZE);
+                const distanceToGhost = Math.abs(nextGridX - otherGridX) + Math.abs(nextGridY - otherGridY);
+                return bonus + (distanceToGhost < 3 ? 0.5 : 0);
+              }, 0);
               
               return {
                 direction: dir,
-                score: -distanceToTarget + randomFactor + directionBonus
+                score: -distanceToTarget + randomFactor + directionBonus + ghostAvoidanceBonus
               };
             });
 

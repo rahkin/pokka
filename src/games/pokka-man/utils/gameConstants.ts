@@ -1,17 +1,17 @@
 // Game Constants
 export const CELL_SIZE = 30;
-export const CHARACTER_SIZE = 24;
-export const CHARACTER_SCALE = 1.0;
-export const WALL_MARGIN = 6;
+export const CHARACTER_SIZE = 30;
+export const CHARACTER_SCALE = 1.2;
+export const WALL_MARGIN = 4;
 export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
 // Character Speeds
-export const PACMAN_SPEED = 8;
-export const GHOST_SPEED = 5;
+export const PACMAN_SPEED = 3.5;
+export const GHOST_SPEED = 3.2;
 export const GHOST_BASE_SPEED = 5;
-export const GHOST_SPEED_VARIATION = 0.1;
-export const GHOST_FRIGHTENED_SPEED_MULTIPLIER = 0.7;
+export const GHOST_SPEED_VARIATION = 0.2;
+export const GHOST_FRIGHTENED_SPEED_MULTIPLIER = 0.75;
 export const GHOST_EATEN_SPEED_MULTIPLIER = 1.5;
 
 // Timing Constants
@@ -19,12 +19,17 @@ export const POWER_PELLET_DURATION = 10000;
 export const PATH_RECALCULATION_DELAY = 500;
 export const GHOST_CHASE_DURATION = 20000;
 export const GHOST_SCATTER_DURATION = 7000;
-export const GHOST_RELEASE_DELAYS = [0, 2000, 4000, 6000];
+export const GHOST_RELEASE_DELAYS = [
+  0,     // First ghost (pink) starts immediately
+  4000,  // Second ghost (blue) after 4 seconds
+  8000,  // Third ghost (purple) after 8 seconds
+  12000  // Fourth ghost (skin) after 12 seconds
+];
 export const FLASH_WARNING_DURATION = 2000;
 export const FLASH_INTERVAL = 200;
 
 // Movement Thresholds
-export const GRID_ALIGNMENT_THRESHOLD = 4;
+export const GRID_ALIGNMENT_THRESHOLD = 2;
 export const CORNER_TURN_THRESHOLD = 8;
 
 // Scoring
