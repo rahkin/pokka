@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
-import { createPathfinder, getNextDirection } from '../utils/pathfinding';
+import { createPathfinder } from '../utils/pathfinding';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
 import { interpret } from 'xstate';
 import {
@@ -12,18 +12,14 @@ import {
   POINT_VALUE,
   POWER_PELLET_VALUE,
   CHARACTER_SCALE,
-  TARGET_FPS,
   FRAME_TIME,
   WALL_MARGIN,
   CHARACTER_SIZE,
   GHOST_SPEED_VARIATION,
-  MIN_PATH_LENGTH,
-  PATH_RECALCULATION_DELAY,
   GHOST_POINTS,
   GHOST_RELEASE_DELAYS,
   GHOST_CHASE_DURATION,
   GHOST_SCATTER_DURATION,
-  MOVEMENT_STATES,
   MAZE_LAYOUT,
   GHOST_FRIGHTENED_SPEED_MULTIPLIER,
   GRID_ALIGNMENT_THRESHOLD
@@ -339,7 +335,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
-  const pathfinderRef = useRef(createPathfinder(MAZE_LAYOUT));
   const gameOverRef = useRef(false);
   const scoreRef = useRef(0);
   const animationFrameRef = useRef<number>();
