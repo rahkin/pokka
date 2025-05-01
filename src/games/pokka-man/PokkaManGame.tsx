@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { useAccount } from 'wagmi';
 import { GameCanvas } from './components/GameCanvas';
@@ -180,6 +180,7 @@ export const PokkaManGame: React.FC = () => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentDirection, setCurrentDirection] = useState<string>('up');
+  const [nextDirection, setNextDirection] = useState<string>('');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [gameKey, setGameKey] = useState(0);
 
@@ -190,25 +191,25 @@ export const PokkaManGame: React.FC = () => {
         case 'ArrowUp':
         case 'w':
         case 'W':
-          setCurrentDirection('up');
+          setNextDirection('up');
           handled = true;
           break;
         case 'ArrowDown':
         case 's':
         case 'S':
-          setCurrentDirection('down');
+          setNextDirection('down');
           handled = true;
           break;
         case 'ArrowLeft':
         case 'a':
         case 'A':
-          setCurrentDirection('left');
+          setNextDirection('left');
           handled = true;
           break;
         case 'ArrowRight':
         case 'd':
         case 'D':
-          setCurrentDirection('right');
+          setNextDirection('right');
           handled = true;
           break;
         default:
@@ -244,6 +245,10 @@ export const PokkaManGame: React.FC = () => {
     setScore(newScore);
   };
 
+  const handleTurnTaken = useCallback(() => {
+    setNextDirection('');
+  }, []);
+
   const handleGameOver = () => {
     setGameOver(true);
     setIsPlaying(false);
@@ -261,7 +266,7 @@ export const PokkaManGame: React.FC = () => {
   };
 
   const handleDirectionChange = (direction: string) => {
-    setCurrentDirection(direction);
+    setNextDirection(direction);
   };
 
   return (
@@ -272,6 +277,8 @@ export const PokkaManGame: React.FC = () => {
           onScoreUpdate={handleScoreUpdate}
           onGameOver={handleGameOver}
           currentDirection={currentDirection}
+          nextDirection={nextDirection}
+          onTurnTaken={handleTurnTaken}
           isPlaying={isPlaying}
           gameOver={gameOver}
         />

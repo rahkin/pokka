@@ -53,6 +53,7 @@ interface Ghost {
   baseSpeed: number;
   consecutiveEats: number;
   spawnDelay: number;
+  currentMovingDirection: string;
 }
 
 interface GameState {
@@ -68,6 +69,7 @@ interface GameState {
     nextY: number;
     visualX: number;
     visualY: number;
+    currentMovingDirection: string;
   };
   ghosts: Ghost[];
   maze: number[][];
@@ -79,6 +81,8 @@ interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: () => void;
   currentDirection: string;
+  nextDirection: string;
+  onTurnTaken: () => void;
   isPlaying: boolean;
   gameOver?: boolean;
 }
@@ -177,7 +181,7 @@ const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): nu
 };
 
 // Change from const to function component and add proper export
-export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
+export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initialDirection, nextDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
@@ -215,7 +219,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         nextX: gridToPixel(10),
         nextY: gridToPixel(16),
         visualX: gridToPixel(10),
-        visualY: gridToPixel(16)
+        visualY: gridToPixel(16),
+        currentMovingDirection: ''
       },
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
@@ -236,7 +241,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           lastPathUpdate: 0,
           baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
           consecutiveEats: 0,
-          spawnDelay: personality.spawnDelay
+          spawnDelay: personality.spawnDelay,
+          currentMovingDirection: ''
         };
       }),
       maze: MAZE_LAYOUT,
@@ -276,7 +282,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           nextX: gridToPixel(10),
           nextY: gridToPixel(16),
           visualX: gridToPixel(10),
-          visualY: gridToPixel(16)
+          visualY: gridToPixel(16),
+          currentMovingDirection: ''
         },
         ghosts: prev.ghosts.map((ghost, index) => ({
           ...ghost,
@@ -288,7 +295,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           path: [],
           lastPathUpdate: 0,
           baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0
+          consecutiveEats: 0,
+          currentMovingDirection: ''
         })),
         dots: prev.dots.map(dot => ({ ...dot })),
         powerPellets: prev.powerPellets.map(pellet => ({ ...pellet }))
@@ -612,40 +620,82 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
   // Update Pokka's position and handle movement
   const updatePokka = useCallback((deltaTime: number) => {
     setGameState((prevState) => {
-      const { pacman } = prevState;
+      const { pacman, maze } = prevState;
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
-      
-      // Calculate next position based on current direction
+
+      // --- Turn Handling --- 
+      const centerX = pacman.x + CELL_SIZE / 2;
+      const centerY = pacman.y + CELL_SIZE / 2;
+      const currentGridX = Math.floor(centerX / CELL_SIZE);
+      const currentGridY = Math.floor(centerY / CELL_SIZE);
+      const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
+      const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
+      const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
+                       Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+      let potentialNewDirection = pacman.currentMovingDirection; // Start with current direction
+
+      if (isAligned && nextDirection && nextDirection !== pacman.currentMovingDirection && nextDirection !== getOppositeDirection(pacman.currentMovingDirection)) {
+        // Check if the new direction is valid from the current aligned grid position
+        let checkX = gridToPixel(currentGridX);
+        let checkY = gridToPixel(currentGridY);
+        const checkDistance = speed > 0 ? speed : 1; // Check slightly ahead
+
+        switch (nextDirection) {
+          case 'right': checkX += checkDistance; break;
+          case 'left': checkX -= checkDistance; break;
+          case 'down': checkY += checkDistance; break;
+          case 'up': checkY -= checkDistance; break;
+        }
+
+        if (isValidPosition(checkX, checkY, maze)) {
+          // Snap to grid center before turning
+          pacman.x = gridToPixel(currentGridX);
+          pacman.y = gridToPixel(currentGridY);
+          pacman.currentMovingDirection = nextDirection; // Update internal direction
+          potentialNewDirection = nextDirection;         // Use new direction for this update cycle
+          onTurnTaken(); // Clear the buffered direction in parent
+        }
+      }
+      // --- End Turn Handling ---
+
+      const movingDirection = potentialNewDirection; // Use the potentially updated direction
+
+      // Calculate next position based on current MOVING direction
       let nextX = pacman.x;
       let nextY = pacman.y;
-      
-      switch (currentDirection) {
-        case 'right': nextX += speed; break;
-        case 'left': nextX -= speed; break;
-        case 'down': nextY += speed; break;
-        case 'up': nextY -= speed; break;
+
+      if (!movingDirection) {
+          // If not moving initially (e.g., start of game), don't move until a direction is set
+          return prevState;
       }
 
+      switch (movingDirection) {
+          case 'right': nextX += speed; break;
+          case 'left': nextX -= speed; break;
+          case 'down': nextY += speed; break;
+          case 'up': nextY -= speed; break;
+        }
+
       // Check if next position is valid
-      if (isValidPosition(nextX, nextY, prevState.maze)) {
+      if (isValidPosition(nextX, nextY, maze)) {
         pacman.x = nextX;
         pacman.y = nextY;
-        pacman.direction = currentDirection;
+        // pacman.direction = movingDirection; // Maybe update this too?
       } else {
         // Intended move failed. Try moving only along the intended axis from the *current* position.
-        if (currentDirection === 'left' || currentDirection === 'right') {
+        if (movingDirection === 'left' || movingDirection === 'right') {
           // Try horizontal move only
-          const tryX = pacman.x + (currentDirection === 'right' ? speed : -speed);
-          if (isValidPosition(tryX, pacman.y, prevState.maze)) {
+          const tryX = pacman.x + (movingDirection === 'right' ? speed : -speed);
+          if (isValidPosition(tryX, pacman.y, maze)) {
             pacman.x = tryX;
-            pacman.direction = currentDirection; // Keep intended direction if slide works
+            // pacman.direction = movingDirection; // Keep intended direction if slide works
           }
-        } else if (currentDirection === 'up' || currentDirection === 'down') {
+        } else if (movingDirection === 'up' || movingDirection === 'down') {
           // Try vertical move only
-          const tryY = pacman.y + (currentDirection === 'down' ? speed : -speed);
-          if (isValidPosition(pacman.x, tryY, prevState.maze)) {
+          const tryY = pacman.y + (movingDirection === 'down' ? speed : -speed);
+          if (isValidPosition(pacman.x, tryY, maze)) {
             pacman.y = tryY;
-            pacman.direction = currentDirection; // Keep intended direction if slide works
+            // pacman.direction = movingDirection; // Keep intended direction if slide works
           }
         }
         // If neither the direct move nor the axis-aligned slide worked, Pokka stops against the wall.
@@ -655,9 +705,11 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       // Handle collisions with dots, power pellets, and ghosts
       const scoreChange = handleCollisions(pacman.x, pacman.y);
 
-      return { ...prevState, pacman, score: prevState.score + scoreChange };
+      // Need to update the pacman object in the state correctly
+      const updatedPacman = { ...pacman }; // Create a copy to modify
+      return { ...prevState, pacman: updatedPacman, score: prevState.score + (scoreChange || 0) }; 
     });
-  }, [currentDirection, handleCollisions]);
+  }, [nextDirection, onTurnTaken, handleCollisions]);
 
   // Update ghosts with improved movement using GhostBehavior
   const updateGhosts = useCallback((deltaTime: number) => {
