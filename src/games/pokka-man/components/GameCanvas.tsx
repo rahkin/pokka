@@ -633,14 +633,12 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         pacman.direction = currentDirection;
       } else {
         // Intended move failed. Try moving only along the intended axis from the *current* position.
-        let moved = false;
         if (currentDirection === 'left' || currentDirection === 'right') {
           // Try horizontal move only
           const tryX = pacman.x + (currentDirection === 'right' ? speed : -speed);
           if (isValidPosition(tryX, pacman.y, prevState.maze)) {
             pacman.x = tryX;
             pacman.direction = currentDirection; // Keep intended direction if slide works
-            moved = true;
           }
         } else if (currentDirection === 'up' || currentDirection === 'down') {
           // Try vertical move only
@@ -648,7 +646,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           if (isValidPosition(pacman.x, tryY, prevState.maze)) {
             pacman.y = tryY;
             pacman.direction = currentDirection; // Keep intended direction if slide works
-            moved = true;
           }
         }
         // If neither the direct move nor the axis-aligned slide worked, Pokka stops against the wall.
