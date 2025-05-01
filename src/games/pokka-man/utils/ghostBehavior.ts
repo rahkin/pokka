@@ -119,7 +119,7 @@ export class GhostBehavior {
     return this.currentTarget;
   }
 
-  private getPinkTarget(pacman: PacmanState, ghost: GhostState): Position {
+  private getPinkTarget(pacman: PacmanState, _ghost: GhostState): Position {
     const personality = GHOST_PERSONALITIES.pink;
     const lookAhead = personality.lookAheadTiles;
     
@@ -127,13 +127,13 @@ export class GhostBehavior {
     if (Math.random() < personality.turnProbability && 
         Date.now() - this.lastDirectionChange > 2000) {
       this.lastDirectionChange = Date.now();
-      return this.getRandomAdjacentTarget(ghost.position);
+      return this.getRandomAdjacentTarget(_ghost.position);
     }
     
     return this.getPositionAhead(pacman.position, pacman.direction, lookAhead);
   }
 
-  private getBlueTarget(pacman: PacmanState, redGhost: Position, ghost: GhostState): Position {
+  private getBlueTarget(pacman: PacmanState, redGhost: Position, _ghost: GhostState): Position {
     const personality = GHOST_PERSONALITIES.blue;
     // Get position 2 tiles ahead of Pacman
     const aheadPos = this.getPositionAhead(pacman.position, pacman.direction, 2);
@@ -143,9 +143,9 @@ export class GhostBehavior {
     const vectorY = (aheadPos.y - redGhost.y) * personality.vectorMultiplier;
     
     // Maintain minimum distance from red ghost
-    const distanceToRed = this.calculateDistance(ghost.position, redGhost);
+    const distanceToRed = this.calculateDistance(_ghost.position, redGhost);
     if (distanceToRed < personality.minDistance * CELL_SIZE) {
-      return this.getOppositePosition(ghost.position, redGhost);
+      return this.getOppositePosition(_ghost.position, redGhost);
     }
     
     return {
@@ -259,7 +259,7 @@ export class GhostBehavior {
   }
 }
 
-export const calculateChaseTarget = (ghost: Ghost, gameState: GameState): Position => {
+export const calculateChaseTarget = (_ghost: Ghost, gameState: GameState): Position => {
   const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
   const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
   

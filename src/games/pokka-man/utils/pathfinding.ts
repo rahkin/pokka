@@ -221,9 +221,6 @@ export const getNextDirection = (
 
 // Helper function to check if a position is valid (not in a wall)
 const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
-  const gridX = Math.floor(x / CELL_SIZE);
-  const gridY = Math.floor(y / CELL_SIZE);
-  
   // Check the main position and surrounding points
   const points = [
     [x, y],
