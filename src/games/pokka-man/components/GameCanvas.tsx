@@ -86,10 +86,10 @@ const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 // Helper function to check if a position is valid (no wall collision)
 const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
   // First check if the position is in bounds
-  const leftX = x;
-  const rightX = x + CHARACTER_SIZE;
-  const topY = y;
-  const bottomY = y + CHARACTER_SIZE;
+  const leftX = x + CHARACTER_SIZE * 0.2;  // Reduce effective size by 20% on each side
+  const rightX = x + CHARACTER_SIZE * 0.8;
+  const topY = y + CHARACTER_SIZE * 0.2;
+  const bottomY = y + CHARACTER_SIZE * 0.8;
   
   const leftGridX = Math.floor(leftX / CELL_SIZE);
   const rightGridX = Math.floor(rightX / CELL_SIZE);
@@ -102,12 +102,12 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
     return false;
   }
 
-  // Check the four corners and center
+  // Check the four corners and center with reduced hitbox
   const points = [
-    { x: leftX + CHARACTER_SIZE * 0.2, y: topY + CHARACTER_SIZE * 0.2 },    // Top-left
-    { x: rightX - CHARACTER_SIZE * 0.2, y: topY + CHARACTER_SIZE * 0.2 },   // Top-right
-    { x: leftX + CHARACTER_SIZE * 0.2, y: bottomY - CHARACTER_SIZE * 0.2 }, // Bottom-left
-    { x: rightX - CHARACTER_SIZE * 0.2, y: bottomY - CHARACTER_SIZE * 0.2 }, // Bottom-right
+    { x: leftX + CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },     // Top-left
+    { x: rightX - CHARACTER_SIZE * 0.1, y: topY + CHARACTER_SIZE * 0.1 },    // Top-right
+    { x: leftX + CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 },  // Bottom-left
+    { x: rightX - CHARACTER_SIZE * 0.1, y: bottomY - CHARACTER_SIZE * 0.1 }, // Bottom-right
     { x: x + CHARACTER_SIZE * 0.5, y: y + CHARACTER_SIZE * 0.5 }            // Center
   ];
 
@@ -121,21 +121,22 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
       return false;
     }
 
-    // Check wall margins only for non-center points
+    // Check wall margins only for non-center points with increased margin
     if (point !== points[4]) {  // If not center point
       const xInCell = point.x % CELL_SIZE;
       const yInCell = point.y % CELL_SIZE;
+      const increasedMargin = WALL_MARGIN * 1.5;  // Increase wall margin by 50%
       
       // Check adjacent cells based on position within cell
-      if (xInCell < WALL_MARGIN) {
+      if (xInCell < increasedMargin) {
         if (gridX > 0 && maze[gridY][gridX - 1] === 1) return false;
-      } else if (xInCell > CELL_SIZE - WALL_MARGIN) {
+      } else if (xInCell > CELL_SIZE - increasedMargin) {
         if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) return false;
       }
       
-      if (yInCell < WALL_MARGIN) {
+      if (yInCell < increasedMargin) {
         if (gridY > 0 && maze[gridY - 1][gridX] === 1) return false;
-      } else if (yInCell > CELL_SIZE - WALL_MARGIN) {
+      } else if (yInCell > CELL_SIZE - increasedMargin) {
         if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) return false;
       }
     }
@@ -147,9 +148,9 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
 // Helper function to get available directions at a position
 const getAvailableDirections = (x: number, y: number, maze: number[][]): string[] => {
   const directions: string[] = [];
-  const testDistance = CELL_SIZE / 2;  // Test half a cell in each direction
+  const testDistance = CELL_SIZE * 0.6;  // Test a bit more than half a cell in each direction
   
-  // Test each direction
+  // Test each direction with a small offset to prevent wall touching
   if (isValidPosition(x, y - testDistance, maze)) directions.push('up');
   if (isValidPosition(x, y + testDistance, maze)) directions.push('down');
   if (isValidPosition(x - testDistance, y, maze)) directions.push('left');
