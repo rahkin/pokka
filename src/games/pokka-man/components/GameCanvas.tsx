@@ -225,14 +225,6 @@ const checkCollisions = (
   return null;
 };
 
-// Add these helper functions at the top with other constants
-const clampGridPosition = (x: number, y: number, maze: number[][]) => {
-  return {
-    x: Math.max(0, Math.min(x, maze[0].length - 1)),
-    y: Math.max(0, Math.min(y, maze.length - 1))
-  };
-};
-
 // Helper function to calculate ghost target based on mode and type
 const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
   const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
