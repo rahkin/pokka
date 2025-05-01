@@ -1,5 +1,5 @@
 // Game Constants
-export const CELL_SIZE = 30;
+export const CELL_SIZE = 20;
 export const CHARACTER_SIZE = 24;
 export const CHARACTER_SCALE = 1.0;
 export const WALL_MARGIN = 1;
@@ -7,7 +7,7 @@ export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
 // Character Speeds
-export const PACMAN_SPEED = 3.2;
+export const PACMAN_SPEED = 5 * 1.5;
 export const GHOST_SPEED = 3.0;
 export const GHOST_BASE_SPEED = 5;
 export const GHOST_SPEED_VARIATION = 0.15;
