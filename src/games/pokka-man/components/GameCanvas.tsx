@@ -71,11 +71,6 @@ interface GameState {
 
 type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
 
-interface CollisionPoint {
-  x: number;
-  y: number;
-}
-
 interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: () => void;
