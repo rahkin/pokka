@@ -25,7 +25,6 @@ const CHARACTER_SCALE = 1.0;
 const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS;
 const WALL_MARGIN = 2; // Margin to keep characters away from walls
-const CHARACTER_HITBOX_SIZE = CELL_SIZE - (WALL_MARGIN * 2);
 const GHOST_SPEED_VARIATION = 0.2; // Random speed variation between ghosts
 const MIN_PATH_LENGTH = 3; // Minimum path length before recalculating
 const PATH_RECALCULATION_DELAY = 1000; // Minimum time between path recalculations
@@ -1082,6 +1081,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Draw the game state
       draw();
 
+      // Add collision checking
+      const collisionResult = checkCollisions(gameState.pacman, gameState.ghosts, gameState.isPoweredUp, onGameOver);
+      if (collisionResult) {
+        const { ghostIndex, points } = collisionResult;
+        gameState.ghosts[ghostIndex].mode = 'eaten';
+        gameState.score += points;
+        if (onScoreUpdate) {
+          onScoreUpdate(gameState.score);
+        }
+      }
+
       animationFrameId = requestAnimationFrame(animate);
     };
 
@@ -1092,7 +1102,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPlaying, draw, updatePokka, updateGhosts]);
+  }, [isPlaying, draw, updatePokka, updateGhosts, onGameOver, onScoreUpdate]);
 
   // Ghost mode switching effect
   useEffect(() => {
