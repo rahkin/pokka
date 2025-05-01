@@ -95,7 +95,7 @@ export default function Profile() {
           </UsernameDisplay>
         )}
       </Section>
-
+      
       <Section>
         <h3>Wallet Address</h3>
         <Address>{address || 'Not connected'}</Address>

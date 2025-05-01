@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import GameTiles from '../components/GameTiles'
-import { RefreshCw, TrendingUp, AlertCircle } from 'lucide-react'
+import { RefreshCw, TrendingUp } from 'lucide-react'
 import { fetchRSSFeedFromNewsAPI } from '../utils/rssFeed'
 import { useTokenPrices } from '../hooks/useTokenPrices'
+import { PokkaChat } from '../components/PokkaChat'
 
 const Container = styled.div`
   max-width: 1200px;
@@ -470,6 +471,8 @@ const Home: React.FC = () => {
           </div>
         )}
       </CryptoDashboard>
+
+      <PokkaChat />
 
       <CTABanner>
         <h2>🚀 Ready to Train Your Own AI Twin?</h2>
