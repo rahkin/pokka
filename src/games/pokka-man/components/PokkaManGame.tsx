@@ -8,6 +8,10 @@ const GameContainer = styled.div`
   height: 660px;
   margin: 0 auto;
   background: #000;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  image-rendering: -webkit-optimize-contrast;
 `;
 
 const GameSection = styled.div`

@@ -31,6 +31,9 @@ const Canvas = styled.canvas`
   height: 660px;
   display: block;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  image-rendering: -webkit-optimize-contrast;
   margin: 0 auto;
   background: #000;
 `;
