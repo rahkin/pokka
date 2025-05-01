@@ -147,10 +147,6 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
       return false;
     }
     
-    // Get position within cell
-    const cellX = absoluteX % CELL_SIZE;
-    const cellY = absoluteY % CELL_SIZE;
-    
     // Check adjacent cells with improved margin checks
     const checkAdjacent = (x: number, y: number, margin: number) => {
       if (x < margin && gridX > 0 && maze[y][gridX - 1] === 1) return false;
