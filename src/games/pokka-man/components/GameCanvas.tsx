@@ -80,7 +80,6 @@ interface GameState {
 interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: () => void;
-  currentDirection: string;
   nextDirection: string;
   onTurnTaken: () => void;
   isPlaying: boolean;
@@ -181,7 +180,7 @@ const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): nu
 };
 
 // Change from const to function component and add proper export
-export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initialDirection, nextDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
+export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
@@ -376,7 +375,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
     let currentGhosts = ghostsRef.current.map(g => ({...g})); // Ensure we work with copies if modifying
     let currentIsPoweredUp = isPoweredUpRef.current;
     let localGameOver = false;
-    let localScore = scoreRef.current; // Use scoreRef for reading current score
 
     // Keep track of changes to apply via setGameState at the end
     let dotsChanged = false;
