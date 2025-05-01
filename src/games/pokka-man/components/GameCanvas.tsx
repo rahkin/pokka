@@ -886,47 +886,12 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
     };
   }, [isPlaying, draw, updatePokka, updateGhosts, onGameOver, onScoreUpdate]);
 
-  // Ghost mode switching effect
-  useEffect(() => {
-    if (!isPlaying) return; // Don't run timer if not playing
-    let modeTimer: NodeJS.Timeout;
-
-    const switchMode = () => {
-      if (!isPlaying || gameOverRef.current) return; // Stop switching if game over or not playing
-      setGameState(prev => {
-        if (prev.isPoweredUp) { // Frightened overrides scatter/chase
-          const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: 'frightened' as GhostMode }));
-          return { ...prev, ghosts: updatedGhosts, isScatterMode: false }; // Ensure scatter is off
-        }
-        const nextScatterMode = !prev.isScatterMode;
-        const nextMode = nextScatterMode ? 'scatter' : 'chase';
-        const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: nextMode as GhostMode }));
-        return { ...prev, isScatterMode: nextScatterMode, ghosts: updatedGhosts };
-      });
-
-      // Schedule next switch only if still playing
-      if (isPlaying && !gameOverRef.current) {
-         modeTimer = setTimeout(switchMode, gameState.isScatterMode ? GHOST_SCATTER_DURATION : GHOST_CHASE_DURATION);
-      }
-    };
-
-    // Initial switch after a brief delay
-    const initialDelay = setTimeout(switchMode, 100);
-
-    return () => {
-        clearTimeout(initialDelay);
-        if (modeTimer) clearTimeout(modeTimer);
-    };
-  // Depend on isPlaying to restart timer logic correctly
-  }, [isPlaying, gameState.isPoweredUp, gameState.isScatterMode]);
-
   // Helper function
   const getOppositeDirection = (direction: string): string => {
       switch (direction) { case 'up': return 'down'; case 'down': return 'up'; case 'left': return 'right'; case 'right': return 'left'; default: return direction; }
   };
 
   return <Canvas ref={canvasRef} />;
-
-} // END OF GameCanvas FUNCTION
+}
 
 // NO DUPLICATE CODE OR IMPORTS BELOW THIS LINE
