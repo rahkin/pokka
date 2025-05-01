@@ -188,6 +188,11 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
   const gameOverRef = useRef(false);
   const scoreRef = useRef(0);
   const animationFrameRef = useRef<number>();
+  // Add refs for state accessed by handleCollisions
+  const dotsRef = useRef<GameState['dots']>([]);
+  const powerPelletsRef = useRef<GameState['powerPellets']>([]);
+  const ghostsRef = useRef<GameState['ghosts']>([]);
+  const isPoweredUpRef = useRef<boolean>(false);
 
   // Initialize game state
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -360,38 +365,50 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
     };
   }, [isPlaying]);
 
-  // Update the handleCollisions function
+  // Update the handleCollisions function to use refs
   const handleCollisions = useCallback((newX: number, newY: number) => {
     const centerX = newX + CELL_SIZE / 2;
     const centerY = newY + CELL_SIZE / 2;
     let scoreChange = 0;
-    let newDots = [...gameState.dots];
-    let newPellets = [...gameState.powerPellets];
-    let isPoweredUp = gameState.isPoweredUp;
-    let consecutiveEats = 0;
+    // Read from refs
+    let currentDots = [...dotsRef.current];
+    let currentPellets = [...powerPelletsRef.current];
+    let currentGhosts = ghostsRef.current.map(g => ({...g})); // Ensure we work with copies if modifying
+    let currentIsPoweredUp = isPoweredUpRef.current;
+    let localGameOver = false;
+    let localScore = scoreRef.current; // Use scoreRef for reading current score
+
+    // Keep track of changes to apply via setGameState at the end
+    let dotsChanged = false;
+    let pelletsChanged = false;
+    let ghostsChanged = false;
+    let powerUpChanged = false;
 
     // Check for dot collection
-    const dotIndex = newDots.findIndex(dot =>
+    const dotIndex = currentDots.findIndex(dot =>
       Math.abs(dot.x + CELL_SIZE / 2 - centerX) < CELL_SIZE / 2 &&
       Math.abs(dot.y + CELL_SIZE / 2 - centerY) < CELL_SIZE / 2
     );
 
     if (dotIndex !== -1) {
-      newDots.splice(dotIndex, 1);
+      currentDots.splice(dotIndex, 1);
       scoreChange += POINT_VALUE;
+      dotsChanged = true;
       soundManager.play('eat');
     }
 
     // Check for power pellet collection
-    const pelletIndex = newPellets.findIndex(pellet =>
+    const pelletIndex = currentPellets.findIndex(pellet =>
       Math.abs(pellet.x + CELL_SIZE / 2 - centerX) < CELL_SIZE / 2 &&
       Math.abs(pellet.y + CELL_SIZE / 2 - centerY) < CELL_SIZE / 2
     );
 
     if (pelletIndex !== -1) {
-      newPellets.splice(pelletIndex, 1);
+      currentPellets.splice(pelletIndex, 1);
       scoreChange += POWER_PELLET_VALUE;
-      isPoweredUp = true;
+      currentIsPoweredUp = true;
+      powerUpChanged = true;
+      pelletsChanged = true;
       soundManager.play('powerPellet');
 
       if (powerUpTimeoutRef.current) {
@@ -399,63 +416,78 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
       }
 
       powerUpTimeoutRef.current = setTimeout(() => {
+        // Update state via setGameState when timeout finishes
         setGameState(prev => ({ ...prev, isPoweredUp: false }));
+        isPoweredUpRef.current = false; // Keep ref in sync
       }, POWER_PELLET_DURATION);
     }
 
-    // Check for ghost collisions with increasing points
-    gameState.ghosts.forEach((ghost, index) => {
-      const collisionResult = checkGhostCollision(newX, newY, ghost, isPoweredUp);
-      
-      if (collisionResult === 'death') {
-        soundManager.play('death');
-        gameOverRef.current = true;
-        if (onGameOver) {
-          onGameOver();
+    // Check for ghost collisions
+    let consecutiveEats = 0; // Reset consecutive count for this collision check cycle
+    currentGhosts = currentGhosts.map((ghost, index) => {
+        const collisionResult = checkGhostCollision(newX, newY, ghost, currentIsPoweredUp);
+        if (collisionResult === 'death' && !currentIsPoweredUp) { // Only die if not powered up
+            soundManager.play('death');
+            localGameOver = true; 
+            return ghost; // Return unchanged ghost, game over handled below
+        } else if (collisionResult === 'eatGhost' && currentIsPoweredUp) {
+            soundManager.play('eatGhost');
+            const points = GHOST_POINTS[Math.min(consecutiveEats, GHOST_POINTS.length - 1)];
+            scoreChange += points;
+            consecutiveEats++; 
+            ghostsChanged = true;
+            // Return ghost to spawn position
+            return {
+                ...ghost,
+                x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x),
+                y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
+                mode: 'eaten', // Should transition to eaten state
+                // consecutiveEats: 0 // Reset should happen elsewhere?
+            };
         }
-      } else if (collisionResult === 'eatGhost') {
-        soundManager.play('eatGhost');
-        const points = GHOST_POINTS[Math.min(consecutiveEats, GHOST_POINTS.length - 1)];
-        scoreChange += points;
-        consecutiveEats++;
-        
-        setGameState(prev => ({
-          ...prev,
-          ghosts: prev.ghosts.map((g, i) => 
-            i === index 
-              ? { 
-                  ...g, 
-                  x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x), 
-                  y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
-                  consecutiveEats: 0
-                }
-              : g
-          )
-        }));
-      }
+        return ghost; // Return ghost unchanged if no relevant collision
     });
 
     // Check for game completion
-    if (newDots.length === 0 && newPellets.length === 0) {
+    if (currentDots.length === 0 && currentPellets.length === 0) {
       soundManager.play('win');
-      gameOverRef.current = true;
-      if (onGameOver) {
-        onGameOver();
+      localGameOver = true;
+    }
+
+    // If any relevant state changed, update using setGameState
+    if (scoreChange > 0 || dotsChanged || pelletsChanged || ghostsChanged || powerUpChanged || localGameOver) {
+      setGameState(prev => ({
+        ...prev,
+        // Only update score if it changed
+        score: scoreChange > 0 ? prev.score + scoreChange : prev.score,
+        // Only update collections if they changed
+        dots: dotsChanged ? currentDots : prev.dots,
+        powerPellets: pelletsChanged ? currentPellets : prev.powerPellets,
+        // Only update ghosts if they changed (eaten)
+        ghosts: ghostsChanged ? currentGhosts : prev.ghosts,
+        // Only update powerup status if it changed
+        isPoweredUp: powerUpChanged ? currentIsPoweredUp : prev.isPoweredUp,
+      }));
+      
+      // Update scoreRef if score changed
+      if (scoreChange > 0 && onScoreUpdate) {
+          // Call onScoreUpdate asynchronously later using useEffect triggered by gameState.score
       }
     }
 
-    if (scoreChange > 0 || newDots.length !== gameState.dots.length || newPellets.length !== gameState.powerPellets.length) {
-      setGameState(prev => ({
-        ...prev,
-        score: prev.score + scoreChange,
-        dots: newDots,
-        powerPellets: newPellets,
-        isPoweredUp
-      }));
+    // Handle game over state change outside of setGameState
+    if (localGameOver && !gameOverRef.current) {
+      gameOverRef.current = true;
+      if (onGameOver) {
+        // Call onGameOver asynchronously later using useEffect triggered by gameOver prop
+      }
     }
 
-    return scoreChange;
-  }, [gameState, onGameOver]);
+    // Return scoreChange for immediate use in updatePokka if needed (currently not used there)
+    // The actual state update happens via setGameState above.
+    return scoreChange; 
+    // Dependencies should be stable functions from props/context or empty
+  }, [onGameOver, onScoreUpdate]); // Removed gameState dependency
 
   // Drawing functions
   const drawMaze = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -617,15 +649,16 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
     loadAssets().catch(console.error);
   }, []);
 
-  // Update Pokka's position and handle movement
+  // Update Pokka's position and handle movement (Restored Version)
   const updatePokka = useCallback((deltaTime: number) => {
     setGameState((prevState) => {
       const { pacman, maze } = prevState;
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
+      let effectiveDirection = pacman.currentMovingDirection; // Start with current or empty
+      // Note: We don't need didTakeTurn flag with the useEffect logic
 
-      // --- Initial Movement --- 
+      // --- Initial Movement Check --- 
       if (!pacman.currentMovingDirection && nextDirection) {
-          // Check if the initial direction is valid from the current spot
           let startCheckX = pacman.x;
           let startCheckY = pacman.y;
           const startCheckDistance = speed > 0 ? speed : 1;
@@ -636,103 +669,102 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
               case 'up': startCheckY -= startCheckDistance; break;
           }
           if (isValidPosition(startCheckX, startCheckY, maze)) {
-              pacman.currentMovingDirection = nextDirection; // Set initial direction
-              onTurnTaken(); // Clear the buffer immediately for initial move
+              effectiveDirection = nextDirection; // Decide to start moving
           }
       }
-      // --- End Initial Movement ---
+      // --- End Initial Movement Check ---
 
-      // --- Turn Handling --- 
-      const centerX = pacman.x + CELL_SIZE / 2;
-      const centerY = pacman.y + CELL_SIZE / 2;
-      const currentGridX = Math.floor(centerX / CELL_SIZE);
-      const currentGridY = Math.floor(centerY / CELL_SIZE);
-      const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
-      const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
-      const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
-                       Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
-      let potentialNewDirection = pacman.currentMovingDirection; // Start with current direction
+      // --- Turn Handling Check (only if already moving) --- 
+      if (pacman.currentMovingDirection && nextDirection && nextDirection !== pacman.currentMovingDirection && nextDirection !== getOppositeDirection(pacman.currentMovingDirection)) {
+          const centerX = pacman.x + CELL_SIZE / 2;
+          const centerY = pacman.y + CELL_SIZE / 2;
+          const currentGridX = Math.floor(centerX / CELL_SIZE);
+          const currentGridY = Math.floor(centerY / CELL_SIZE);
+          const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
+          const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
+          const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
+                           Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
 
-      if (isAligned && nextDirection && nextDirection !== pacman.currentMovingDirection && nextDirection !== getOppositeDirection(pacman.currentMovingDirection)) {
-        // Check if the new direction is valid from the current aligned grid position
-        let checkX = gridToPixel(currentGridX);
-        let checkY = gridToPixel(currentGridY);
-        const checkDistance = speed > 0 ? speed : 1; // Check slightly ahead
+          if (isAligned) {
+            let checkX = gridToPixel(currentGridX);
+            let checkY = gridToPixel(currentGridY);
+            const checkDistance = speed > 0 ? speed : 1; 
 
-        switch (nextDirection) {
-          case 'right': checkX += checkDistance; break;
-          case 'left': checkX -= checkDistance; break;
-          case 'down': checkY += checkDistance; break;
-          case 'up': checkY -= checkDistance; break;
-        }
+            switch (nextDirection) {
+              case 'right': checkX += checkDistance; break;
+              case 'left': checkX -= checkDistance; break;
+              case 'down': checkY += checkDistance; break;
+              case 'up': checkY -= checkDistance; break;
+            }
 
-        if (isValidPosition(checkX, checkY, maze)) {
-          // Snap to grid center before turning
-          pacman.x = gridToPixel(currentGridX);
-          pacman.y = gridToPixel(currentGridY);
-          pacman.currentMovingDirection = nextDirection; // Update internal direction
-          potentialNewDirection = nextDirection;         // Use new direction for this update cycle
-        }
+            if (isValidPosition(checkX, checkY, maze)) {
+              // Snap to grid center before turning
+              pacman.x = gridToPixel(currentGridX);
+              pacman.y = gridToPixel(currentGridY);
+              effectiveDirection = nextDirection; // Decide to turn
+            }
+          }
       }
-      // --- End Turn Handling ---
+      // --- End Turn Handling Check ---
 
-      const movingDirection = potentialNewDirection; // Use the potentially updated direction
-
-      // Calculate next position based on current MOVING direction
+      // --- Movement Calculation --- 
       let nextX = pacman.x;
       let nextY = pacman.y;
 
-      if (!movingDirection) {
-          // If not moving initially (e.g., start of game), don't move until a direction is set
-          return prevState;
+      if (!effectiveDirection) {
+          // If no direction decided, don't move
+          // Return previous state but ensure pacman object is copied if needed elsewhere
+          return { ...prevState, pacman: { ...pacman } }; 
       }
 
-      switch (movingDirection) {
+      switch (effectiveDirection) {
           case 'right': nextX += speed; break;
           case 'left': nextX -= speed; break;
           case 'down': nextY += speed; break;
           case 'up': nextY -= speed; break;
         }
 
-      // Check if next position is valid
+      let currentX = pacman.x;
+      let currentY = pacman.y;
+
       if (isValidPosition(nextX, nextY, maze)) {
-        pacman.x = nextX;
-        pacman.y = nextY;
-        // pacman.direction = movingDirection; // Maybe update this too?
+        currentX = nextX;
+        currentY = nextY;
       } else {
-        // Intended move failed. Try moving only along the intended axis from the *current* position.
-        if (movingDirection === 'left' || movingDirection === 'right') {
-          // Try horizontal move only
-          const tryX = pacman.x + (movingDirection === 'right' ? speed : -speed);
+        if (effectiveDirection === 'left' || effectiveDirection === 'right') {
+          const tryX = pacman.x + (effectiveDirection === 'right' ? speed : -speed);
           if (isValidPosition(tryX, pacman.y, maze)) {
-            pacman.x = tryX;
-            // pacman.direction = movingDirection; // Keep intended direction if slide works
+            currentX = tryX;
           }
-        } else if (movingDirection === 'up' || movingDirection === 'down') {
-          // Try vertical move only
-          const tryY = pacman.y + (movingDirection === 'down' ? speed : -speed);
+        } else if (effectiveDirection === 'up' || effectiveDirection === 'down') {
+          const tryY = pacman.y + (effectiveDirection === 'down' ? speed : -speed);
           if (isValidPosition(pacman.x, tryY, maze)) {
-            pacman.y = tryY;
-            // pacman.direction = movingDirection; // Keep intended direction if slide works
+            currentY = tryY;
           }
         }
-        // If neither the direct move nor the axis-aligned slide worked, Pokka stops against the wall.
-        // The position remains unchanged from the start of the function call.
       }
+      // --- End Movement Calculation ---
       
-      // Handle collisions with dots, power pellets, and ghosts
-      const scoreChange = handleCollisions(pacman.x, pacman.y);
+      const scoreChange = handleCollisions(currentX, currentY);
 
-      // Need to update the pacman object in the state correctly
-      const updatedPacman = { ...pacman }; // Create a copy to modify
-      return { ...prevState, pacman: updatedPacman, score: prevState.score + (scoreChange || 0) }; 
+      return {
+         ...prevState, 
+         pacman: { 
+             ...pacman, 
+             x: currentX, 
+             y: currentY,
+             currentMovingDirection: effectiveDirection 
+         }, 
+         score: prevState.score + (scoreChange || 0), 
+        };
     });
   }, [nextDirection, handleCollisions]);
 
-  // Effect to handle clearing the turn buffer asynchronously
+  // Restore useEffect for onTurnTaken
   useEffect(() => {
+    // Call onTurnTaken if a direction was buffered (nextDirection exists)
+    // AND the gameState now reflects that direction as the currentMovingDirection.
     if (nextDirection && gameState.pacman.currentMovingDirection === nextDirection) {
-      // Turn was successfully processed in the last update, now clear the parent's buffer
       onTurnTaken();
     }
   }, [gameState.pacman.currentMovingDirection, nextDirection, onTurnTaken]);
@@ -940,6 +972,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
       if (gameOverRef.current) { cancelAnimationFrame(animationFrameId); return; }
       const deltaTime = currentTime - lastTime;
       lastTime = currentTime;
+      console.log('deltaTime:', deltaTime); // Log delta time
 
       // Update game state
       updatePokka(deltaTime);
@@ -969,12 +1002,20 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPlaying, draw, updatePokka, updateGhosts, onGameOver, onScoreUpdate]);
+  }, [isPlaying, draw, updatePokka, updateGhosts, handleCollisions, onGameOver, onScoreUpdate]);
 
   // Helper function
   const getOppositeDirection = (direction: string): string => {
       switch (direction) { case 'up': return 'down'; case 'down': return 'up'; case 'left': return 'right'; case 'right': return 'left'; default: return direction; }
   };
+
+  // Update refs whenever relevant gameState changes
+  useEffect(() => {
+    dotsRef.current = gameState.dots;
+    powerPelletsRef.current = gameState.powerPellets;
+    ghostsRef.current = gameState.ghosts;
+    isPoweredUpRef.current = gameState.isPoweredUp;
+  }, [gameState.dots, gameState.powerPellets, gameState.ghosts, gameState.isPoweredUp]);
 
   return <Canvas ref={canvasRef} />;
 }

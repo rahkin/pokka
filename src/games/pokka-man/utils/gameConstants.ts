@@ -2,7 +2,7 @@
 export const CELL_SIZE = 30;
 export const CHARACTER_SIZE = 24;
 export const CHARACTER_SCALE = 1.0;
-export const WALL_MARGIN = 4;
+export const WALL_MARGIN = 1;
 export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
