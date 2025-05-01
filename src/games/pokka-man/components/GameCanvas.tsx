@@ -94,9 +94,9 @@ const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 // Helper function to get available directions at a position
 const getAvailableDirections = (x: number, y: number, maze: number[][], testDistance?: number): string[] => {
   const directions: string[] = [];
-  const distance = testDistance || CELL_SIZE * 0.6;  // Use provided distance or default
+  const distance = testDistance || CELL_SIZE * 0.3;  // Reduced from 0.6 to allow more movement
   
-  // Test each direction with a small offset to prevent wall touching
+  // Test each direction with a smaller offset
   if (isValidPosition(x, y - distance, maze)) directions.push('up');
   if (isValidPosition(x, y + distance, maze)) directions.push('down');
   if (isValidPosition(x - distance, y, maze)) directions.push('left');
@@ -777,10 +777,12 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
         const currentState = ghost.stateMachine.getSnapshot();
         const mode = currentState.context.mode;
-        const baseSpeed = ghost.baseSpeed * (deltaTime / FRAME_TIME);
+        
+        // Increase base speed and adjust mode multipliers
+        const baseSpeed = ghost.baseSpeed * 1.5 * (deltaTime / FRAME_TIME);
         const speed = mode === 'frightened' ? 
           baseSpeed * GHOST_FRIGHTENED_SPEED_MULTIPLIER : 
-          baseSpeed * (mode === 'chase' ? 1.1 : 0.9);
+          mode === 'chase' ? baseSpeed * 1.2 : baseSpeed;
 
         const centerX = ghost.x + CELL_SIZE / 2;
         const centerY = ghost.y + CELL_SIZE / 2;
@@ -790,34 +792,30 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
         const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
         
-        const atGridCenter = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
-                            Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+        // Reduced threshold for grid alignment check
+        const atGridCenter = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD * 2 && 
+                            Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD * 2;
 
         if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x, ghost.y, prevState.maze)) {
-          if (atGridCenter) {
-            ghost.x = currentGridX * CELL_SIZE;
-            ghost.y = currentGridY * CELL_SIZE;
-          }
-
           let availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze);
           
+          // Only try larger test distance if no directions are available
           if (availableDirections.length === 0) {
-            availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze, CELL_SIZE * 0.8);
+            availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze, CELL_SIZE * 0.5);
           }
 
-          availableDirections = availableDirections.filter(dir => {
-            if (dir === getOppositeDirection(ghost.direction)) {
-              return availableDirections.length === 1;
-            }
-            return true;
-          });
+          // Remove opposite direction unless it's the only option
+          const opposite = getOppositeDirection(ghost.direction);
+          if (availableDirections.length > 1 && ghost.direction) {
+            availableDirections = availableDirections.filter(dir => dir !== opposite);
+          }
 
           if (availableDirections.length > 0) {
             const ghostState = {
               position: { x: ghost.x, y: ghost.y },
               mode: mode,
               isReleased: ghost.isReleased,
-              currentSpeed: speed, 
+              currentSpeed: speed,
               lastUpdateTime: Date.now()
             };
             
@@ -834,37 +832,18 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
                 case 'right': nextX += CELL_SIZE; break;
               }
               
-              const nextGridX = Math.floor(nextX / CELL_SIZE);
-              const nextGridY = Math.floor(nextY / CELL_SIZE);
+              const distanceToTarget = calculateDistance(nextX, nextY, target.x, target.y);
               
-              const targetGridX = Math.floor(target.x / CELL_SIZE);
-              const targetGridY = Math.floor(target.y / CELL_SIZE);
+              // Reduced random factor influence
+              const randomFactor = mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.2;
               
-              const distanceToTarget = Math.abs(nextGridX - targetGridX) + Math.abs(nextGridY - targetGridY);
+              // Increased direction persistence
+              const directionBonus = dir === ghost.direction ? 1.5 : 0;
               
-              const randomFactor = mode === 'frightened' ? Math.random() * 4 : Math.random() * 0.5;
-              
-              const directionBonus = dir === ghost.direction ? 0.8 : 0;
-              
-              const personality = GHOST_PERSONALITIES[ghost.type];
-              const ghostAvoidanceBonus = prevState.ghosts.reduce((bonus, otherGhost) => {
-                if (otherGhost === ghost) return bonus;
-                const otherGridX = Math.floor(otherGhost.x / CELL_SIZE);
-                const otherGridY = Math.floor(otherGhost.y / CELL_SIZE);
-                const distanceToGhost = Math.abs(nextGridX - otherGridX) + Math.abs(nextGridY - otherGridY);
-                
-                if (distanceToGhost < personality.avoidanceRadius) {
-                  const avoidanceStrength = Math.pow(1 - (distanceToGhost / personality.avoidanceRadius), 2);
-                  return bonus + (avoidanceStrength * 2);
-                }
-                return bonus;
-              }, 0);
-              
-              const wallAvoidanceBonus = calculateWallAvoidanceBonus(nextX, nextY, prevState.maze);
-              
+              // Simplified scoring
               return {
                 direction: dir,
-                score: -distanceToTarget + randomFactor + directionBonus + ghostAvoidanceBonus + wallAvoidanceBonus
+                score: -distanceToTarget + randomFactor + directionBonus
               };
             });
 
@@ -886,24 +865,19 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           case 'right': nextX += speed; break;
         }
 
+        // Simplified movement validation
         if (isValidPosition(nextX, nextY, prevState.maze)) {
-          if (Math.abs(offsetX) < speed && (ghost.direction === 'up' || ghost.direction === 'down')) {
-            nextX = currentGridX * CELL_SIZE;
-          }
-          if (Math.abs(offsetY) < speed && (ghost.direction === 'left' || ghost.direction === 'right')) {
-            nextY = currentGridY * CELL_SIZE;
-          }
-          
-          return { ...ghost, x: nextX, y: nextY, mode, targetX: ghost.targetX, targetY: ghost.targetY };
-        } else {
-          const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
-          const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
-          
-          if (isValidPosition(ghost.x, slideY, prevState.maze)) {
-            return { ...ghost, y: slideY, mode, targetX: ghost.targetX, targetY: ghost.targetY };
-          } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
-            return { ...ghost, x: slideX, mode, targetX: ghost.targetX, targetY: ghost.targetY };
-          }
+          return { ...ghost, x: nextX, y: nextY, mode };
+        }
+
+        // Try sliding along walls
+        const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
+        const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
+        
+        if (isValidPosition(ghost.x, slideY, prevState.maze)) {
+          return { ...ghost, y: slideY, mode };
+        } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
+          return { ...ghost, x: slideX, mode };
         }
 
         return ghost;
