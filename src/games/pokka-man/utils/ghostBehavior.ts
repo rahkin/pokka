@@ -154,7 +154,7 @@ export class GhostBehavior {
     };
   }
 
-  private getPurpleTarget(ghostPos: Position, pacman: PacmanState, ghost: GhostState): Position {
+  private getPurpleTarget(ghostPos: Position, pacman: PacmanState, _ghost: GhostState): Position {
     const personality = GHOST_PERSONALITIES.purple;
     const distance = this.calculateDistance(ghostPos, pacman.position);
     
@@ -171,7 +171,7 @@ export class GhostBehavior {
     }
   }
 
-  private getSkinTarget(ghostPos: Position, pacman: PacmanState, ghost: GhostState): Position {
+  private getSkinTarget(ghostPos: Position, pacman: PacmanState, _ghost: GhostState): Position {
     const personality = GHOST_PERSONALITIES.skin;
     const distance = this.calculateDistance(ghostPos, pacman.position);
     
