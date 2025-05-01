@@ -81,6 +81,7 @@ interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: () => void;
   nextDirection: string;
+  currentDirection: string;
   onTurnTaken: () => void;
   isPlaying: boolean;
   gameOver?: boolean;
@@ -180,7 +181,7 @@ const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): nu
 };
 
 // Change from const to function component and add proper export
-export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
+export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
@@ -218,13 +219,13 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, onTurnTak
       pacman: {
         x: gridToPixel(10),
         y: gridToPixel(16),
-        direction: '',
+        direction: currentDirection,
         nextDirection: '',
         nextX: gridToPixel(10),
         nextY: gridToPixel(16),
         visualX: gridToPixel(10),
         visualY: gridToPixel(16),
-        currentMovingDirection: ''
+        currentMovingDirection: currentDirection
       },
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
@@ -281,13 +282,13 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, onTurnTak
         pacman: {
           x: gridToPixel(10),
           y: gridToPixel(16),
-          direction: '',
+          direction: currentDirection,
           nextDirection: '',
           nextX: gridToPixel(10),
           nextY: gridToPixel(16),
           visualX: gridToPixel(10),
           visualY: gridToPixel(16),
-          currentMovingDirection: ''
+          currentMovingDirection: currentDirection
         },
         ghosts: prev.ghosts.map((ghost, index) => ({
           ...ghost,
@@ -306,7 +307,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, onTurnTak
         powerPellets: prev.powerPellets.map(pellet => ({ ...pellet }))
       }));
     }
-  }, [isPlaying]);
+  }, [isPlaying, currentDirection]);
 
   // Update score and game over state using refs
   useEffect(() => {
