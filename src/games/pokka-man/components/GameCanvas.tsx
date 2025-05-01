@@ -870,8 +870,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         // Get current grid position
         const centerX = ghost.x + CELL_SIZE / 2;
         const centerY = ghost.y + CELL_SIZE / 2;
-        const gridX = Math.floor(centerX / CELL_SIZE);
-        const gridY = Math.floor(centerY / CELL_SIZE);
+        const currentGridX = Math.floor(centerX / CELL_SIZE);
+        const currentGridY = Math.floor(centerY / CELL_SIZE);
 
         // Calculate offset from grid center
         const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
@@ -885,8 +885,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x + offsetX, ghost.y + offsetY, prevState.maze)) {
           // Snap to grid when at center
           if (atGridCenter) {
-            ghost.x = gridX * CELL_SIZE;
-            ghost.y = gridY * CELL_SIZE;
+            ghost.x = currentGridX * CELL_SIZE;
+            ghost.y = currentGridY * CELL_SIZE;
           }
 
           // Get available directions excluding the opposite of current direction
@@ -899,16 +899,16 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             
             // Score each direction
             const directionScores = availableDirections.map(dir => {
-              let nextX = gridX;
-              let nextY = gridY;
+              let nextGridX = currentGridX;
+              let nextGridY = currentGridY;
               switch (dir) {
-                case 'up': nextY--; break;
-                case 'down': nextY++; break;
-                case 'left': nextX--; break;
-                case 'right': nextX++; break;
+                case 'up': nextGridY--; break;
+                case 'down': nextGridY++; break;
+                case 'left': nextGridX--; break;
+                case 'right': nextGridX++; break;
               }
               
-              const distanceToTarget = Math.abs(nextX - target.x) + Math.abs(nextY - target.y);
+              const distanceToTarget = Math.abs(nextGridX - target.x) + Math.abs(nextGridY - target.y);
               const randomFactor = mode === 'frightened' ? Math.random() * 3 : Math.random() * 0.5;
               return {
                 direction: dir,
@@ -943,10 +943,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         if (isValidPosition(nextX, nextY, prevState.maze)) {
           // Smooth out grid alignment when moving
           if (Math.abs(offsetX) < speed && ghost.direction !== 'left' && ghost.direction !== 'right') {
-            nextX = gridX * CELL_SIZE;
+            nextX = currentGridX * CELL_SIZE;
           }
           if (Math.abs(offsetY) < speed && ghost.direction !== 'up' && ghost.direction !== 'down') {
-            nextY = gridY * CELL_SIZE;
+            nextY = currentGridY * CELL_SIZE;
           }
           
           return { ...ghost, x: nextX, y: nextY, mode };
