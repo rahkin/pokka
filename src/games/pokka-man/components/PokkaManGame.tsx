@@ -27,7 +27,8 @@ export const PokkaManGame: React.FC = () => {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
-  const currentDirection = useMobileControls();
+  const [currentDirection, setCurrentDirection] = useState('up');
+  const [nextDirection, setNextDirection] = useState('');
 
   const handleStart = useCallback(() => {
     setIsPlaying(true);
@@ -44,6 +45,11 @@ export const PokkaManGame: React.FC = () => {
     setScore(newScore);
   }, []);
 
+  const handleTurnTaken = useCallback(() => {
+    setCurrentDirection(nextDirection);
+    setNextDirection('');
+  }, [nextDirection]);
+
   return (
     <GameContainer>
       <ScoreDisplay>Score: {score}</ScoreDisplay>
@@ -51,6 +57,8 @@ export const PokkaManGame: React.FC = () => {
         onScoreUpdate={handleScoreUpdate}
         onGameOver={handleGameOver}
         currentDirection={currentDirection}
+        nextDirection={nextDirection}
+        onTurnTaken={handleTurnTaken}
         isPlaying={isPlaying}
         gameOver={gameOver}
       />
