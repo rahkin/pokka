@@ -4,6 +4,30 @@ import { soundManager } from '../utils/sounds';
 import { createPathfinder, getNextDirection } from '../utils/pathfinding';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
 import { interpret } from 'xstate';
+import {
+  CELL_SIZE,
+  PACMAN_SPEED,
+  GHOST_SPEED,
+  POWER_PELLET_DURATION,
+  POINT_VALUE,
+  POWER_PELLET_VALUE,
+  CHARACTER_SCALE,
+  TARGET_FPS,
+  FRAME_TIME,
+  WALL_MARGIN,
+  CHARACTER_SIZE,
+  GHOST_SPEED_VARIATION,
+  MIN_PATH_LENGTH,
+  PATH_RECALCULATION_DELAY,
+  GHOST_POINTS,
+  GHOST_RELEASE_DELAYS,
+  GHOST_CHASE_DURATION,
+  GHOST_SCATTER_DURATION,
+  MOVEMENT_STATES,
+  MAZE_LAYOUT,
+  GHOST_FRIGHTENED_SPEED_MULTIPLIER,
+  GRID_ALIGNMENT_THRESHOLD
+} from '../utils/gameConstants';
 
 const Canvas = styled.canvas`
   width: 600px;
@@ -14,59 +38,20 @@ const Canvas = styled.canvas`
   background: #000;
 `;
 
-// Game Constants
-const CELL_SIZE = 30;
-const PACMAN_SPEED = 8;
-const GHOST_SPEED = 6;
-const POWER_PELLET_DURATION = 10000;
-const POINT_VALUE = 10;
-const POWER_PELLET_VALUE = 50;
-const CHARACTER_SCALE = 1.0;
-const TARGET_FPS = 60;
-const FRAME_TIME = 1000 / TARGET_FPS;
-const WALL_MARGIN = 2; // Margin to keep characters away from walls
-const GHOST_SPEED_VARIATION = 0.2; // Random speed variation between ghosts
-const MIN_PATH_LENGTH = 3; // Minimum path length before recalculating
-const PATH_RECALCULATION_DELAY = 1000; // Minimum time between path recalculations
-const GHOST_POINTS = [200, 400, 800, 1600]; // Increasing points for consecutive ghost eats
-const GHOST_RELEASE_DELAYS = [0, 2000, 4000, 6000]; // Staggered ghost release
-const GHOST_CHASE_DURATION = 20000; // 20 seconds chase mode
-const GHOST_SCATTER_DURATION = 7000; // 7 seconds scatter mode
+interface Position {
+  x: number;
+  y: number;
+}
 
-// Maze layout (1 = wall, 0 = path, 2 = dot, 3 = power pellet)
-const MAZE_LAYOUT = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-  [1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1],
-  [1, 3, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 3, 1],
-  [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-  [1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 2, 1],
-  [1, 2, 2, 2, 2, 1, 2, 2, 2, 1, 1, 2, 2, 2, 1, 2, 2, 2, 2, 1],
-  [1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1],
-  [0, 0, 0, 1, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 0, 0, 0],
-  [1, 1, 1, 1, 2, 1, 2, 1, 1, 0, 0, 1, 1, 2, 1, 2, 1, 1, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 1],
-  [1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1],
-  [0, 0, 0, 1, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 0, 0, 0],
-  [1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-  [1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1],
-  [1, 3, 2, 1, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 1, 2, 3, 1],
-  [1, 1, 2, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 1],
-  [1, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 1],
-  [1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1],
-  [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-];
-
-type GhostMode = 'scatter' | 'chase' | 'frightened';
-
-interface GameCanvasProps {
-  onScoreUpdate?: (score: number) => void;
-  onGameOver?: () => void;
-  currentDirection: string;
-  isPlaying: boolean;
-  gameOver?: boolean;
+interface Ghost {
+  x: number;
+  y: number;
+  type: string;
+  direction: string;
+  isReleased: boolean;
+  baseSpeed: number;
+  mode: GhostMode;
+  stateMachine: any;  // We'll keep this as any since the exact type isn't critical for this fix
 }
 
 interface GameState {
@@ -83,101 +68,120 @@ interface GameState {
     visualX: number;
     visualY: number;
   };
-  ghosts: Array<{
-    x: number;
-    y: number;
-    direction: string;
-    type: string;
-    mode: 'scatter' | 'chase' | 'frightened' | 'eaten';
-    targetX: number;
-    targetY: number;
-    isReleased: boolean;
-    stateMachine: any;
-    path: number[][];
-    lastPathUpdate: number;
-    baseSpeed: number;
-    consecutiveEats: number;
-  }>;
+  ghosts: Ghost[];
   maze: number[][];
   dots: Array<{ x: number; y: number }>;
   powerPellets: Array<{ x: number; y: number }>;
+}
+
+type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
+
+interface CollisionPoint {
+  x: number;
+  y: number;
+}
+
+// More collision points for better coverage
+const COLLISION_POINTS: CollisionPoint[] = [
+  // Center cross
+  { x: 0.5, y: 0.5 },  // Center
+  { x: 0.5, y: 0.3 },  // Top center
+  { x: 0.5, y: 0.7 },  // Bottom center
+  { x: 0.3, y: 0.5 },  // Left center
+  { x: 0.7, y: 0.5 },  // Right center
+  
+  // Corners with slight inset
+  { x: 0.3, y: 0.3 },  // Top-left
+  { x: 0.7, y: 0.3 },  // Top-right
+  { x: 0.3, y: 0.7 },  // Bottom-left
+  { x: 0.7, y: 0.7 },  // Bottom-right
+  
+  // Additional diagonal points
+  { x: 0.4, y: 0.4 },  // Top-left diagonal
+  { x: 0.6, y: 0.4 },  // Top-right diagonal
+  { x: 0.4, y: 0.6 },  // Bottom-left diagonal
+  { x: 0.6, y: 0.6 }   // Bottom-right diagonal
+];
+
+interface GameCanvasProps {
+  onScoreUpdate?: (score: number) => void;
+  onGameOver?: () => void;
+  currentDirection: string;
+  isPlaying: boolean;
+  gameOver?: boolean;
 }
 
 // Convert between grid and pixel coordinates
 const gridToPixel = (grid: number) => grid * CELL_SIZE;
 const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 
-const getAvailableDirections = (x: number, y: number, maze: number[][]) => {
-  const directions: string[] = [];
-  const currentGridX = Math.floor(x / CELL_SIZE);
-  const currentGridY = Math.floor(y / CELL_SIZE);
+// Helper function to check if a position is valid (no wall collision)
+const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
+  // First check if the center point is in bounds
+  const centerGridX = Math.floor((x + CELL_SIZE / 2) / CELL_SIZE);
+  const centerGridY = Math.floor((y + CELL_SIZE / 2) / CELL_SIZE);
   
-  // Check if we're close enough to the grid center to consider changing direction
-  const currentCellOffsetX = x % CELL_SIZE;
-  const currentCellOffsetY = y % CELL_SIZE;
-  const isCentered = Math.abs(currentCellOffsetX - CELL_SIZE / 2) < WALL_MARGIN * 2 && 
-                     Math.abs(currentCellOffsetY - CELL_SIZE / 2) < WALL_MARGIN * 2;
-
-  if (!isCentered) {
-    return directions;
+  if (centerGridX < 0 || centerGridX >= maze[0].length || 
+      centerGridY < 0 || centerGridY >= maze.length) {
+    return false;
   }
 
-  const positions = {
-    up: { x: currentGridX, y: currentGridY - 1 },
-    down: { x: currentGridX, y: currentGridY + 1 },
-    left: { x: currentGridX - 1, y: currentGridY },
-    right: { x: currentGridX + 1, y: currentGridY }
-  };
-
-  Object.entries(positions).forEach(([direction, pos]) => {
-    if (pos.x >= 0 && pos.x < maze[0].length && 
-        pos.y >= 0 && pos.y < maze.length && 
-        maze[pos.y][pos.x] !== 1) {
-      // Additional check to ensure the entire ghost can fit through the passage
-      const testX = pos.x * CELL_SIZE + CELL_SIZE / 2;
-      const testY = pos.y * CELL_SIZE + CELL_SIZE / 2;
-      if (isValidGhostPosition(testX - CELL_SIZE / 2, testY - CELL_SIZE / 2, maze)) {
-        directions.push(direction);
-      }
+  // Check all collision points
+  return COLLISION_POINTS.every(point => {
+    // Calculate absolute position of this collision point
+    const absoluteX = x + point.x * CHARACTER_SIZE;
+    const absoluteY = y + point.y * CHARACTER_SIZE;
+    
+    // Convert to grid coordinates
+    const gridX = Math.floor(absoluteX / CELL_SIZE);
+    const gridY = Math.floor(absoluteY / CELL_SIZE);
+    
+    // Check bounds
+    if (gridX < 0 || gridX >= maze[0].length || 
+        gridY < 0 || gridY >= maze.length) {
+      return false;
     }
+    
+    // Check for wall collision with margin
+    if (maze[gridY][gridX] === 1) {
+      return false;
+    }
+    
+    // Get position within cell
+    const cellX = absoluteX % CELL_SIZE;
+    const cellY = absoluteY % CELL_SIZE;
+    
+    // Check adjacent cells with improved margin checks
+    const checkAdjacent = (x: number, y: number, margin: number) => {
+      if (x < margin && gridX > 0 && maze[y][gridX - 1] === 1) return false;
+      if (x > CELL_SIZE - margin && gridX < maze[0].length - 1 && maze[y][gridX + 1] === 1) return false;
+      if (y < margin && gridY > 0 && maze[gridY - 1][x] === 1) return false;
+      if (y > CELL_SIZE - margin && gridY < maze.length - 1 && maze[gridY + 1][x] === 1) return false;
+      return true;
+    };
+    
+    return checkAdjacent(gridX, gridY, WALL_MARGIN);
   });
+};
 
+// Helper function to get available directions at a position
+const getAvailableDirections = (x: number, y: number, maze: number[][]): string[] => {
+  const directions: string[] = [];
+  const gridX = Math.floor(x / CELL_SIZE);
+  const gridY = Math.floor(y / CELL_SIZE);
+  
+  // Check each direction
+  if (gridY > 0 && maze[gridY - 1][gridX] !== 1) directions.push('up');
+  if (gridY < maze.length - 1 && maze[gridY + 1][gridX] !== 1) directions.push('down');
+  if (gridX > 0 && maze[gridY][gridX - 1] !== 1) directions.push('left');
+  if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] !== 1) directions.push('right');
+  
   return directions;
 };
 
+// Helper function to calculate distance between two points
 const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
-  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-};
-
-// Helper to check if a ghost's position is valid (not a wall)
-const isValidGhostPosition = (x: number, y: number, maze: number[][]) => {
-  // Check multiple points around the ghost to prevent wall clipping
-  const points = [
-    { x: x + CELL_SIZE * 0.3, y: y + CELL_SIZE * 0.3 },
-    { x: x + CELL_SIZE * 0.7, y: y + CELL_SIZE * 0.3 },
-    { x: x + CELL_SIZE * 0.3, y: y + CELL_SIZE * 0.7 },
-    { x: x + CELL_SIZE * 0.7, y: y + CELL_SIZE * 0.7 },
-    { x: x + CELL_SIZE * 0.5, y: y + CELL_SIZE * 0.5 }
-  ];
-
-  return points.every(point => {
-    const gridX = Math.floor(point.x / CELL_SIZE);
-    const gridY = Math.floor(point.y / CELL_SIZE);
-    return gridX >= 0 && gridX < maze[0].length &&
-           gridY >= 0 && gridY < maze.length &&
-           maze[gridY][gridX] !== 1;
-  });
-};
-
-// Helper to get the opposite direction
-const getOppositeDirection = (direction: string): string => {
-  switch (direction) {
-    case 'up': return 'down';
-    case 'down': return 'up';
-    case 'left': return 'right';
-    case 'right': return 'left';
-    default: return '';
-  }
+  return Math.abs(x2 - x1) + Math.abs(y2 - y1);
 };
 
 // Add this function after the existing helper functions
@@ -258,13 +262,117 @@ const getValidTargetPosition = (x: number, y: number, maze: number[][]) => {
   return clamped;
 };
 
-export const GameCanvas: React.FC<GameCanvasProps> = ({
-  onScoreUpdate,
-  onGameOver,
-  currentDirection,
-  isPlaying,
-  gameOver
-}) => {
+// Helper function to calculate ghost target based on mode and type
+const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
+  const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
+  const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
+  const gridX = Math.floor(ghost.x / CELL_SIZE);
+  const gridY = Math.floor(ghost.y / CELL_SIZE);
+
+  if (mode === 'frightened') {
+    // In frightened mode, move randomly but avoid Pokka
+    const distanceToPokka = Math.abs(gridX - pacmanGridX) + Math.abs(gridY - pacmanGridY);
+    if (distanceToPokka < 4) {
+      // Try to move away from Pokka
+      return {
+        x: gridX + (gridX - pacmanGridX),
+        y: gridY + (gridY - pacmanGridY)
+      };
+    }
+    // Random movement
+    return {
+      x: Math.floor(Math.random() * gameState.maze[0].length),
+      y: Math.floor(Math.random() * gameState.maze.length)
+    };
+  }
+
+  if (mode === 'chase') {
+    switch (ghost.type) {
+      case 'pink': // Ambush ahead of Pokka
+        const offset = 4;
+        switch (gameState.pacman.direction) {
+          case 'up':
+            return {
+              x: pacmanGridX - offset,
+              y: Math.max(0, pacmanGridY - offset)
+            };
+          case 'down':
+            return {
+              x: pacmanGridX + offset,
+              y: Math.min(gameState.maze.length - 1, pacmanGridY + offset)
+            };
+          case 'left':
+            return {
+              x: Math.max(0, pacmanGridX - offset),
+              y: pacmanGridY - offset
+            };
+          case 'right':
+            return {
+              x: Math.min(gameState.maze[0].length - 1, pacmanGridX + offset),
+              y: pacmanGridY + offset
+            };
+          default:
+            return { x: pacmanGridX, y: pacmanGridY };
+        }
+
+      case 'blue': // Flank using red ghost position
+        const redGhost = gameState.ghosts[0];
+        const redGridX = Math.floor(redGhost.x / CELL_SIZE);
+        const redGridY = Math.floor(redGhost.y / CELL_SIZE);
+        // Position opposite to red ghost relative to Pokka
+        return {
+          x: pacmanGridX + (pacmanGridX - redGridX),
+          y: pacmanGridY + (pacmanGridY - redGridY)
+        };
+
+      case 'purple': // Patrol and intercept
+        const distanceToTarget = Math.abs(gridX - pacmanGridX) + Math.abs(gridY - pacmanGridY);
+        if (distanceToTarget < 6) {
+          // Close enough to chase directly
+          return { x: pacmanGridX, y: pacmanGridY };
+        }
+        // Patrol between corners to cut off escape
+        const time = Date.now() / 1000;
+        const patrolPoint = Math.floor(time % 4);
+        switch (patrolPoint) {
+          case 0: return { x: 0, y: 0 };
+          case 1: return { x: gameState.maze[0].length - 1, y: 0 };
+          case 2: return { x: 0, y: gameState.maze.length - 1 };
+          case 3: return { x: gameState.maze[0].length - 1, y: gameState.maze.length - 1 };
+          default: return { x: pacmanGridX, y: pacmanGridY };
+        }
+
+      default: // Direct chase with prediction
+        // Predict Pokka's future position
+        return {
+          x: pacmanGridX + (gameState.pacman.direction === 'right' ? 2 : 
+                           gameState.pacman.direction === 'left' ? -2 : 0),
+          y: pacmanGridY + (gameState.pacman.direction === 'down' ? 2 : 
+                           gameState.pacman.direction === 'up' ? -2 : 0)
+        };
+    }
+  }
+
+  // Scatter mode - patrol corners but maintain aggression
+  const cornerIndex = ['pink', 'blue', 'purple', 'skin'].indexOf(ghost.type);
+  const time = Date.now() / 1000;
+  // Periodically switch between corner and chase
+  const shouldChase = (time % 5) < 3; // Chase for 3 seconds, scatter for 2
+  
+  if (shouldChase) {
+    return { x: pacmanGridX, y: pacmanGridY };
+  }
+  
+  switch (cornerIndex) {
+    case 0: return { x: 0, y: 0 };
+    case 1: return { x: gameState.maze[0].length - 1, y: 0 };
+    case 2: return { x: 0, y: gameState.maze.length - 1 };
+    default: return { x: gameState.maze[0].length - 1, y: gameState.maze.length - 1 };
+  }
+};
+
+// Change from const to function component and add proper export
+export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<any>(null);
   const powerUpTimeoutRef = useRef<NodeJS.Timeout>();
@@ -297,20 +405,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     return {
-      score: 0,
-      isPoweredUp: false,
-      isScatterMode: true,
-      pacman: {
-        x: gridToPixel(10),
-        y: gridToPixel(16),
-        direction: '',
-        nextDirection: '',
-        nextX: gridToPixel(10),
-        nextY: gridToPixel(16),
-        visualX: gridToPixel(10),
-        visualY: gridToPixel(16)
-      },
-      ghosts: [
+    score: 0,
+    isPoweredUp: false,
+    isScatterMode: true,
+    pacman: {
+      x: gridToPixel(10),
+      y: gridToPixel(16),
+      direction: '',
+      nextDirection: '',
+      nextX: gridToPixel(10),
+      nextY: gridToPixel(16),
+      visualX: gridToPixel(10),
+      visualY: gridToPixel(16)
+    },
+    ghosts: [
         { 
           x: gridToPixel(8), 
           y: gridToPixel(10), 
@@ -371,8 +479,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
           consecutiveEats: 0
         }
-      ],
-      maze: MAZE_LAYOUT,
+    ],
+    maze: MAZE_LAYOUT,
       dots,
       powerPellets
     };
@@ -747,267 +855,144 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
       const gridX = Math.floor(pacman.x / CELL_SIZE);
       const gridY = Math.floor(pacman.y / CELL_SIZE);
-      const cellOffsetX = pacman.x % CELL_SIZE;
-      const cellOffsetY = pacman.y % CELL_SIZE;
-
-      // Check if we're at a grid intersection (allowing for some margin)
-      const isAtIntersection = 
-        (Math.abs(cellOffsetX) < speed || Math.abs(cellOffsetX - CELL_SIZE) < speed) &&
-        (Math.abs(cellOffsetY) < speed || Math.abs(cellOffsetY - CELL_SIZE) < speed);
-
-      // If at intersection, check if we can change direction
-      if (isAtIntersection && currentDirection !== pacman.direction) {
-        let testX = gridX * CELL_SIZE;
-        let testY = gridY * CELL_SIZE;
+      
+      // Calculate next position based on current direction
+      let nextX = pacman.x;
+      let nextY = pacman.y;
+      
+      switch (currentDirection) {
+        case 'right': nextX += speed; break;
+        case 'left': nextX -= speed; break;
+        case 'down': nextY += speed; break;
+        case 'up': nextY -= speed; break;
+      }
+      
+      // Check if next position is valid
+      if (isValidPosition(nextX, nextY, prevState.maze)) {
+        pacman.x = nextX;
+        pacman.y = nextY;
+        pacman.direction = currentDirection;
+      } else {
+        // Try to slide along walls when hitting them at an angle
+        const slideX = currentDirection === 'up' || currentDirection === 'down' ? nextX : pacman.x;
+        const slideY = currentDirection === 'left' || currentDirection === 'right' ? nextY : pacman.y;
         
-        // Calculate test position in next direction
-        switch (currentDirection) {
-          case 'right': testX += CELL_SIZE; break;
-          case 'left': testX -= CELL_SIZE; break;
-          case 'down': testY += CELL_SIZE; break;
-          case 'up': testY -= CELL_SIZE; break;
-        }
-        
-        // If we can move in the next direction, change direction
-        if (isValidPosition(testX, testY, prevState.maze)) {
-          // Align to grid when changing direction
-          pacman.x = gridX * CELL_SIZE;
-          pacman.y = gridY * CELL_SIZE;
-          pacman.direction = currentDirection;
-          pacman.visualX = pacman.x;
-          pacman.visualY = pacman.y;
+        if (isValidPosition(pacman.x, slideY, prevState.maze)) {
+          pacman.y = slideY;
+        } else if (isValidPosition(slideX, pacman.y, prevState.maze)) {
+          pacman.x = slideX;
         }
       }
-
-      // Continue in current direction if possible
-      if (pacman.direction) {
-        let nextX = pacman.x;
-        let nextY = pacman.y;
-        
-        switch (pacman.direction) {
-          case 'right': nextX += speed; break;
-          case 'left': nextX -= speed; break;
-          case 'down': nextY += speed; break;
-          case 'up': nextY -= speed; break;
-        }
-
-        if (isValidPosition(nextX, nextY, prevState.maze)) {
-          pacman.x = nextX;
-          pacman.y = nextY;
-          pacman.visualX = nextX;
-          pacman.visualY = nextY;
-          handleCollisions(nextX, nextY);
-        } else {
-          // Align to grid when hitting a wall
-          const alignedX = Math.round(pacman.x / CELL_SIZE) * CELL_SIZE;
-          const alignedY = Math.round(pacman.y / CELL_SIZE) * CELL_SIZE;
-          
-          // Check if we're moving horizontally or vertically
-          const isMovingHorizontally = pacman.direction === 'left' || pacman.direction === 'right';
-          const isMovingVertically = pacman.direction === 'up' || pacman.direction === 'down';
-          
-          // Only align in the direction we're moving
-          if (isMovingHorizontally && Math.abs(pacman.x - alignedX) < speed) {
-            pacman.x = alignedX;
-            pacman.visualX = alignedX;
-          }
-          if (isMovingVertically && Math.abs(pacman.y - alignedY) < speed) {
-            pacman.y = alignedY;
-            pacman.visualY = alignedY;
-          }
-        }
-      }
-
+      
+      // Handle collisions with dots, power pellets, and ghosts
+      handleCollisions(pacman.x, pacman.y);
+      
       return { ...prevState, pacman };
     });
   }, [currentDirection, handleCollisions]);
 
-  // Update ghosts
+  // Update ghosts with improved movement
   const updateGhosts = useCallback((deltaTime: number) => {
     setGameState(prevState => {
       const newGhosts = prevState.ghosts.map(ghost => {
         if (!ghost.isReleased) return ghost;
 
-        // Update ghost state machine
         const currentState = ghost.stateMachine.getSnapshot();
         const mode = currentState.context.mode;
-        const target = currentState.context.currentTarget;
-        const currentTime = Date.now();
+        const baseSpeed = ghost.baseSpeed * (deltaTime / FRAME_TIME);
+        const speed = mode === 'frightened' ? 
+          baseSpeed * GHOST_FRIGHTENED_SPEED_MULTIPLIER : 
+          baseSpeed * (mode === 'chase' ? 1.1 : 0.9);
 
-        // Calculate target position based on ghost type and mode
-        let targetPosition = { x: target.x, y: target.y };
-        if (mode === 'chase') {
-          switch (ghost.type) {
-            case 'pink':
-              // Target 4 cells ahead of Pacman
-              targetPosition = {
-                x: pixelToGrid(prevState.pacman.x) + (prevState.pacman.direction === 'right' ? 4 : 
-                   prevState.pacman.direction === 'left' ? -4 : 0),
-                y: pixelToGrid(prevState.pacman.y) + (prevState.pacman.direction === 'down' ? 4 : 
-                   prevState.pacman.direction === 'up' ? -4 : 0)
-              };
-              break;
-            case 'blue':
-              // Target position based on red ghost and Pacman
-              const redGhost = prevState.ghosts[0];
-              const vectorX = prevState.pacman.x - redGhost.x;
-              const vectorY = prevState.pacman.y - redGhost.y;
-              targetPosition = {
-                x: pixelToGrid(prevState.pacman.x + vectorX),
-                y: pixelToGrid(prevState.pacman.y + vectorY)
-              };
-              break;
-            case 'purple':
-              // Target position 2 cells ahead of Pacman
-              targetPosition = {
-                x: pixelToGrid(prevState.pacman.x) + (prevState.pacman.direction === 'right' ? 2 : 
-                   prevState.pacman.direction === 'left' ? -2 : 0),
-                y: pixelToGrid(prevState.pacman.y) + (prevState.pacman.direction === 'down' ? 2 : 
-                   prevState.pacman.direction === 'up' ? -2 : 0)
-              };
-              break;
-            case 'skin':
-              // Directly target Pacman
-              targetPosition = {
-                x: pixelToGrid(prevState.pacman.x),
-                y: pixelToGrid(prevState.pacman.y)
-              };
-              break;
+        // Get current grid position
+        const centerX = ghost.x + CELL_SIZE / 2;
+        const centerY = ghost.y + CELL_SIZE / 2;
+        const gridX = Math.floor(centerX / CELL_SIZE);
+        const gridY = Math.floor(centerY / CELL_SIZE);
+
+        // Calculate offset from grid center
+        const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
+        const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
+        
+        // Check if we're close enough to grid center to make a decision
+        const atGridCenter = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
+                            Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+
+        // If at grid center or no valid direction, choose new direction
+        if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x + offsetX, ghost.y + offsetY, prevState.maze)) {
+          // Snap to grid when at center
+          if (atGridCenter) {
+            ghost.x = gridX * CELL_SIZE;
+            ghost.y = gridY * CELL_SIZE;
           }
-        }
 
-        // Ensure target position is valid
-        targetPosition = getValidTargetPosition(targetPosition.x, targetPosition.y, prevState.maze);
+          // Get available directions excluding the opposite of current direction
+          const availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze)
+            .filter(dir => dir !== getOppositeDirection(ghost.direction));
 
-        // Check if we're at a grid intersection
-        const gridX = Math.floor(ghost.x / CELL_SIZE);
-        const gridY = Math.floor(ghost.y / CELL_SIZE);
-        const cellOffsetX = ghost.x % CELL_SIZE;
-        const cellOffsetY = ghost.y % CELL_SIZE;
-        const speed = ghost.baseSpeed * (deltaTime / FRAME_TIME);
-        const isAtIntersection = 
-          (Math.abs(cellOffsetX) < speed || Math.abs(cellOffsetX - CELL_SIZE) < speed) &&
-          (Math.abs(cellOffsetY) < speed || Math.abs(cellOffsetY - CELL_SIZE) < speed);
+          if (availableDirections.length > 0) {
+            // Calculate target based on mode and ghost type
+            const target = calculateGhostTarget(ghost, prevState, mode);
+            
+            // Score each direction
+            const directionScores = availableDirections.map(dir => {
+              let nextX = gridX;
+              let nextY = gridY;
+              switch (dir) {
+                case 'up': nextY--; break;
+                case 'down': nextY++; break;
+                case 'left': nextX--; break;
+                case 'right': nextX++; break;
+              }
+              
+              const distanceToTarget = Math.abs(nextX - target.x) + Math.abs(nextY - target.y);
+              const randomFactor = mode === 'frightened' ? Math.random() * 3 : Math.random() * 0.5;
+              return {
+                direction: dir,
+                score: -distanceToTarget + randomFactor
+              };
+            });
 
-        // Only recalculate path if needed
-        const needsNewPath = !ghost.path.length || 
-                           (isAtIntersection && 
-                            currentTime - ghost.lastPathUpdate > PATH_RECALCULATION_DELAY &&
-                            ghost.path.length < MIN_PATH_LENGTH);
-
-        if (needsNewPath) {
-          try {
-            const path = pathfinderRef.current.findPath(
-              gridX,
-              gridY,
-              targetPosition.x,
-              targetPosition.y
+            // Choose best direction
+            const bestDirection = directionScores.reduce((best, current) => 
+              current.score > best.score ? current : best
             );
 
-            if (path && path.length > 0) {
-              const nextDirection = getNextDirection(
-                gridX,
-                gridY,
-                path
-              );
-
-              if (nextDirection) {
-                // Align to grid when changing direction
-                ghost.x = gridX * CELL_SIZE;
-                ghost.y = gridY * CELL_SIZE;
-                ghost.direction = nextDirection;
-                ghost.path = path;
-                ghost.lastPathUpdate = currentTime;
-              }
-            }
-          } catch (error) {
-            console.warn('Pathfinding error:', error);
+            ghost.direction = bestDirection.direction;
+          } else if (getAvailableDirections(ghost.x, ghost.y, prevState.maze).length > 0) {
+            // If no forward directions available, allow reverse
+            ghost.direction = getAvailableDirections(ghost.x, ghost.y, prevState.maze)[0];
           }
         }
 
-        // Calculate next position with mode-based speed
+        // Move in current direction with improved position checking
         let nextX = ghost.x;
         let nextY = ghost.y;
-        const modeSpeed = mode === 'frightened' ? 
-          speed * 0.8 : 
-          speed * (mode === 'chase' ? 1.1 : 0.9);
-
-        // Move in current direction first
+        
         switch (ghost.direction) {
-          case 'up': nextY -= modeSpeed; break;
-          case 'down': nextY += modeSpeed; break;
-          case 'left': nextX -= modeSpeed; break;
-          case 'right': nextX += modeSpeed; break;
+          case 'up': nextY -= speed; break;
+          case 'down': nextY += speed; break;
+          case 'left': nextX -= speed; break;
+          case 'right': nextX += speed; break;
         }
 
-        // Check if the next position is valid
+        // Validate next position and apply movement
         if (isValidPosition(nextX, nextY, prevState.maze)) {
-          // Check if we're at an intersection for direction changes
-          const currentGridX = Math.floor(nextX / CELL_SIZE);
-          const currentGridY = Math.floor(nextY / CELL_SIZE);
-          const currentCellOffsetX = nextX % CELL_SIZE;
-          const currentCellOffsetY = nextY % CELL_SIZE;
-          
-          const isNearIntersection = 
-            Math.abs(currentCellOffsetX - CELL_SIZE / 2) < modeSpeed && 
-            Math.abs(currentCellOffsetY - CELL_SIZE / 2) < modeSpeed;
-
-          if (isNearIntersection) {
-            // Align to grid center
-            nextX = currentGridX * CELL_SIZE + CELL_SIZE / 2;
-            nextY = currentGridY * CELL_SIZE + CELL_SIZE / 2;
-            
-            // Get available directions excluding the opposite of current direction
-            const availableDirections = getAvailableDirections(nextX, nextY, prevState.maze)
-              .filter(dir => dir !== getOppositeDirection(ghost.direction));
-
-            if (availableDirections.length > 0) {
-              // Choose direction that gets us closer to target
-              const bestDirection = availableDirections.reduce((best, dir) => {
-                let testX = currentGridX;
-                let testY = currentGridY;
-                switch (dir) {
-                  case 'up': testY--; break;
-                  case 'down': testY++; break;
-                  case 'left': testX--; break;
-                  case 'right': testX++; break;
-                }
-                const distance = calculateDistance(
-                  testX * CELL_SIZE + CELL_SIZE / 2,
-                  testY * CELL_SIZE + CELL_SIZE / 2,
-                  targetPosition.x * CELL_SIZE + CELL_SIZE / 2,
-                  targetPosition.y * CELL_SIZE + CELL_SIZE / 2
-                );
-                return distance < best.distance ? { direction: dir, distance } : best;
-              }, { direction: availableDirections[0], distance: Infinity });
-
-              ghost.direction = bestDirection.direction;
-            }
+          // Smooth out grid alignment when moving
+          if (Math.abs(offsetX) < speed && ghost.direction !== 'left' && ghost.direction !== 'right') {
+            nextX = gridX * CELL_SIZE;
           }
-
-          return {
-            ...ghost,
-            x: nextX,
-            y: nextY,
-            mode
-          };
+          if (Math.abs(offsetY) < speed && ghost.direction !== 'up' && ghost.direction !== 'down') {
+            nextY = gridY * CELL_SIZE;
+          }
+          
+          return { ...ghost, x: nextX, y: nextY, mode };
         }
 
-        // If next position is invalid, align with current grid position
-        const currentGridX = Math.floor(ghost.x / CELL_SIZE);
-        const currentGridY = Math.floor(ghost.y / CELL_SIZE);
-        return {
-          ...ghost,
-          x: currentGridX * CELL_SIZE + CELL_SIZE / 2,
-          y: currentGridY * CELL_SIZE + CELL_SIZE / 2,
-          mode
-        };
+        return ghost;
       });
 
-      return {
-        ...prevState,
-        ghosts: newGhosts
-      };
+      return { ...prevState, ghosts: newGhosts };
     });
   }, []);
 
@@ -1072,7 +1057,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     const animate = (currentTime: number) => {
       const deltaTime = currentTime - lastTime;
-      lastTime = currentTime;
+        lastTime = currentTime;
 
       // Update game state
       updatePokka(deltaTime);
@@ -1083,10 +1068,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // Add collision checking
       const collisionResult = checkCollisions(gameState.pacman, gameState.ghosts, gameState.isPoweredUp, onGameOver);
-      if (collisionResult) {
-        const { ghostIndex, points } = collisionResult;
+        if (collisionResult) {
+          const { ghostIndex, points } = collisionResult;
         gameState.ghosts[ghostIndex].mode = 'eaten';
-        gameState.score += points;
+          gameState.score += points;
         if (onScoreUpdate) {
           onScoreUpdate(gameState.score);
         }
@@ -1095,7 +1080,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    animationFrameId = requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
 
     return () => {
       if (animationFrameId) {
@@ -1135,35 +1120,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, []);
 
-  // Update the isValidPosition function
-  const isValidPosition = (x: number, y: number, maze: number[][]) => {
-    // Check multiple points around the character with more precise margins
-    const points = [
-      { x: x + WALL_MARGIN, y: y + WALL_MARGIN }, // Top-left
-      { x: x + CELL_SIZE - WALL_MARGIN, y: y + WALL_MARGIN }, // Top-right
-      { x: x + WALL_MARGIN, y: y + CELL_SIZE - WALL_MARGIN }, // Bottom-left
-      { x: x + CELL_SIZE - WALL_MARGIN, y: y + CELL_SIZE - WALL_MARGIN }, // Bottom-right
-      { x: x + CELL_SIZE / 2, y: y + CELL_SIZE / 2 } // Center
-    ];
-
-    // Check if any point is in a wall
-    for (const point of points) {
-      const gridX = Math.floor(point.x / CELL_SIZE);
-      const gridY = Math.floor(point.y / CELL_SIZE);
-      
-      // Check if the point is within the maze bounds
-      if (gridX < 0 || gridX >= maze[0].length || gridY < 0 || gridY >= maze.length) {
-        return false;
-      }
-      
-      // Check if the point is in a wall
-      if (maze[gridY][gridX] === 1) {
-        return false;
-      }
+  // Helper function to get opposite direction
+  const getOppositeDirection = (direction: string): string => {
+    switch (direction) {
+      case 'up': return 'down';
+      case 'down': return 'up';
+      case 'left': return 'right';
+      case 'right': return 'left';
+      default: return direction;
     }
-
-    return true;
   };
 
   return <Canvas ref={canvasRef} />;
-}; 
+} 
