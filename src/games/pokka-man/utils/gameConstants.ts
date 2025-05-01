@@ -1,16 +1,16 @@
 // Game Constants
 export const CELL_SIZE = 30;
-export const CHARACTER_SIZE = 30;
+export const CHARACTER_SIZE = 28;
 export const CHARACTER_SCALE = 1.2;
-export const WALL_MARGIN = 4;
+export const WALL_MARGIN = 8;
 export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
 // Character Speeds
-export const PACMAN_SPEED = 3.5;
-export const GHOST_SPEED = 3.2;
+export const PACMAN_SPEED = 3.2;
+export const GHOST_SPEED = 3.0;
 export const GHOST_BASE_SPEED = 5;
-export const GHOST_SPEED_VARIATION = 0.2;
+export const GHOST_SPEED_VARIATION = 0.15;
 export const GHOST_FRIGHTENED_SPEED_MULTIPLIER = 0.75;
 export const GHOST_EATEN_SPEED_MULTIPLIER = 1.5;
 
@@ -21,16 +21,16 @@ export const GHOST_CHASE_DURATION = 20000;
 export const GHOST_SCATTER_DURATION = 7000;
 export const GHOST_RELEASE_DELAYS = [
   0,     // First ghost (pink) starts immediately
-  4000,  // Second ghost (blue) after 4 seconds
-  8000,  // Third ghost (purple) after 8 seconds
-  12000  // Fourth ghost (skin) after 12 seconds
+  5000,  // Second ghost (blue) after 5 seconds
+  10000, // Third ghost (purple) after 10 seconds
+  15000  // Fourth ghost (skin) after 15 seconds
 ];
 export const FLASH_WARNING_DURATION = 2000;
 export const FLASH_INTERVAL = 200;
 
 // Movement Thresholds
 export const GRID_ALIGNMENT_THRESHOLD = 2;
-export const CORNER_TURN_THRESHOLD = 8;
+export const CORNER_TURN_THRESHOLD = 6;
 
 // Scoring
 export const POINT_VALUE = 10;
@@ -75,31 +75,35 @@ export const SOUND_EFFECTS = {
 export const GHOST_HOUSE_POSITION = { x: 10, y: 10 };
 export const GHOST_EXIT_POSITION = { x: 10, y: 8 };
 
-// Ghost Scatter Targets (corners of the maze)
+// Ghost Scatter Targets (spread out more)
 export const GHOST_SCATTER_TARGETS = [
-  { x: 0, y: 0 },           // Pink (top-left)
-  { x: 19, y: 0 },          // Blue (top-right)
-  { x: 0, y: 21 },          // Purple (bottom-left)
-  { x: 19, y: 21 }          // Skin (bottom-right)
+  { x: 1, y: 1 },           // Pink (near top-left)
+  { x: 18, y: 1 },          // Blue (near top-right)
+  { x: 1, y: 20 },          // Purple (near bottom-left)
+  { x: 18, y: 20 }          // Skin (near bottom-right)
 ];
 
 // Ghost Personality Constants
 export const GHOST_PERSONALITIES = {
   pink: {
     lookAheadTiles: 4,      // Number of tiles to look ahead of Pacman
-    turnProbability: 0.3    // Probability of making random turns
+    turnProbability: 0.4,   // Increased from 0.3 for more unpredictable movement
+    avoidanceRadius: 4      // Added: radius to avoid other ghosts
   },
   blue: {
-    vectorMultiplier: 2,    // Multiplier for the vector from red ghost
-    minDistance: 5          // Minimum distance to maintain from red ghost
+    vectorMultiplier: 2.5,  // Increased from 2 for better flanking
+    minDistance: 6,         // Increased from 5 for better spacing
+    avoidanceRadius: 5      // Added: radius to avoid other ghosts
   },
   purple: {
-    switchDistance: 8,      // Distance at which behavior switches
-    ambushDistance: 2       // Number of tiles to ambush ahead
+    switchDistance: 7,      // Reduced from 8 for more aggressive behavior
+    ambushDistance: 3,      // Increased from 2 for better ambush positioning
+    avoidanceRadius: 4      // Added: radius to avoid other ghosts
   },
   skin: {
-    chaseThreshold: 6,      // Distance at which direct chase begins
-    scatterInterval: 3000   // Time between scatter mode switches
+    chaseThreshold: 5,      // Reduced from 6 for more aggressive chasing
+    scatterInterval: 2500,  // Reduced from 3000 for more dynamic behavior
+    avoidanceRadius: 5      // Added: radius to avoid other ghosts
   }
 };
 

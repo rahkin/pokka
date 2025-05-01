@@ -21,7 +21,8 @@ import {
   GHOST_SCATTER_DURATION,
   MAZE_LAYOUT,
   GHOST_FRIGHTENED_SPEED_MULTIPLIER,
-  GRID_ALIGNMENT_THRESHOLD
+  GRID_ALIGNMENT_THRESHOLD,
+  GHOST_PERSONALITIES
 } from '../utils/gameConstants';
 
 const Canvas = styled.canvas`
@@ -41,12 +42,12 @@ interface Position {
 interface Ghost {
   x: number;
   y: number;
-  type: string;
+  type: 'pink' | 'blue' | 'purple' | 'skin';
   direction: string;
   isReleased: boolean;
   baseSpeed: number;
   mode: GhostMode;
-  stateMachine: any;  // We'll keep this as any since the exact type isn't critical for this fix
+  stateMachine: any;
 }
 
 interface GameState {
@@ -121,7 +122,7 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
       return false;
     }
 
-    // Check wall margins only for non-center points with increased margin
+    // Check wall margins with increased margin for non-center points
     if (point !== points[4]) {  // If not center point
       const xInCell = point.x % CELL_SIZE;
       const yInCell = point.y % CELL_SIZE;
@@ -209,27 +210,56 @@ const checkCollisions = (
   return null;
 };
 
-// Helper function to calculate ghost target based on mode and type
+// Calculate ghost target with improved spacing
 const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
   const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
   const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
-  const currentGridX = Math.floor(ghost.x / CELL_SIZE);
-  const currentGridY = Math.floor(ghost.y / CELL_SIZE);
+  const ghostGridX = Math.floor(ghost.x / CELL_SIZE);
+  const ghostGridY = Math.floor(ghost.y / CELL_SIZE);
 
   if (mode === 'frightened') {
-    // In frightened mode, move randomly but avoid Pokka
-    const distanceToPokka = Math.abs(currentGridX - pacmanGridX) + Math.abs(currentGridY - pacmanGridY);
-    if (distanceToPokka < 4) {
-      // Try to move away from Pokka
+    // In frightened mode, move randomly but avoid other ghosts and Pokka
+    const distanceToPokka = Math.abs(ghostGridX - pacmanGridX) + Math.abs(ghostGridY - pacmanGridY);
+    
+    // Find average position of nearby ghosts
+    let nearbyGhostCount = 0;
+    const avgGhostPos = gameState.ghosts.reduce((acc, otherGhost) => {
+      if (otherGhost === ghost) return acc;
+      const otherX = Math.floor(otherGhost.x / CELL_SIZE);
+      const otherY = Math.floor(otherGhost.y / CELL_SIZE);
+      const distanceToGhost = Math.abs(ghostGridX - otherX) + Math.abs(ghostGridY - otherY);
+      
+      if (distanceToGhost < 4) {  // Only consider nearby ghosts
+        nearbyGhostCount++;
+        return { x: acc.x + otherX, y: acc.y + otherY };
+      }
+      return acc;
+    }, { x: 0, y: 0 });
+
+    if (nearbyGhostCount > 0) {
+      avgGhostPos.x /= nearbyGhostCount;
+      avgGhostPos.y /= nearbyGhostCount;
+      // Move away from both Pokka and other ghosts
       return {
-        x: currentGridX + (currentGridX - pacmanGridX),
-        y: currentGridY + (currentGridY - pacmanGridY)
+        x: ghostGridX + (ghostGridX - Math.floor((pacmanGridX + avgGhostPos.x) / 2)),
+        y: ghostGridY + (ghostGridY - Math.floor((pacmanGridY + avgGhostPos.y) / 2))
       };
     }
-    // Random movement
+
+    // If no nearby ghosts, just avoid Pokka
+    if (distanceToPokka < 4) {
+      return {
+        x: ghostGridX + (ghostGridX - pacmanGridX),
+        y: ghostGridY + (ghostGridY - pacmanGridY)
+      };
+    }
+
+    // Random movement with boundary awareness
     return {
-      x: Math.floor(Math.random() * gameState.maze[0].length),
-      y: Math.floor(Math.random() * gameState.maze.length)
+      x: Math.max(1, Math.min(gameState.maze[0].length - 2, 
+         Math.floor(Math.random() * gameState.maze[0].length))),
+      y: Math.max(1, Math.min(gameState.maze.length - 2,
+         Math.floor(Math.random() * gameState.maze.length)))
     };
   }
 
@@ -273,7 +303,7 @@ const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMod
         };
 
       case 'purple': // Patrol and intercept
-        const distanceToTarget = Math.abs(currentGridX - pacmanGridX) + Math.abs(currentGridY - pacmanGridY);
+        const distanceToTarget = Math.abs(ghostGridX - pacmanGridX) + Math.abs(ghostGridY - pacmanGridY);
         if (distanceToTarget < 6) {
           // Close enough to chase directly
           return { x: pacmanGridX, y: pacmanGridY };
@@ -914,18 +944,29 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
               // Prefer current direction slightly to reduce jittery movement
               const directionBonus = dir === ghost.direction ? 0.8 : 0;
               
-              // Add bonus for moving away from other ghosts to prevent clustering
+              // Enhanced ghost avoidance with personality-based radius
+              const personality = GHOST_PERSONALITIES[ghost.type];
               const ghostAvoidanceBonus = prevState.ghosts.reduce((bonus, otherGhost) => {
                 if (otherGhost === ghost) return bonus;
                 const otherGridX = Math.floor(otherGhost.x / CELL_SIZE);
                 const otherGridY = Math.floor(otherGhost.y / CELL_SIZE);
                 const distanceToGhost = Math.abs(nextGridX - otherGridX) + Math.abs(nextGridY - otherGridY);
-                return bonus + (distanceToGhost < 3 ? 0.5 : 0);
+                
+                // Use personality-based avoidance radius
+                if (distanceToGhost < personality.avoidanceRadius) {
+                  // Stronger avoidance when closer
+                  const avoidanceStrength = Math.pow(1 - (distanceToGhost / personality.avoidanceRadius), 2);
+                  return bonus + (avoidanceStrength * 2); // Increased from 0.5
+                }
+                return bonus;
               }, 0);
+              
+              // Add wall avoidance bonus
+              const wallAvoidanceBonus = calculateWallAvoidanceBonus(nextX, nextY, prevState.maze);
               
               return {
                 direction: dir,
-                score: -distanceToTarget + randomFactor + directionBonus + ghostAvoidanceBonus
+                score: -distanceToTarget + randomFactor + directionBonus + ghostAvoidanceBonus + wallAvoidanceBonus
               };
             });
 
@@ -978,6 +1019,21 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       return { ...prevState, ghosts: newGhosts };
     });
   }, []);
+
+  // Helper function to calculate wall avoidance bonus
+  const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
+    const gridX = Math.floor(x / CELL_SIZE);
+    const gridY = Math.floor(y / CELL_SIZE);
+    let bonus = 0;
+    
+    // Check adjacent cells for walls
+    if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += 1;
+    if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += 1;
+    if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += 1;
+    if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += 1;
+    
+    return bonus;
+  };
 
   // Update ghost targets when Pacman moves
   useEffect(() => {
