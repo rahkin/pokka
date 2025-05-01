@@ -96,7 +96,7 @@ export const useUsername = (): UsernameHook => {
         throw new Error('Username already taken')
       }
 
-      // Store username in Firestore
+      // Store username in Firestore with the address field
       await setDoc(doc(db, 'usernames', address), {
         username: newUsername.toLowerCase(),
         address,

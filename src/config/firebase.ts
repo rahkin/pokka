@@ -21,14 +21,19 @@ const auth = getAuth(app);
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     // If not authenticated, try to sign in anonymously
-    signInAnonymously(auth).catch((error) => {
-      console.error('Error signing in anonymously:', error);
-      if (error.code === 'auth/configuration-not-found') {
-        console.error('Please enable Anonymous Authentication in your Firebase Console');
-      }
-    });
+    signInAnonymously(auth)
+      .then(() => {
+        console.log('Anonymous authentication successful');
+      })
+      .catch((error) => {
+        console.error('Error signing in anonymously:', error);
+        if (error.code === 'auth/configuration-not-found') {
+          console.error('Please enable Anonymous Authentication in your Firebase Console');
+        }
+      });
   }
 });
 
 export const db = getFirestore(app);
-export const database = getDatabase(app); 
+export const database = getDatabase(app);
+export { auth }; 
