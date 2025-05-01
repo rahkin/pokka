@@ -632,15 +632,27 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         pacman.y = nextY;
         pacman.direction = currentDirection;
       } else {
-        // Try to slide along walls when hitting them at an angle
-        const slideX = currentDirection === 'up' || currentDirection === 'down' ? nextX : pacman.x;
-        const slideY = currentDirection === 'left' || currentDirection === 'right' ? nextY : pacman.y;
-        
-        if (isValidPosition(pacman.x, slideY, prevState.maze)) {
-          pacman.y = slideY;
-        } else if (isValidPosition(slideX, pacman.y, prevState.maze)) {
-          pacman.x = slideX;
+        // Intended move failed. Try moving only along the intended axis from the *current* position.
+        let moved = false;
+        if (currentDirection === 'left' || currentDirection === 'right') {
+          // Try horizontal move only
+          const tryX = pacman.x + (currentDirection === 'right' ? speed : -speed);
+          if (isValidPosition(tryX, pacman.y, prevState.maze)) {
+            pacman.x = tryX;
+            pacman.direction = currentDirection; // Keep intended direction if slide works
+            moved = true;
+          }
+        } else if (currentDirection === 'up' || currentDirection === 'down') {
+          // Try vertical move only
+          const tryY = pacman.y + (currentDirection === 'down' ? speed : -speed);
+          if (isValidPosition(pacman.x, tryY, prevState.maze)) {
+            pacman.y = tryY;
+            pacman.direction = currentDirection; // Keep intended direction if slide works
+            moved = true;
+          }
         }
+        // If neither the direct move nor the axis-aligned slide worked, Pokka stops against the wall.
+        // The position remains unchanged from the start of the function call.
       }
       
       // Handle collisions with dots, power pellets, and ghosts
