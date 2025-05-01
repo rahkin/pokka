@@ -233,31 +233,6 @@ const clampGridPosition = (x: number, y: number, maze: number[][]) => {
   };
 };
 
-const getValidTargetPosition = (x: number, y: number, maze: number[][]) => {
-  const clamped = clampGridPosition(x, y, maze);
-  // If the target position is a wall, find the nearest valid position
-  if (maze[clamped.y][clamped.x] === 1) {
-    // Check adjacent cells
-    const directions = [
-      { x: 0, y: -1 }, // up
-      { x: 1, y: 0 },  // right
-      { x: 0, y: 1 },  // down
-      { x: -1, y: 0 }  // left
-    ];
-    
-    for (const dir of directions) {
-      const newX = clamped.x + dir.x;
-      const newY = clamped.y + dir.y;
-      if (newX >= 0 && newX < maze[0].length && 
-          newY >= 0 && newY < maze.length && 
-          maze[newY][newX] !== 1) {
-        return { x: newX, y: newY };
-      }
-    }
-  }
-  return clamped;
-};
-
 // Helper function to calculate ghost target based on mode and type
 const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
   const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
