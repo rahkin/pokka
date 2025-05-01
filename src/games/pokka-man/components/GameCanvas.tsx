@@ -37,11 +37,6 @@ const Canvas = styled.canvas`
   background: #000;
 `;
 
-interface Position {
-  x: number;
-  y: number;
-}
-
 type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
 
 interface Ghost {
