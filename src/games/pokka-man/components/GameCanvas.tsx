@@ -101,7 +101,7 @@ const getAvailableDirections = (x: number, y: number, maze: number[][], testDist
   if (isValidPosition(x, y + distance, maze)) directions.push('down');
   if (isValidPosition(x - distance, y, maze)) directions.push('left');
   if (isValidPosition(x + distance, y, maze)) directions.push('right');
-  
+
   return directions;
 };
 
@@ -209,17 +209,17 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     const ghostTypes: Array<'pink' | 'blue' | 'purple' | 'skin'> = ['pink', 'blue', 'purple', 'skin'];
 
     return {
-      score: 0,
-      isPoweredUp: false,
-      isScatterMode: true,
-      pacman: {
-        x: gridToPixel(10),
-        y: gridToPixel(16),
+    score: 0,
+    isPoweredUp: false,
+    isScatterMode: true,
+    pacman: {
+      x: gridToPixel(10),
+      y: gridToPixel(16),
         direction: currentDirection,
-        nextDirection: '',
-        nextX: gridToPixel(10),
-        nextY: gridToPixel(16),
-        visualX: gridToPixel(10),
+      nextDirection: '',
+      nextX: gridToPixel(10),
+      nextY: gridToPixel(16),
+      visualX: gridToPixel(10),
         visualY: gridToPixel(16),
         currentMovingDirection: currentDirection
       },
@@ -246,7 +246,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           currentMovingDirection: ''
         };
       }),
-      maze: MAZE_LAYOUT,
+    maze: MAZE_LAYOUT,
       dots,
       powerPellets
     };
@@ -644,13 +644,13 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     loadAssets().catch(console.error);
   }, []);
 
-  // Update Pokka's position and handle movement (Restored Version)
+  // Update Pokka's position and handle movement
   const updatePokka = useCallback((deltaTime: number) => {
     setGameState((prevState) => {
       const { pacman, maze } = prevState;
-      const speed = (PACMAN_SPEED * deltaTime) / FRAME_TIME;
-      let effectiveDirection = pacman.currentMovingDirection; // Start with current or empty
-      // Note: We don't need didTakeTurn flag with the useEffect logic
+      // Increase speed by 50%
+      const speed = (PACMAN_SPEED * 1.5 * deltaTime) / FRAME_TIME;
+      let effectiveDirection = pacman.currentMovingDirection;
 
       // --- Initial Movement Check --- 
       if (!pacman.currentMovingDirection && nextDirection) {
@@ -735,7 +735,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       
       const scoreChange = handleCollisions(currentX, currentY);
 
-      return {
+            return {
          ...prevState, 
          pacman: { 
              ...pacman, 
@@ -863,9 +863,9 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         }
 
         // Try sliding along walls
-        const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
-        const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
-        
+          const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
+          const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
+          
         if (isValidPosition(ghost.x, slideY, prevState.maze)) {
           return { ...ghost, y: slideY, mode };
         } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
@@ -929,7 +929,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     const animate = (currentTime: number) => {
       if (gameOverRef.current) { cancelAnimationFrame(animationFrameId); return; }
       const deltaTime = currentTime - lastTime;
-      lastTime = currentTime;
+        lastTime = currentTime;
 
       // Update game state
       updatePokka(deltaTime);
@@ -940,10 +940,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
       // Add collision checking
       const collisionResult = checkCollisions(gameState.pacman, gameState.ghosts, gameState.isPoweredUp, onGameOver);
-      if (collisionResult) {
-        const { ghostIndex, points } = collisionResult;
+        if (collisionResult) {
+          const { ghostIndex, points } = collisionResult;
         gameState.ghosts[ghostIndex].mode = 'eaten';
-        gameState.score += points;
+          gameState.score += points;
         if (onScoreUpdate) {
           onScoreUpdate(gameState.score);
         }
@@ -952,7 +952,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    animationFrameId = requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
 
     return () => {
       if (animationFrameId) {
