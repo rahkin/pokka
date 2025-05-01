@@ -724,26 +724,19 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
           case 'up': nextY -= speed; break;
         }
 
-      let currentX = pacman.x;
-      let currentY = pacman.y;
+        let currentX = pacman.x;
+        let currentY = pacman.y;
 
-      if (isValidPosition(nextX, nextY, maze)) {
-        currentX = nextX;
-        currentY = nextY;
-      } else {
-        if (effectiveDirection === 'left' || effectiveDirection === 'right') {
-          const tryX = pacman.x + (effectiveDirection === 'right' ? speed : -speed);
-          if (isValidPosition(tryX, pacman.y, maze)) {
-            currentX = tryX;
-          }
-        } else if (effectiveDirection === 'up' || effectiveDirection === 'down') {
-          const tryY = pacman.y + (effectiveDirection === 'down' ? speed : -speed);
-          if (isValidPosition(pacman.x, tryY, maze)) {
-            currentY = tryY;
-          }
+        // Check if the intended next position is valid
+        if (isValidPosition(nextX, nextY, maze)) {
+          currentX = nextX; // Move if valid
+          currentY = nextY;
+        } else {
+          // Intended move failed. Stop Pokka at the current position.
+          // currentX and currentY remain pacman.x and pacman.y
+          effectiveDirection = ''; // Clear the direction to prevent repeated attempts into wall
         }
-      }
-      // --- End Movement Calculation ---
+        // --- End Movement Calculation ---
       
       const scoreChange = handleCollisions(currentX, currentY);
 
@@ -976,7 +969,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection: initia
 
       // Update game state
       updatePokka(deltaTime);
-      updateGhosts(deltaTime);
+      updateGhosts(deltaTime); // Restore ghost updates
 
       // Draw the game state
       draw();
