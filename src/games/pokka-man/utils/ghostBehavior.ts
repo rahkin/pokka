@@ -6,6 +6,43 @@ interface Position {
   y: number;
 }
 
+interface Ghost {
+  x: number;
+  y: number;
+  direction: string;
+  type: 'pink' | 'blue' | 'purple' | 'skin';
+  mode: 'chase' | 'scatter' | 'frightened' | 'eaten';
+  targetX: number;
+  targetY: number;
+  isReleased: boolean;
+  stateMachine: any;
+  path: Array<{ x: number; y: number }>;
+  lastPathUpdate: number;
+  baseSpeed: number;
+  consecutiveEats: number;
+  spawnDelay: number;
+}
+
+interface GameState {
+  score: number;
+  isPoweredUp: boolean;
+  isScatterMode: boolean;
+  pacman: {
+    x: number;
+    y: number;
+    direction: string;
+    nextDirection: string;
+    nextX: number;
+    nextY: number;
+    visualX: number;
+    visualY: number;
+  };
+  ghosts: Ghost[];
+  maze: number[][];
+  dots: Array<{ x: number; y: number }>;
+  powerPellets: Array<{ x: number; y: number }>;
+}
+
 interface GhostState {
   position: Position;
   mode: GhostMode;
@@ -220,4 +257,27 @@ export class GhostBehavior {
            y >= 0 && y < this.maze.length && 
            this.maze[y][x] !== 1;
   }
-} 
+}
+
+export const calculateChaseTarget = (ghost: Ghost, gameState: GameState): Position => {
+  const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
+  const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
+  
+  return { x: pacmanGridX, y: pacmanGridY };
+};
+
+export const calculateScatterTarget = (_ghost: Ghost, gameState: GameState): Position => {
+  // Use corner positions for scatter mode
+  return {
+    x: Math.floor(Math.random() * gameState.maze[0].length),
+    y: Math.floor(Math.random() * gameState.maze.length)
+  };
+};
+
+export const calculateFrightenedTarget = (_ghost: Ghost, gameState: GameState): Position => {
+  // Move randomly but avoid Pacman
+  return {
+    x: Math.floor(Math.random() * gameState.maze[0].length),
+    y: Math.floor(Math.random() * gameState.maze.length)
+  };
+}; 

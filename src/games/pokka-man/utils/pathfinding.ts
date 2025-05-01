@@ -238,4 +238,14 @@ const isValidPosition = (x: number, y: number, maze: number[][]): boolean => {
     const checkY = Math.floor(py / CELL_SIZE);
     return isValidGridPosition(checkX, checkY, maze);
   });
+};
+
+export const isValidMove = (x: number, y: number, maze: number[][]): boolean => {
+  // Check if position is within maze bounds
+  if (x < 0 || x >= maze[0].length || y < 0 || y >= maze.length) {
+    return false;
+  }
+
+  // Check if position is a wall
+  return maze[y][x] !== 1;
 }; 
