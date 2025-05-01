@@ -1,138 +1,95 @@
-import { createMachine, assign, EventObject } from 'xstate';
+import { createMachine, interpret } from 'xstate';
 
-export type GhostMode = 'scatter' | 'chase' | 'frightened' | 'eaten' | 'house';
+export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
 
-interface Position {
-  x: number;
-  y: number;
-}
-
-interface GhostContext {
+interface GhostStateContext {
   mode: GhostMode;
-  scatterTarget: Position;
-  chaseTarget: Position;
-  currentTarget: Position;
-  frightenedTimer: number;
-  releaseTimer: number;
-  isReleased: boolean;
+  target: { x: number; y: number };
+  scatterTarget: { x: number; y: number };
+  lastModeChange: number;
 }
 
-interface UpdateChaseTargetEvent extends EventObject {
-  type: 'UPDATE_CHASE_TARGET';
-  target: Position;
-}
-
-type GhostEvent = 
-  | { type: 'POWER_PELLET_EATEN' }
-  | { type: 'GHOST_EATEN' }
-  | { type: 'RELEASE' }
-  | UpdateChaseTargetEvent;
-
-const SCATTER_DURATION = 7000;
-const CHASE_DURATION = 20000;
-const FRIGHTENED_DURATION = 8000;
-const EATEN_RETURN_DURATION = 5000;
-const FLASH_WARNING_DURATION = 2000;
-
-export const createGhostStateMachine = (
-  scatterTarget: Position,
-  releaseDelay: number = 0
-) => {
-  return createMachine<GhostContext, GhostEvent>({
+export const createGhostStateMachine = (scatterTarget: { x: number; y: number }) => {
+  return createMachine<GhostStateContext>({
     id: 'ghost',
-    initial: releaseDelay > 0 ? 'house' : 'scatter',
+    initial: 'scatter',
     context: {
-      mode: releaseDelay > 0 ? 'house' : 'scatter',
+      mode: 'scatter',
+      target: scatterTarget,
       scatterTarget,
-      chaseTarget: { x: 0, y: 0 },
-      currentTarget: scatterTarget,
-      frightenedTimer: 0,
-      releaseTimer: releaseDelay,
-      isReleased: releaseDelay === 0
+      lastModeChange: Date.now()
     },
     states: {
-      house: {
-        entry: assign({
-          mode: 'house',
-          isReleased: false
-        }),
-        after: {
-          DELAY: {
-            target: 'scatter',
-            actions: assign({
-              isReleased: true
-            })
-          }
-        },
-        on: {
-          RELEASE: 'scatter'
-        }
-      },
       scatter: {
-        entry: assign({
-          mode: 'scatter',
-          currentTarget: (context) => context.scatterTarget
-        }),
+        entry: (context) => {
+          context.mode = 'scatter';
+          context.target = context.scatterTarget;
+          context.lastModeChange = Date.now();
+        },
         after: {
-          [SCATTER_DURATION]: 'chase'
+          7000: 'chase'
         },
         on: {
-          POWER_PELLET_EATEN: 'frightened',
-          GHOST_EATEN: 'eaten'
+          POWER_PELLET: 'frightened',
+          EATEN: 'eaten',
+          UPDATE_CHASE_TARGET: {
+            actions: (context, event) => {
+              // Store the target but don't change mode
+              context.target = event.target;
+            }
+          }
         }
       },
       chase: {
-        entry: assign({
-          mode: 'chase',
-          currentTarget: (context) => context.chaseTarget
-        }),
+        entry: (context) => {
+          context.mode = 'chase';
+          context.lastModeChange = Date.now();
+        },
         after: {
-          [CHASE_DURATION]: 'scatter'
+          20000: 'scatter'
         },
         on: {
-          POWER_PELLET_EATEN: 'frightened',
-          GHOST_EATEN: 'eaten'
+          POWER_PELLET: 'frightened',
+          EATEN: 'eaten',
+          UPDATE_CHASE_TARGET: {
+            actions: (context, event) => {
+              context.target = event.target;
+            }
+          }
         }
       },
       frightened: {
-        entry: assign({
-          mode: 'frightened',
-          frightenedTimer: FRIGHTENED_DURATION
-        }),
+        entry: (context) => {
+          context.mode = 'frightened';
+          context.lastModeChange = Date.now();
+        },
         after: {
-          [FRIGHTENED_DURATION - FLASH_WARNING_DURATION]: {
-            actions: assign({
-              frightenedTimer: (context) => context.frightenedTimer - FLASH_WARNING_DURATION
-            })
-          },
-          [FRIGHTENED_DURATION]: 'scatter'
+          10000: 'chase'
         },
         on: {
-          GHOST_EATEN: 'eaten',
-          POWER_PELLET_EATEN: {
-            target: 'frightened',
-            actions: assign({
-              frightenedTimer: FRIGHTENED_DURATION
-            })
+          EATEN: 'eaten',
+          UPDATE_CHASE_TARGET: {
+            actions: (context, event) => {
+              context.target = event.target;
+            }
           }
         }
       },
       eaten: {
-        entry: assign({
-          mode: 'eaten'
-        }),
+        entry: (context) => {
+          context.mode = 'eaten';
+          context.lastModeChange = Date.now();
+        },
         after: {
-          [EATEN_RETURN_DURATION]: 'house'
+          5000: 'scatter'
+        },
+        on: {
+          UPDATE_CHASE_TARGET: {
+            actions: (context, event) => {
+              context.target = event.target;
+            }
+          }
         }
-      }
-    },
-    on: {
-      UPDATE_CHASE_TARGET: {
-        actions: assign({
-          chaseTarget: (_, event: UpdateChaseTargetEvent) => event.target,
-          currentTarget: (context, event: UpdateChaseTargetEvent) => 
-            context.mode === 'chase' ? event.target : context.currentTarget
-        })
       }
     }
   });
