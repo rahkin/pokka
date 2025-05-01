@@ -22,7 +22,9 @@ import {
   MAZE_LAYOUT,
   GHOST_FRIGHTENED_SPEED_MULTIPLIER,
   GRID_ALIGNMENT_THRESHOLD,
-  GHOST_PERSONALITIES
+  GHOST_PERSONALITIES,
+  GHOST_SPAWN_POSITIONS,
+  GHOST_EXIT_POSITION
 } from '../utils/gameConstants';
 
 const Canvas = styled.canvas`
@@ -39,15 +41,23 @@ interface Position {
   y: number;
 }
 
+type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
+
 interface Ghost {
   x: number;
   y: number;
-  type: 'pink' | 'blue' | 'purple' | 'skin';
   direction: string;
-  isReleased: boolean;
-  baseSpeed: number;
+  type: 'pink' | 'blue' | 'purple' | 'skin';
   mode: GhostMode;
+  targetX: number;
+  targetY: number;
+  isReleased: boolean;
   stateMachine: any;
+  path: Array<{ x: number; y: number }>;
+  lastPathUpdate: number;
+  baseSpeed: number;
+  consecutiveEats: number;
+  spawnDelay: number;
 }
 
 interface GameState {
@@ -69,8 +79,6 @@ interface GameState {
   dots: Array<{ x: number; y: number }>;
   powerPellets: Array<{ x: number; y: number }>;
 }
-
-type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
 
 interface GameCanvasProps {
   onScoreUpdate?: (score: number) => void;
@@ -380,83 +388,43 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       }
     }
 
+    const ghostTypes: Array<'pink' | 'blue' | 'purple' | 'skin'> = ['pink', 'blue', 'purple', 'skin'];
+
     return {
-    score: 0,
-    isPoweredUp: false,
-    isScatterMode: true,
-    pacman: {
-      x: gridToPixel(10),
-      y: gridToPixel(16),
-      direction: '',
-      nextDirection: '',
-      nextX: gridToPixel(10),
-      nextY: gridToPixel(16),
-      visualX: gridToPixel(10),
-      visualY: gridToPixel(16)
-    },
-    ghosts: [
-        { 
-          x: gridToPixel(8), 
-          y: gridToPixel(10), 
-          direction: 'right', 
-          type: 'pink', 
-          mode: 'scatter', 
-          targetX: 0, 
-          targetY: 0, 
-          isReleased: true,
-          stateMachine: interpret(createGhostStateMachine(scatterTargets[0])).start(),
+      score: 0,
+      isPoweredUp: false,
+      isScatterMode: true,
+      pacman: {
+        x: gridToPixel(10),
+        y: gridToPixel(16),
+        direction: '',
+        nextDirection: '',
+        nextX: gridToPixel(10),
+        nextY: gridToPixel(16),
+        visualX: gridToPixel(10),
+        visualY: gridToPixel(16)
+      },
+      ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
+        const type = ghostTypes[index];
+        const personality = GHOST_PERSONALITIES[type];
+        return {
+          x: gridToPixel(pos.x),
+          y: gridToPixel(pos.y),
+          direction: 'up',
+          type,
+          mode: 'scatter' as GhostMode,
+          targetX: 0,
+          targetY: 0,
+          isReleased: index === 0,
+          stateMachine: interpret(createGhostStateMachine(scatterTargets[index])).start(),
           path: [],
           lastPathUpdate: 0,
           baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0
-        },
-        { 
-          x: gridToPixel(9), 
-          y: gridToPixel(10), 
-          direction: 'left', 
-          type: 'blue', 
-          mode: 'scatter', 
-          targetX: MAZE_LAYOUT[0].length - 1, 
-          targetY: 0, 
-          isReleased: false,
-          stateMachine: interpret(createGhostStateMachine(scatterTargets[1])).start(),
-          path: [],
-          lastPathUpdate: 0,
-          baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0
-        },
-        { 
-          x: gridToPixel(10), 
-          y: gridToPixel(10), 
-          direction: 'up', 
-          type: 'purple', 
-          mode: 'scatter', 
-          targetX: 0, 
-          targetY: MAZE_LAYOUT.length - 1, 
-          isReleased: false,
-          stateMachine: interpret(createGhostStateMachine(scatterTargets[2])).start(),
-          path: [],
-          lastPathUpdate: 0,
-          baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0
-        },
-        { 
-          x: gridToPixel(11), 
-          y: gridToPixel(10), 
-          direction: 'right', 
-          type: 'skin', 
-          mode: 'scatter', 
-          targetX: MAZE_LAYOUT[0].length - 1, 
-          targetY: MAZE_LAYOUT.length - 1, 
-          isReleased: false,
-          stateMachine: interpret(createGhostStateMachine(scatterTargets[3])).start(),
-          path: [],
-          lastPathUpdate: 0,
-          baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0
-        }
-    ],
-    maze: MAZE_LAYOUT,
+          consecutiveEats: 0,
+          spawnDelay: personality.spawnDelay
+        };
+      }),
+      maze: MAZE_LAYOUT,
       dots,
       powerPellets
     };
@@ -497,10 +465,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
         },
         ghosts: prev.ghosts.map((ghost, index) => ({
           ...ghost,
-          x: gridToPixel(8 + index),
-          y: gridToPixel(10),
-          direction: index === 0 ? 'right' : index === 1 ? 'left' : index === 2 ? 'up' : 'right',
-          mode: 'scatter',
+          x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x),
+          y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
+          direction: 'up',
+          mode: 'scatter' as GhostMode,
           isReleased: index === 0,
           path: [],
           lastPathUpdate: 0,
@@ -545,8 +513,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             return {
               ...ghost,
               direction: 'up',
-              mode: 'chase',
-              y: gridToPixel(8),
+              mode: 'chase' as GhostMode,
+              y: gridToPixel(GHOST_EXIT_POSITION.y),
               isReleased: true
             };
           }
@@ -555,13 +523,15 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       }));
     };
 
-    // Release ghosts at staggered intervals
-    GHOST_RELEASE_DELAYS.forEach((delay, index) => {
-      setTimeout(() => releaseGhost(index), delay);
+    // Release ghosts at staggered intervals based on personality
+    gameState.ghosts.forEach((ghost, index) => {
+      if (!ghost.isReleased) {
+        setTimeout(() => releaseGhost(index), ghost.spawnDelay);
+      }
     });
 
     return () => {
-      GHOST_RELEASE_DELAYS.forEach((_, index) => {
+      gameState.ghosts.forEach((_, index) => {
         clearTimeout(index);
       });
     };
@@ -632,8 +602,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             i === index 
               ? { 
                   ...g, 
-                  x: gridToPixel(10), 
-                  y: gridToPixel(10),
+                  x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x), 
+                  y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
                   consecutiveEats: 0
                 }
               : g
@@ -956,7 +926,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
                 if (distanceToGhost < personality.avoidanceRadius) {
                   // Stronger avoidance when closer
                   const avoidanceStrength = Math.pow(1 - (distanceToGhost / personality.avoidanceRadius), 2);
-                  return bonus + (avoidanceStrength * 2); // Increased from 0.5
+                  return bonus + (avoidanceStrength * 2);
                 }
                 return bonus;
               }, 0);

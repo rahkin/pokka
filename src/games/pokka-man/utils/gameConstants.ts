@@ -1,8 +1,8 @@
 // Game Constants
 export const CELL_SIZE = 30;
-export const CHARACTER_SIZE = 28;
-export const CHARACTER_SCALE = 1.2;
-export const WALL_MARGIN = 8;
+export const CHARACTER_SIZE = 24;
+export const CHARACTER_SCALE = 1.0;
+export const WALL_MARGIN = 4;
 export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
@@ -29,7 +29,7 @@ export const FLASH_WARNING_DURATION = 2000;
 export const FLASH_INTERVAL = 200;
 
 // Movement Thresholds
-export const GRID_ALIGNMENT_THRESHOLD = 2;
+export const GRID_ALIGNMENT_THRESHOLD = 4;
 export const CORNER_TURN_THRESHOLD = 6;
 
 // Scoring
@@ -74,6 +74,12 @@ export const SOUND_EFFECTS = {
 // Ghost House Configuration
 export const GHOST_HOUSE_POSITION = { x: 10, y: 10 };
 export const GHOST_EXIT_POSITION = { x: 10, y: 8 };
+export const GHOST_SPAWN_POSITIONS = [
+  { x: 8, y: 10 },   // Pink ghost
+  { x: 9, y: 10 },   // Blue ghost
+  { x: 10, y: 10 },  // Purple ghost
+  { x: 11, y: 10 }   // Skin ghost
+];
 
 // Ghost Scatter Targets (spread out more)
 export const GHOST_SCATTER_TARGETS = [
@@ -86,24 +92,28 @@ export const GHOST_SCATTER_TARGETS = [
 // Ghost Personality Constants
 export const GHOST_PERSONALITIES = {
   pink: {
-    lookAheadTiles: 4,      // Number of tiles to look ahead of Pacman
-    turnProbability: 0.4,   // Increased from 0.3 for more unpredictable movement
-    avoidanceRadius: 4      // Added: radius to avoid other ghosts
+    lookAheadTiles: 4,
+    turnProbability: 0.4,
+    avoidanceRadius: 4,
+    spawnDelay: 0
   },
   blue: {
-    vectorMultiplier: 2.5,  // Increased from 2 for better flanking
-    minDistance: 6,         // Increased from 5 for better spacing
-    avoidanceRadius: 5      // Added: radius to avoid other ghosts
+    vectorMultiplier: 2.5,
+    minDistance: 6,
+    avoidanceRadius: 5,
+    spawnDelay: 5000
   },
   purple: {
-    switchDistance: 7,      // Reduced from 8 for more aggressive behavior
-    ambushDistance: 3,      // Increased from 2 for better ambush positioning
-    avoidanceRadius: 4      // Added: radius to avoid other ghosts
+    switchDistance: 7,
+    ambushDistance: 3,
+    avoidanceRadius: 4,
+    spawnDelay: 10000
   },
   skin: {
-    chaseThreshold: 5,      // Reduced from 6 for more aggressive chasing
-    scatterInterval: 2500,  // Reduced from 3000 for more dynamic behavior
-    avoidanceRadius: 5      // Added: radius to avoid other ghosts
+    chaseThreshold: 5,
+    scatterInterval: 2500,
+    avoidanceRadius: 5,
+    spawnDelay: 15000
   }
 };
 
