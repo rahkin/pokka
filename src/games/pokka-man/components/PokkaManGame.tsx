@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { GameCanvas } from './GameCanvas';
 import { StartScreen } from './StartScreen';
-import { useMobileControls } from '../hooks/useMobileControls';
 
 const GameContainer = styled.div`
   position: relative;
