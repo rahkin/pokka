@@ -14,8 +14,6 @@ import {
   POWER_PELLET_VALUE,
   CHARACTER_SCALE,
   FRAME_TIME,
-  WALL_MARGIN,
-  CHARACTER_SIZE,
   GHOST_SPEED_VARIATION,
   GHOST_POINTS,
   GHOST_CHASE_DURATION,
@@ -160,144 +158,6 @@ const checkCollisions = (
   return null;
 };
 
-// Calculate ghost target with improved spacing
-const calculateGhostTarget = (ghost: Ghost, gameState: GameState, mode: GhostMode): Position => {
-  const pacmanGridX = Math.floor(gameState.pacman.x / CELL_SIZE);
-  const pacmanGridY = Math.floor(gameState.pacman.y / CELL_SIZE);
-  const ghostGridX = Math.floor(ghost.x / CELL_SIZE);
-  const ghostGridY = Math.floor(ghost.y / CELL_SIZE);
-
-  if (mode === 'frightened') {
-    // In frightened mode, move randomly but avoid other ghosts and Pokka
-    const distanceToPokka = Math.abs(ghostGridX - pacmanGridX) + Math.abs(ghostGridY - pacmanGridY);
-    
-    // Find average position of nearby ghosts
-    let nearbyGhostCount = 0;
-    const avgGhostPos = gameState.ghosts.reduce((acc, otherGhost) => {
-      if (otherGhost === ghost) return acc;
-      const otherX = Math.floor(otherGhost.x / CELL_SIZE);
-      const otherY = Math.floor(otherGhost.y / CELL_SIZE);
-      const distanceToGhost = Math.abs(ghostGridX - otherX) + Math.abs(ghostGridY - otherY);
-      
-      if (distanceToGhost < 4) {  // Only consider nearby ghosts
-        nearbyGhostCount++;
-        return { x: acc.x + otherX, y: acc.y + otherY };
-      }
-      return acc;
-    }, { x: 0, y: 0 });
-
-    if (nearbyGhostCount > 0) {
-      avgGhostPos.x /= nearbyGhostCount;
-      avgGhostPos.y /= nearbyGhostCount;
-      // Move away from both Pokka and other ghosts
-      return {
-        x: ghostGridX + (ghostGridX - Math.floor((pacmanGridX + avgGhostPos.x) / 2)),
-        y: ghostGridY + (ghostGridY - Math.floor((pacmanGridY + avgGhostPos.y) / 2))
-      };
-    }
-
-    // If no nearby ghosts, just avoid Pokka
-    if (distanceToPokka < 4) {
-      return {
-        x: ghostGridX + (ghostGridX - pacmanGridX),
-        y: ghostGridY + (ghostGridY - pacmanGridY)
-      };
-    }
-
-    // Random movement with boundary awareness
-    return {
-      x: Math.max(1, Math.min(gameState.maze[0].length - 2, 
-         Math.floor(Math.random() * gameState.maze[0].length))),
-      y: Math.max(1, Math.min(gameState.maze.length - 2,
-         Math.floor(Math.random() * gameState.maze.length)))
-    };
-  }
-
-  if (mode === 'chase') {
-    switch (ghost.type) {
-      case 'pink': // Ambush ahead of Pokka
-        const offset = 4;
-        switch (gameState.pacman.direction) {
-          case 'up':
-            return {
-              x: pacmanGridX - offset,
-              y: Math.max(0, pacmanGridY - offset)
-            };
-          case 'down':
-            return {
-              x: pacmanGridX + offset,
-              y: Math.min(gameState.maze.length - 1, pacmanGridY + offset)
-            };
-          case 'left':
-            return {
-              x: Math.max(0, pacmanGridX - offset),
-              y: pacmanGridY - offset
-            };
-          case 'right':
-            return {
-              x: Math.min(gameState.maze[0].length - 1, pacmanGridX + offset),
-              y: pacmanGridY + offset
-            };
-          default:
-            return { x: pacmanGridX, y: pacmanGridY };
-        }
-
-      case 'blue': // Flank using red ghost position
-        const redGhost = gameState.ghosts[0];
-        const redGridX = Math.floor(redGhost.x / CELL_SIZE);
-        const redGridY = Math.floor(redGhost.y / CELL_SIZE);
-        // Position opposite to red ghost relative to Pokka
-        return {
-          x: pacmanGridX + (pacmanGridX - redGridX),
-          y: pacmanGridY + (pacmanGridY - redGridY)
-        };
-
-      case 'purple': // Patrol and intercept
-        const distanceToTarget = Math.abs(ghostGridX - pacmanGridX) + Math.abs(ghostGridY - pacmanGridY);
-        if (distanceToTarget < 6) {
-          // Close enough to chase directly
-          return { x: pacmanGridX, y: pacmanGridY };
-        }
-        // Patrol between corners to cut off escape
-        const time = Date.now() / 1000;
-        const patrolPoint = Math.floor(time % 4);
-        switch (patrolPoint) {
-          case 0: return { x: 0, y: 0 };
-          case 1: return { x: gameState.maze[0].length - 1, y: 0 };
-          case 2: return { x: 0, y: gameState.maze.length - 1 };
-          case 3: return { x: gameState.maze[0].length - 1, y: gameState.maze.length - 1 };
-          default: return { x: pacmanGridX, y: pacmanGridY };
-        }
-
-      default: // Direct chase with prediction
-        // Predict Pokka's future position
-        return {
-          x: pacmanGridX + (gameState.pacman.direction === 'right' ? 2 : 
-                           gameState.pacman.direction === 'left' ? -2 : 0),
-          y: pacmanGridY + (gameState.pacman.direction === 'down' ? 2 : 
-                           gameState.pacman.direction === 'up' ? -2 : 0)
-        };
-    }
-  }
-
-  // Scatter mode - patrol corners but maintain aggression
-  const cornerIndex = ['pink', 'blue', 'purple', 'skin'].indexOf(ghost.type);
-  const time = Date.now() / 1000;
-  // Periodically switch between corner and chase
-  const shouldChase = (time % 5) < 3; // Chase for 3 seconds, scatter for 2
-  
-  if (shouldChase) {
-    return { x: pacmanGridX, y: pacmanGridY };
-  }
-  
-  switch (cornerIndex) {
-    case 0: return { x: 0, y: 0 };
-    case 1: return { x: gameState.maze[0].length - 1, y: 0 };
-    case 2: return { x: 0, y: gameState.maze.length - 1 };
-    default: return { x: gameState.maze[0].length - 1, y: gameState.maze.length - 1 };
-  }
-};
-
 // Helper function to calculate wall avoidance bonus
 const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
   const gridX = Math.floor(x / CELL_SIZE);
@@ -334,13 +194,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
   // Initialize game state
   const [gameState, setGameState] = useState<GameState>(() => {
-    const scatterTargets = [
-      { x: 0, y: 0 },
-      { x: MAZE_LAYOUT[0].length - 1, y: 0 },
-      { x: 0, y: MAZE_LAYOUT.length - 1 },
-      { x: MAZE_LAYOUT[0].length - 1, y: MAZE_LAYOUT.length - 1 }
-    ];
-
     // Initialize dots and power pellets
     const dots: Array<{ x: number; y: number }> = [];
     const powerPellets: Array<{ x: number; y: number }> = [];
@@ -374,18 +227,17 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
         const personality = GHOST_PERSONALITIES[type];
-        const scatterTarget = GHOST_SCATTER_TARGETS[index];
-        const behavior = new GhostBehavior(type, scatterTarget, MAZE_LAYOUT, GHOST_HOUSE_POSITION);
+        const behavior = new GhostBehavior(type, GHOST_SCATTER_TARGETS[index], MAZE_LAYOUT, GHOST_HOUSE_POSITION);
         return {
           x: gridToPixel(pos.x),
           y: gridToPixel(pos.y),
           direction: 'up',
           type,
           mode: 'scatter' as GhostMode,
-          targetX: scatterTarget.x * CELL_SIZE,
-          targetY: scatterTarget.y * CELL_SIZE,
+          targetX: GHOST_SCATTER_TARGETS[index].x * CELL_SIZE,
+          targetY: GHOST_SCATTER_TARGETS[index].y * CELL_SIZE,
           isReleased: index === 0,
-          stateMachine: interpret(createGhostStateMachine(scatterTarget)).start(),
+          stateMachine: interpret(createGhostStateMachine(GHOST_SCATTER_TARGETS[index])).start(),
           behavior,
           path: [],
           lastPathUpdate: 0,
@@ -1041,43 +893,45 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
   // Ghost mode switching effect
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying) return; // Don't run timer if not playing
     let modeTimer: NodeJS.Timeout;
 
     const switchMode = () => {
-      if (!isPlaying || gameOverRef.current) return;
+      if (!isPlaying || gameOverRef.current) return; // Stop switching if game over or not playing
       setGameState(prev => {
-        if (prev.isPoweredUp) {
+        if (prev.isPoweredUp) { // Frightened overrides scatter/chase
           const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: 'frightened' as GhostMode }));
-          return { ...prev, ghosts: updatedGhosts, isScatterMode: false };
+          return { ...prev, ghosts: updatedGhosts, isScatterMode: false }; // Ensure scatter is off
         }
         const nextScatterMode = !prev.isScatterMode;
         const nextMode = nextScatterMode ? 'scatter' : 'chase';
         const updatedGhosts = prev.ghosts.map(g => ({ ...g, mode: nextMode as GhostMode }));
         return { ...prev, isScatterMode: nextScatterMode, ghosts: updatedGhosts };
       });
+
+      // Schedule next switch only if still playing
       if (isPlaying && !gameOverRef.current) {
-        modeTimer = setTimeout(switchMode, gameState.isScatterMode ? GHOST_SCATTER_DURATION : GHOST_CHASE_DURATION);
+         modeTimer = setTimeout(switchMode, gameState.isScatterMode ? GHOST_SCATTER_DURATION : GHOST_CHASE_DURATION);
       }
     };
 
-    switchMode();
+    // Initial switch after a brief delay
+    const initialDelay = setTimeout(switchMode, 100);
 
     return () => {
-      if (modeTimer) clearTimeout(modeTimer);
+        clearTimeout(initialDelay);
+        if (modeTimer) clearTimeout(modeTimer);
     };
+  // Depend on isPlaying to restart timer logic correctly
   }, [isPlaying, gameState.isPoweredUp, gameState.isScatterMode]);
 
-  // Helper function to get opposite direction
+  // Helper function
   const getOppositeDirection = (direction: string): string => {
-    switch (direction) {
-      case 'up': return 'down';
-      case 'down': return 'up';
-      case 'left': return 'right';
-      case 'right': return 'left';
-      default: return direction;
-    }
+      switch (direction) { case 'up': return 'down'; case 'down': return 'up'; case 'left': return 'right'; case 'right': return 'left'; default: return direction; }
   };
 
   return <Canvas ref={canvasRef} />;
-} 
+
+} // END OF GameCanvas FUNCTION
+
+// NO DUPLICATE CODE OR IMPORTS BELOW THIS LINE

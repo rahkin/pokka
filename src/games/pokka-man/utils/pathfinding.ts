@@ -157,7 +157,7 @@ export const getNextDirection = (
   currentY: number,
   path: number[][],
   currentDirection: string,
-  maze: number[][]
+  _maze: number[][]
 ): { direction: string; canTurnCorner: boolean; nextPosition: Position } => {
   if (path.length < 2) {
     return { 
