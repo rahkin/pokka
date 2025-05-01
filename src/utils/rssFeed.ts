@@ -31,21 +31,14 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
     try {
       console.log(`Attempt ${i + 1} to fetch news with API key: ${CRYPTOCOMPARE_API_KEY ? 'present' : 'missing'}`);
       
-      // Detect if we're on a mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'authorization': `Apikey ${CRYPTOCOMPARE_API_KEY}`,
-          'Accept': 'application/json',
-          'User-Agent': isMobile 
-            ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1'
-            : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'Accept': '*/*',
+          'Origin': window.location.origin
         },
-        mode: 'cors',
-        cache: 'no-cache',
-        credentials: 'omit'
+        mode: 'cors'
       });
       
       if (!response.ok) {
@@ -54,8 +47,7 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
           status: response.status,
           statusText: response.statusText,
           errorText,
-          headers: Object.fromEntries(response.headers.entries()),
-          isMobile
+          headers: Object.fromEntries(response.headers.entries())
         });
         throw new Error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}, error: ${errorText}`);
       }
@@ -66,12 +58,11 @@ const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
       console.error(`Attempt ${i + 1} failed:`, {
         error,
         url,
-        retryCount: i + 1,
-        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        retryCount: i + 1
       });
       
       if (i < retries - 1) {
-        const delay = 2000 * (i + 1); // Increased delay for mobile
+        const delay = 2000 * (i + 1);
         console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -149,53 +140,57 @@ export const fetchRSSFeedFromNewsAPI = async (): Promise<RSSItem[]> => {
     // Construct the API URL with parameters
     const apiUrl = new URL(CRYPTOCOMPARE_API_URL);
     apiUrl.searchParams.append('lang', 'EN');
-    // Don't append api_key as parameter, we're using it in the header
     
     console.log('Attempting to fetch news from:', apiUrl.toString());
 
-    // Fetch news from CryptoCompare API
-    const response = await fetchWithRetry(apiUrl.toString());
-    const data = await response.json();
-    
-    if (!data.Data || !Array.isArray(data.Data) || data.Data.length === 0) {
-      console.error('Invalid or empty response from CryptoCompare:', data);
+    try {
+      // Fetch news from CryptoCompare API
+      const response = await fetchWithRetry(apiUrl.toString());
+      const data = await response.json();
+      
+      if (!data.Data || !Array.isArray(data.Data) || data.Data.length === 0) {
+        console.error('Invalid or empty response from CryptoCompare:', data);
+        return getFallbackNews();
+      }
+
+      console.log('Received articles:', data.Data.length);
+
+      // Transform the articles into our RSSItem format
+      const allItems: RSSItem[] = data.Data
+        .filter((article: any) => {
+          if (!article.title || !article.body) {
+            console.warn('Invalid article format:', article);
+            return false;
+          }
+          const searchText = `${article.title} ${article.body}`.toLowerCase();
+          return KEYWORDS.some(keyword => 
+            searchText.includes(keyword.toLowerCase())
+          );
+        })
+        .map((article: any) => ({
+          title: article.title,
+          link: article.url,
+          description: truncateText(article.body, 200),
+          pubDate: formatDate(article.published_on)
+        }));
+
+      console.log('Filtered articles:', allItems.length);
+
+      if (allItems.length === 0) {
+        console.warn('No articles found after filtering, using fallback news');
+        return getFallbackNews();
+      }
+
+      // Sort by date, newest first
+      return allItems.sort((a, b) => 
+        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      );
+    } catch (error) {
+      console.error('Error fetching or processing news:', error);
       return getFallbackNews();
     }
-
-    console.log('Received articles:', data.Data.length);
-
-    // Transform the articles into our RSSItem format
-    const allItems: RSSItem[] = data.Data
-      .filter((article: any) => {
-        if (!article.title || !article.body) {
-          console.warn('Invalid article format:', article);
-          return false;
-        }
-        const searchText = `${article.title} ${article.body}`.toLowerCase();
-        return KEYWORDS.some(keyword => 
-          searchText.includes(keyword.toLowerCase())
-        );
-      })
-      .map((article: any) => ({
-        title: article.title,
-        link: article.url,
-        description: truncateText(article.body, 200), // Truncate description to 200 characters
-        pubDate: formatDate(article.published_on)
-      }));
-
-    console.log('Filtered articles:', allItems.length);
-
-    if (allItems.length === 0) {
-      console.warn('No articles found after filtering, using fallback news');
-      return getFallbackNews();
-    }
-
-    // Sort by date, newest first
-    return allItems.sort((a, b) => 
-      new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-    );
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('Error in fetchRSSFeedFromNewsAPI:', error);
     return getFallbackNews();
   }
 }; 
