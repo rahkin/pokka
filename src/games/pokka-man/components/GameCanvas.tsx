@@ -874,7 +874,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
                             Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
 
         // If at grid center or no valid direction, choose new direction
-        if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x + offsetX, ghost.y + offsetY, prevState.maze)) {
+        if (atGridCenter || !ghost.direction || !isValidPosition(ghost.x, ghost.y, prevState.maze)) {
           // Snap to grid when at center
           if (atGridCenter) {
             ghost.x = currentGridX * CELL_SIZE;
@@ -883,7 +883,13 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
 
           // Get available directions excluding the opposite of current direction
           const availableDirections = getAvailableDirections(ghost.x, ghost.y, prevState.maze)
-            .filter(dir => dir !== getOppositeDirection(ghost.direction));
+            .filter(dir => {
+              // Don't allow reversing unless it's the only option
+              if (dir === getOppositeDirection(ghost.direction)) {
+                return getAvailableDirections(ghost.x, ghost.y, prevState.maze).length === 1;
+              }
+              return true;
+            });
 
           if (availableDirections.length > 0) {
             // Calculate target based on mode and ghost type
@@ -891,20 +897,31 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             
             // Score each direction
             const directionScores = availableDirections.map(dir => {
-              let nextGridX = currentGridX;
-              let nextGridY = currentGridY;
+              let nextX = ghost.x;
+              let nextY = ghost.y;
+              
               switch (dir) {
-                case 'up': nextGridY--; break;
-                case 'down': nextGridY++; break;
-                case 'left': nextGridX--; break;
-                case 'right': nextGridX++; break;
+                case 'up': nextY -= CELL_SIZE; break;
+                case 'down': nextY += CELL_SIZE; break;
+                case 'left': nextX -= CELL_SIZE; break;
+                case 'right': nextX += CELL_SIZE; break;
               }
               
+              const nextGridX = Math.floor(nextX / CELL_SIZE);
+              const nextGridY = Math.floor(nextY / CELL_SIZE);
+              
+              // Calculate distance to target
               const distanceToTarget = Math.abs(nextGridX - target.x) + Math.abs(nextGridY - target.y);
-              const randomFactor = mode === 'frightened' ? Math.random() * 3 : Math.random() * 0.5;
+              
+              // Add randomness factor based on mode
+              const randomFactor = mode === 'frightened' ? Math.random() * 4 : Math.random() * 0.5;
+              
+              // Prefer current direction slightly to reduce jittery movement
+              const directionBonus = dir === ghost.direction ? 0.5 : 0;
+              
               return {
                 direction: dir,
-                score: -distanceToTarget + randomFactor
+                score: -distanceToTarget + randomFactor + directionBonus
               };
             });
 
@@ -914,9 +931,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
             );
 
             ghost.direction = bestDirection.direction;
-          } else if (getAvailableDirections(ghost.x, ghost.y, prevState.maze).length > 0) {
-            // If no forward directions available, allow reverse
-            ghost.direction = getAvailableDirections(ghost.x, ghost.y, prevState.maze)[0];
           }
         }
 
@@ -931,17 +945,27 @@ export function GameCanvas({ onScoreUpdate, onGameOver, currentDirection, isPlay
           case 'right': nextX += speed; break;
         }
 
-        // Validate next position and apply movement
+        // Validate next position with multiple collision points
         if (isValidPosition(nextX, nextY, prevState.maze)) {
-          // Smooth out grid alignment when moving
-          if (Math.abs(offsetX) < speed && ghost.direction !== 'left' && ghost.direction !== 'right') {
+          // Apply movement with grid alignment when close to center
+          if (Math.abs(offsetX) < speed && (ghost.direction === 'up' || ghost.direction === 'down')) {
             nextX = currentGridX * CELL_SIZE;
           }
-          if (Math.abs(offsetY) < speed && ghost.direction !== 'up' && ghost.direction !== 'down') {
+          if (Math.abs(offsetY) < speed && (ghost.direction === 'left' || ghost.direction === 'right')) {
             nextY = currentGridY * CELL_SIZE;
           }
           
           return { ...ghost, x: nextX, y: nextY, mode };
+        }
+
+        // If next position is invalid, try to slide along walls
+        const slideX = ghost.direction === 'up' || ghost.direction === 'down' ? nextX : ghost.x;
+        const slideY = ghost.direction === 'left' || ghost.direction === 'right' ? nextY : ghost.y;
+        
+        if (isValidPosition(ghost.x, slideY, prevState.maze)) {
+          return { ...ghost, y: slideY, mode };
+        } else if (isValidPosition(slideX, ghost.y, prevState.maze)) {
+          return { ...ghost, x: slideX, mode };
         }
 
         return ghost;
