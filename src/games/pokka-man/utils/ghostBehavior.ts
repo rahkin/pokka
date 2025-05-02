@@ -60,16 +60,14 @@ export default class GhostBehavior {
   private readonly type: string;
   private readonly scatterTarget: Position;
   private readonly maze: number[][];
-  private readonly ghostHouse: Position;
   private lastDirectionChange: number = 0;
   private lastTargetUpdate: number = 0;
   private currentTarget: Position;
 
-  constructor(type: string, scatterTarget: Position, maze: number[][], ghostHouse: Position) {
+  constructor(type: string, scatterTarget: Position, maze: number[][]) {
     this.type = type;
     this.scatterTarget = scatterTarget;
     this.maze = maze;
-    this.ghostHouse = ghostHouse;
     this.currentTarget = scatterTarget;
   }
 
@@ -316,27 +314,6 @@ export default class GhostBehavior {
     // Check if position is a wall (1) or empty (0) or has a dot (2) or power pellet (3)
     const cell = this.maze[y][x];
     return cell !== 1;
-  }
-
-  private isReachablePosition(from: Position, to: Position): boolean {
-    // Convert pixel coordinates to grid coordinates
-    const fromGridX = Math.floor(from.x / CELL_SIZE);
-    const fromGridY = Math.floor(from.y / CELL_SIZE);
-    const toGridX = Math.floor(to.x / CELL_SIZE);
-    const toGridY = Math.floor(to.y / CELL_SIZE);
-
-    // Simple check: if either position is invalid, return false
-    if (!this.isValidPosition(fromGridX, fromGridY) || !this.isValidPosition(toGridX, toGridY)) {
-      return false;
-    }
-
-    // If positions are adjacent, check if there's a wall between them
-    if (Math.abs(fromGridX - toGridX) + Math.abs(fromGridY - toGridY) === 1) {
-      return true;
-    }
-
-    // For non-adjacent positions, return true and let the movement logic handle pathfinding
-    return true;
   }
 }
 
