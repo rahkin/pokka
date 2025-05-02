@@ -653,105 +653,104 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
   const updatePokka = useCallback((deltaTime: number) => {
     setGameState((prevState) => {
       const { pacman, maze } = prevState;
-      // Increase speed by 50%
       const speed = (PACMAN_SPEED * 1.5 * deltaTime) / FRAME_TIME;
       let effectiveDirection = pacman.currentMovingDirection;
 
-      // --- Initial Movement Check --- 
-      if (!pacman.currentMovingDirection && nextDirection) {
-        let startCheckX = pacman.x;
-        let startCheckY = pacman.y;
-        const startCheckDistance = speed > 0 ? speed : 1;
+      // Handle direction changes
+      if (nextDirection) {
+        // Calculate current cell position
+        const centerX = pacman.x + CELL_SIZE / 2;
+        const centerY = pacman.y + CELL_SIZE / 2;
+        const currentCellX = Math.floor(centerX / CELL_SIZE);
+        const currentCellY = Math.floor(centerY / CELL_SIZE);
         
-        // Ensure we're aligned to the grid before starting movement
-        const centerX = pacman.x + CELL_SIZE / 2;
-        const centerY = pacman.y + CELL_SIZE / 2;
-        const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
-        const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
-        const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
-                         Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+        // Calculate position within current cell
+        const offsetX = centerX - (currentCellX * CELL_SIZE + CELL_SIZE / 2);
+        const offsetY = centerY - (currentCellY * CELL_SIZE + CELL_SIZE / 2);
+        
+        // Check if we're close enough to the center of a cell to turn
+        const isNearCenter = Math.abs(offsetX) <= speed && Math.abs(offsetY) <= speed;
 
-        if (isAligned) {
+        if (isNearCenter) {
+          // Try the new direction
+          let canMove = false;
+          let nextX = currentCellX * CELL_SIZE;
+          let nextY = currentCellY * CELL_SIZE;
+
           switch (nextDirection) {
-            case 'right': startCheckX += startCheckDistance; break;
-            case 'left': startCheckX -= startCheckDistance; break;
-            case 'down': startCheckY += startCheckDistance; break;
-            case 'up': startCheckY -= startCheckDistance; break;
+            case 'right':
+              nextX += CELL_SIZE;
+              canMove = !maze[currentCellY][currentCellX + 1] || maze[currentCellY][currentCellX + 1] !== 1;
+              break;
+            case 'left':
+              nextX -= CELL_SIZE;
+              canMove = !maze[currentCellY][currentCellX - 1] || maze[currentCellY][currentCellX - 1] !== 1;
+              break;
+            case 'down':
+              nextY += CELL_SIZE;
+              canMove = !maze[currentCellY + 1][currentCellX] || maze[currentCellY + 1][currentCellX] !== 1;
+              break;
+            case 'up':
+              nextY -= CELL_SIZE;
+              canMove = !maze[currentCellY - 1][currentCellX] || maze[currentCellY - 1][currentCellX] !== 1;
+              break;
           }
-          if (isValidPosition(startCheckX, startCheckY, maze)) {
-            effectiveDirection = nextDirection; // Decide to start moving
-            // Snap to grid when starting movement
-            pacman.x = gridToPixel(Math.round(pacman.x / CELL_SIZE));
-            pacman.y = gridToPixel(Math.round(pacman.y / CELL_SIZE));
+
+          if (canMove) {
+            // Snap to grid center when changing direction
+            pacman.x = currentCellX * CELL_SIZE;
+            pacman.y = currentCellY * CELL_SIZE;
+            effectiveDirection = nextDirection;
           }
         }
       }
 
-      // --- Turn Handling Check (only if already moving) --- 
-      if (pacman.currentMovingDirection && nextDirection && nextDirection !== pacman.currentMovingDirection) {
-        const centerX = pacman.x + CELL_SIZE / 2;
-        const centerY = pacman.y + CELL_SIZE / 2;
-        const currentGridX = Math.floor(centerX / CELL_SIZE);
-        const currentGridY = Math.floor(centerY / CELL_SIZE);
-        const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
-        const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
-        const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
-                         Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+      // Move in the current direction
+      if (effectiveDirection) {
+        let nextX = pacman.x;
+        let nextY = pacman.y;
+        const moveDistance = speed;
 
-        if (isAligned) {
-          let checkX = gridToPixel(currentGridX);
-          let checkY = gridToPixel(currentGridY);
-          const checkDistance = speed > 0 ? speed : 1; 
-
-          switch (nextDirection) {
-            case 'right': checkX += checkDistance; break;
-            case 'left': checkX -= checkDistance; break;
-            case 'down': checkY += checkDistance; break;
-            case 'up': checkY -= checkDistance; break;
-          }
-
-          if (isValidPosition(checkX, checkY, maze)) {
-            // Snap to grid center before turning
-            pacman.x = gridToPixel(currentGridX);
-            pacman.y = gridToPixel(currentGridY);
-            effectiveDirection = nextDirection; // Decide to turn
-          }
+        switch (effectiveDirection) {
+          case 'right':
+            nextX += moveDistance;
+            break;
+          case 'left':
+            nextX -= moveDistance;
+            break;
+          case 'down':
+            nextY += moveDistance;
+            break;
+          case 'up':
+            nextY -= moveDistance;
+            break;
         }
-      }
 
-      // --- Movement Calculation --- 
-      let nextX = pacman.x;
-      let nextY = pacman.y;
-
-      if (!effectiveDirection) {
-        // If no direction decided, don't move
-        return { ...prevState, pacman: { ...pacman } }; 
-      }
-
-      switch (effectiveDirection) {
-        case 'right': nextX += speed; break;
-        case 'left': nextX -= speed; break;
-        case 'down': nextY += speed; break;
-        case 'up': nextY -= speed; break;
-      }
-
-      // Check if the intended next position is valid
-      if (isValidPosition(nextX, nextY, maze)) {
-        pacman.x = nextX;
-        pacman.y = nextY;
-        pacman.currentMovingDirection = effectiveDirection;
-      } else {
-        // If we hit a wall, stop moving
-        effectiveDirection = '';
-        pacman.currentMovingDirection = '';
+        // Check if the next position is valid
+        if (isValidPosition(nextX, nextY, maze)) {
+          pacman.x = nextX;
+          pacman.y = nextY;
+          pacman.currentMovingDirection = effectiveDirection;
+        } else {
+          // If we hit a wall, try to align with the grid
+          const currentCellX = Math.floor((pacman.x + CELL_SIZE / 2) / CELL_SIZE);
+          const currentCellY = Math.floor((pacman.y + CELL_SIZE / 2) / CELL_SIZE);
+          
+          // Align to the center of the current cell
+          pacman.x = currentCellX * CELL_SIZE;
+          pacman.y = currentCellY * CELL_SIZE;
+          
+          effectiveDirection = '';
+          pacman.currentMovingDirection = '';
+        }
       }
 
       const scoreChange = handleCollisions(pacman.x, pacman.y);
 
       return {
-        ...prevState, 
-        pacman: { ...pacman }, 
-        score: prevState.score + (scoreChange || 0), 
+        ...prevState,
+        pacman: { ...pacman },
+        score: prevState.score + (scoreChange || 0),
       };
     });
   }, [nextDirection, handleCollisions]);
