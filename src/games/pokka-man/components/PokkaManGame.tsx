@@ -12,12 +12,21 @@ const GameContainer = styled.div`
   image-rendering: crisp-edges;
   -ms-interpolation-mode: nearest-neighbor;
   image-rendering: -webkit-optimize-contrast;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 `;
 
 const GameSection = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 `;
 
 const ScoreDisplay = styled.div`

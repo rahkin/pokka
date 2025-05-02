@@ -14,6 +14,9 @@ const ControlsContainer = styled.div`
   height: min(200px, 40vw);
   z-index: 10;
   touch-action: none; /* Prevent browser handling of touch events */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 `;
 
 const ControlButton = styled.button<{ isPressed?: boolean }>`
@@ -33,19 +36,12 @@ const ControlButton = styled.button<{ isPressed?: boolean }>`
   padding: 0;
   transition: all 0.1s ease;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
 
   &:active {
     background: rgba(var(--pokka-cyan-rgb), 0.6);
     transform: scale(0.95);
   }
-
-  /* Prevent text selection */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
 `;
 
 interface MobileControlsProps {
@@ -56,19 +52,24 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
   // Prevent default touch behaviors
   useEffect(() => {
     const preventDefault = (e: TouchEvent) => {
-      e.preventDefault();
+      if (e.target instanceof Element && e.target.closest('.control-button')) {
+        e.preventDefault();
+      }
     };
 
-    document.addEventListener('touchmove', preventDefault, { passive: false });
+    // Add passive: false to ensure preventDefault works
     document.addEventListener('touchstart', preventDefault, { passive: false });
+    document.addEventListener('touchmove', preventDefault, { passive: false });
+    document.addEventListener('touchend', preventDefault, { passive: false });
 
     return () => {
-      document.removeEventListener('touchmove', preventDefault);
       document.removeEventListener('touchstart', preventDefault);
+      document.removeEventListener('touchmove', preventDefault);
+      document.removeEventListener('touchend', preventDefault);
     };
   }, []);
 
-  const handleTouchStart = (direction: string, e: React.TouchEvent) => {
+  const handleTouchStart = (direction: string) => (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onDirectionChange(direction);
@@ -84,7 +85,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
     <ControlsContainer>
       <div style={{ gridColumn: 2, gridRow: 1 }}>
         <ControlButton
-          onTouchStart={(e) => handleTouchStart('up', e)}
+          className="control-button"
+          onTouchStart={handleTouchStart('up')}
           onTouchEnd={handleTouchEnd}
           aria-label="Move Up"
         >
@@ -93,7 +95,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
       </div>
       <div style={{ gridColumn: 1, gridRow: 2 }}>
         <ControlButton
-          onTouchStart={(e) => handleTouchStart('left', e)}
+          className="control-button"
+          onTouchStart={handleTouchStart('left')}
           onTouchEnd={handleTouchEnd}
           aria-label="Move Left"
         >
@@ -102,7 +105,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
       </div>
       <div style={{ gridColumn: 2, gridRow: 2 }}>
         <ControlButton
-          onTouchStart={(e) => handleTouchStart('down', e)}
+          className="control-button"
+          onTouchStart={handleTouchStart('down')}
           onTouchEnd={handleTouchEnd}
           aria-label="Move Down"
         >
@@ -111,7 +115,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
       </div>
       <div style={{ gridColumn: 3, gridRow: 2 }}>
         <ControlButton
-          onTouchStart={(e) => handleTouchStart('right', e)}
+          className="control-button"
+          onTouchStart={handleTouchStart('right')}
           onTouchEnd={handleTouchEnd}
           aria-label="Move Right"
         >

@@ -36,6 +36,8 @@ const Canvas = styled.canvas`
   image-rendering: -webkit-optimize-contrast;
   margin: 0 auto;
   background: #000;
+  outline: none; /* Remove focus outline */
+  touch-action: none; /* Prevent browser touch actions */
 `;
 
 type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
@@ -657,97 +659,100 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
       // --- Initial Movement Check --- 
       if (!pacman.currentMovingDirection && nextDirection) {
-          let startCheckX = pacman.x;
-          let startCheckY = pacman.y;
-          const startCheckDistance = speed > 0 ? speed : 1;
+        let startCheckX = pacman.x;
+        let startCheckY = pacman.y;
+        const startCheckDistance = speed > 0 ? speed : 1;
+        
+        // Ensure we're aligned to the grid before starting movement
+        const centerX = pacman.x + CELL_SIZE / 2;
+        const centerY = pacman.y + CELL_SIZE / 2;
+        const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
+        const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
+        const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
+                         Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+
+        if (isAligned) {
           switch (nextDirection) {
-              case 'right': startCheckX += startCheckDistance; break;
-              case 'left': startCheckX -= startCheckDistance; break;
-              case 'down': startCheckY += startCheckDistance; break;
-              case 'up': startCheckY -= startCheckDistance; break;
+            case 'right': startCheckX += startCheckDistance; break;
+            case 'left': startCheckX -= startCheckDistance; break;
+            case 'down': startCheckY += startCheckDistance; break;
+            case 'up': startCheckY -= startCheckDistance; break;
           }
           if (isValidPosition(startCheckX, startCheckY, maze)) {
-              effectiveDirection = nextDirection; // Decide to start moving
+            effectiveDirection = nextDirection; // Decide to start moving
+            // Snap to grid when starting movement
+            pacman.x = gridToPixel(Math.round(pacman.x / CELL_SIZE));
+            pacman.y = gridToPixel(Math.round(pacman.y / CELL_SIZE));
           }
+        }
       }
-      // --- End Initial Movement Check ---
 
       // --- Turn Handling Check (only if already moving) --- 
-      if (pacman.currentMovingDirection && nextDirection && nextDirection !== pacman.currentMovingDirection && nextDirection !== getOppositeDirection(pacman.currentMovingDirection)) {
-          const centerX = pacman.x + CELL_SIZE / 2;
-          const centerY = pacman.y + CELL_SIZE / 2;
-          const currentGridX = Math.floor(centerX / CELL_SIZE);
-          const currentGridY = Math.floor(centerY / CELL_SIZE);
-          const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
-          const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
-          const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
-                           Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
+      if (pacman.currentMovingDirection && nextDirection && nextDirection !== pacman.currentMovingDirection) {
+        const centerX = pacman.x + CELL_SIZE / 2;
+        const centerY = pacman.y + CELL_SIZE / 2;
+        const currentGridX = Math.floor(centerX / CELL_SIZE);
+        const currentGridY = Math.floor(centerY / CELL_SIZE);
+        const offsetX = centerX % CELL_SIZE - CELL_SIZE / 2;
+        const offsetY = centerY % CELL_SIZE - CELL_SIZE / 2;
+        const isAligned = Math.abs(offsetX) < GRID_ALIGNMENT_THRESHOLD && 
+                         Math.abs(offsetY) < GRID_ALIGNMENT_THRESHOLD;
 
-          if (isAligned) {
-            let checkX = gridToPixel(currentGridX);
-            let checkY = gridToPixel(currentGridY);
-            const checkDistance = speed > 0 ? speed : 1; 
+        if (isAligned) {
+          let checkX = gridToPixel(currentGridX);
+          let checkY = gridToPixel(currentGridY);
+          const checkDistance = speed > 0 ? speed : 1; 
 
-            switch (nextDirection) {
-              case 'right': checkX += checkDistance; break;
-              case 'left': checkX -= checkDistance; break;
-              case 'down': checkY += checkDistance; break;
-              case 'up': checkY -= checkDistance; break;
-            }
-
-            if (isValidPosition(checkX, checkY, maze)) {
-              // Snap to grid center before turning
-              pacman.x = gridToPixel(currentGridX);
-              pacman.y = gridToPixel(currentGridY);
-              effectiveDirection = nextDirection; // Decide to turn
-            }
+          switch (nextDirection) {
+            case 'right': checkX += checkDistance; break;
+            case 'left': checkX -= checkDistance; break;
+            case 'down': checkY += checkDistance; break;
+            case 'up': checkY -= checkDistance; break;
           }
+
+          if (isValidPosition(checkX, checkY, maze)) {
+            // Snap to grid center before turning
+            pacman.x = gridToPixel(currentGridX);
+            pacman.y = gridToPixel(currentGridY);
+            effectiveDirection = nextDirection; // Decide to turn
+          }
+        }
       }
-      // --- End Turn Handling Check ---
 
       // --- Movement Calculation --- 
       let nextX = pacman.x;
       let nextY = pacman.y;
 
       if (!effectiveDirection) {
-          // If no direction decided, don't move
-          // Return previous state but ensure pacman object is copied if needed elsewhere
-          return { ...prevState, pacman: { ...pacman } }; 
+        // If no direction decided, don't move
+        return { ...prevState, pacman: { ...pacman } }; 
       }
 
       switch (effectiveDirection) {
-          case 'right': nextX += speed; break;
-          case 'left': nextX -= speed; break;
-          case 'down': nextY += speed; break;
-          case 'up': nextY -= speed; break;
-        }
+        case 'right': nextX += speed; break;
+        case 'left': nextX -= speed; break;
+        case 'down': nextY += speed; break;
+        case 'up': nextY -= speed; break;
+      }
 
-        let currentX = pacman.x;
-        let currentY = pacman.y;
+      // Check if the intended next position is valid
+      if (isValidPosition(nextX, nextY, maze)) {
+        pacman.x = nextX;
+        pacman.y = nextY;
+        pacman.currentMovingDirection = effectiveDirection;
+      } else {
+        // If we hit a wall, stop moving
+        effectiveDirection = '';
+        pacman.currentMovingDirection = '';
+      }
 
-        // Check if the intended next position is valid
-        if (isValidPosition(nextX, nextY, maze)) {
-          currentX = nextX; // Move if valid
-          currentY = nextY;
-        } else {
-          // Intended move failed. Stop Pokka at the current position.
-          // currentX and currentY remain pacman.x and pacman.y
-          effectiveDirection = ''; // Clear the direction to prevent repeated attempts into wall
-        }
-        // --- End Movement Calculation ---
-      
-      const scoreChange = handleCollisions(currentX, currentY);
+      const scoreChange = handleCollisions(pacman.x, pacman.y);
 
-            return {
-         ...prevState, 
-         pacman: { 
-             ...pacman, 
-             x: currentX, 
-             y: currentY,
-             currentMovingDirection: effectiveDirection 
-         }, 
-         score: prevState.score + (scoreChange || 0), 
-        };
+      return {
+        ...prevState, 
+        pacman: { ...pacman }, 
+        score: prevState.score + (scoreChange || 0), 
+      };
     });
   }, [nextDirection, handleCollisions]);
 
@@ -976,6 +981,42 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     ghostsRef.current = gameState.ghosts;
     isPoweredUpRef.current = gameState.isPoweredUp;
   }, [gameState.dots, gameState.powerPellets, gameState.ghosts, gameState.isPoweredUp]);
+
+  // Add focus handling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Set tabIndex to make canvas focusable
+    canvas.tabIndex = 0;
+
+    // Focus canvas when game starts
+    if (isPlaying) {
+      canvas.focus();
+    }
+
+    // Handle keyboard events
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isPlaying || gameOver) return;
+
+      // Prevent default behavior for game controls
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // Focus canvas if it's not focused
+      if (document.activeElement !== canvas) {
+        canvas.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { passive: false });
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPlaying, gameOver]);
 
   return <Canvas ref={canvasRef} />;
 }
