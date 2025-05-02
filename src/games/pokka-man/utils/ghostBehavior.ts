@@ -56,7 +56,7 @@ interface PacmanState {
   direction: string;
 }
 
-export class GhostBehavior {
+export default class GhostBehavior {
   private readonly type: string;
   private readonly scatterTarget: Position;
   private readonly maze: number[][];

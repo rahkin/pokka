@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
 import { createGhostStateMachine } from '../utils/ghostStateMachine';
-import { GhostBehavior } from '../utils/ghostBehavior';
+import GhostBehavior from '../utils/ghostBehavior';
 import { isValidPosition } from '../utils/collision';
 import { interpret } from 'xstate';
 import {
