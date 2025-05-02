@@ -7,7 +7,7 @@ export const TARGET_FPS = 60;
 export const FRAME_TIME = 1000 / TARGET_FPS;
 
 // Character Speeds
-export const PACMAN_SPEED = 3.2;
+export const PACMAN_SPEED = 3.0;
 export const GHOST_SPEED = 3.0;
 export const GHOST_BASE_SPEED = 5;
 export const GHOST_SPEED_VARIATION = 0.15;
@@ -16,7 +16,6 @@ export const GHOST_EATEN_SPEED_MULTIPLIER = 1.5;
 
 // Timing Constants
 export const POWER_PELLET_DURATION = 10000;
-export const PATH_RECALCULATION_DELAY = 500;
 export const GHOST_CHASE_DURATION = 20000;
 export const GHOST_SCATTER_DURATION = 7000;
 export const GHOST_RELEASE_DELAYS = [
@@ -40,7 +39,6 @@ export const POWER_PELLET_POINTS = 50;
 export const GHOST_POINTS = [200, 400, 800, 1600];
 
 // Pathfinding
-export const MIN_PATH_LENGTH = 3;
 export const WALL_BOUNCE_FACTOR = 0.5;
 export const ACCELERATION_RATE = 0.15;
 export const DECELERATION_RATE = 0.1;
@@ -83,9 +81,9 @@ export const GHOST_HOUSE_POSITION = { x: 10, y: 10 };
 export const GHOST_EXIT_POSITION = { x: 10, y: 8 };
 export const GHOST_SPAWN_POSITIONS = [
   { x: 9, y: 10 },   // Pink ghost
-  { x: 10, y: 10 },  // Blue ghost
+  { x: 10, y: 9 },  // Blue ghost - Adjusted
   { x: 11, y: 10 },  // Purple ghost
-  { x: 10, y: 11 }   // Skin ghost - moved to avoid overlap
+  { x: 10, y: 10 }   // Skin ghost - Adjusted
 ];
 
 // Ghost movement constants
@@ -137,7 +135,7 @@ export const MAZE_LAYOUT = [
   [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
   [1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 2, 1],
   [1, 2, 2, 2, 2, 1, 2, 2, 2, 1, 1, 2, 2, 2, 1, 2, 2, 2, 2, 1],
-  [1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1],
+  [1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 2, 1, 1, 1, 1],
   [0, 0, 0, 1, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 0, 0, 0],
   [1, 1, 1, 1, 2, 1, 2, 1, 1, 0, 0, 1, 1, 2, 1, 2, 1, 1, 1, 1],
   [1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 1],

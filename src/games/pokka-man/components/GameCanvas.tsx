@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { soundManager } from '../utils/sounds';
-import { createGhostStateMachine } from '../utils/ghostStateMachine';
 import GhostBehavior from '../utils/ghostBehavior';
 import { isValidPosition } from '../utils/collision';
-import { interpret } from 'xstate';
 import {
   CELL_SIZE,
   PACMAN_SPEED,
@@ -22,7 +20,10 @@ import {
   GHOST_SPAWN_POSITIONS,
   GHOST_EXIT_POSITION,
   GHOST_HOUSE_POSITION,
-  GHOST_SCATTER_TARGETS
+  GHOST_SCATTER_TARGETS,
+  GHOST_EATEN_SPEED_MULTIPLIER,
+  GHOST_HOUSE_EXIT_SPEED,
+  GRID_ALIGNMENT_THRESHOLD
 } from '../utils/gameConstants';
 
 const Canvas = styled.canvas`
@@ -39,7 +40,7 @@ const Canvas = styled.canvas`
   touch-action: none; /* Prevent browser touch actions */
 `;
 
-type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house';
+type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house' | 'exiting';
 
 interface Ghost {
   x: number;
@@ -47,17 +48,13 @@ interface Ghost {
   direction: string;
   type: 'pink' | 'blue' | 'purple' | 'skin';
   mode: GhostMode;
-  targetX: number;
-  targetY: number;
   isReleased: boolean;
-  stateMachine: any;
   behavior: GhostBehavior;
-  path: Array<{ x: number; y: number }>;
-  lastPathUpdate: number;
-  baseSpeed: number;
-  consecutiveEats: number;
-  spawnDelay: number;
-  currentMovingDirection: string;
+  targetX?: number;
+  targetY?: number;
+  baseSpeed?: number;
+  consecutiveEats?: number;
+  spawnDelay?: number;
 }
 
 interface GameState {
@@ -180,6 +177,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
   const powerPelletsRef = useRef<GameState['powerPellets']>([]);
   const ghostsRef = useRef<GameState['ghosts']>([]);
   const isPoweredUpRef = useRef<boolean>(false);
+  const ghostReleaseTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
 
   // Initialize game state
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -216,25 +214,15 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       },
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
-        const personality = GHOST_PERSONALITIES[type];
-        const behavior = new GhostBehavior(type, GHOST_SCATTER_TARGETS[index], MAZE_LAYOUT, GHOST_HOUSE_POSITION);
+        const behavior = new GhostBehavior(type, GHOST_SCATTER_TARGETS[index], MAZE_LAYOUT);
         return {
           x: gridToPixel(pos.x),
           y: gridToPixel(pos.y),
           direction: 'up',
           type,
           mode: 'house' as GhostMode,
-          targetX: GHOST_EXIT_POSITION.x * CELL_SIZE,
-          targetY: GHOST_EXIT_POSITION.y * CELL_SIZE,
-          isReleased: false,
-          stateMachine: interpret(createGhostStateMachine(GHOST_SCATTER_TARGETS[index], personality.spawnDelay)).start(),
-          behavior,
-          path: [],
-          lastPathUpdate: 0,
-          baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0,
-          spawnDelay: personality.spawnDelay,
-          currentMovingDirection: ''
+          isReleased: index === 0,
+          behavior
         };
       }),
     maze: MAZE_LAYOUT,
@@ -282,13 +270,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x),
           y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
           direction: 'up',
-          mode: 'scatter' as GhostMode,
-          isReleased: index === 0,
-          path: [],
-          lastPathUpdate: 0,
-          baseSpeed: GHOST_SPEED * (1 + (Math.random() * GHOST_SPEED_VARIATION - GHOST_SPEED_VARIATION/2)),
-          consecutiveEats: 0,
-          currentMovingDirection: ''
+          mode: 'house' as GhostMode,
+          isReleased: index === 0
         })),
         dots: prev.dots.map(dot => ({ ...dot })),
         powerPellets: prev.powerPellets.map(pellet => ({ ...pellet }))
@@ -320,35 +303,42 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
   useEffect(() => {
     if (!isPlaying) return;
 
-    const releaseGhost = (index: number) => {
-      setGameState(prev => ({
-        ...prev,
-        ghosts: prev.ghosts.map((ghost, i) => {
-          if (i === index) {
-            return {
-              ...ghost,
-              direction: 'up',
-              mode: 'chase' as GhostMode,
-              y: gridToPixel(GHOST_EXIT_POSITION.y),
-              isReleased: true
-            };
-          }
-          return ghost;
-        })
-      }));
-    };
+    // Clear any previous timeouts
+    ghostReleaseTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    ghostReleaseTimeoutsRef.current.clear();
 
-    // Release ghosts at staggered intervals based on personality
-    gameState.ghosts.forEach((ghost, index) => {
-      if (!ghost.isReleased) {
-        setTimeout(() => releaseGhost(index), ghost.spawnDelay);
-      }
-    });
+    // Schedule ghost releases (except pink, which is released immediately)
+    const ghostTypes: Array<'pink' | 'blue' | 'purple' | 'skin'> = ['pink', 'blue', 'purple', 'skin'];
+    for (let index = 1; index < GHOST_SPAWN_POSITIONS.length; index++) {
+      const type = ghostTypes[index];
+      const spawnDelay = GHOST_PERSONALITIES[type].spawnDelay;
+      console.log(`[Ghost Release] Scheduling release for ${type} ghost in ${spawnDelay}ms`);
+      
+      const timeout = setTimeout(() => {
+        console.log(`[Ghost Release] Releasing ${type} ghost`);
+        setGameState(prev => {
+          const newGhosts = prev.ghosts.map((ghost, i) => {
+            if (i === index) {
+              console.log(`[Ghost Release] Updating ghost ${i} (${type}) to released state`);
+              return {
+                ...ghost,
+                direction: 'up',
+                mode: 'exiting' as GhostMode,
+                isReleased: true
+              };
+            }
+            return ghost;
+          });
+          return { ...prev, ghosts: newGhosts };
+        });
+        ghostReleaseTimeoutsRef.current.delete(index);
+      }, spawnDelay);
+      ghostReleaseTimeoutsRef.current.set(index, timeout);
+    }
 
     return () => {
-      gameState.ghosts.forEach((_, index) => {
-        clearTimeout(index);
-      });
+      ghostReleaseTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      ghostReleaseTimeoutsRef.current.clear();
     };
   }, [isPlaying]);
 
@@ -755,169 +745,142 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     setGameState(prevState => {
       const pacmanState = {
         position: { x: prevState.pacman.x, y: prevState.pacman.y },
-        direction: prevState.pacman.direction
+        direction: prevState.pacman.currentMovingDirection
       };
-
-      const redGhost = prevState.ghosts.find(g => g.type === 'pink');
-      const redGhostPos = redGhost ? { x: redGhost.x, y: redGhost.y } : undefined;
-
+      const redGhostPos = prevState.ghosts.find(g => g.type === 'pink');
       const newGhosts = prevState.ghosts.map(ghost => {
-        if (!ghost.isReleased) {
-          // Move towards exit position if released
-          const exitX = GHOST_EXIT_POSITION.x * CELL_SIZE;
-          const exitY = GHOST_EXIT_POSITION.y * CELL_SIZE;
-          const nextPos = getNextPositionTowardsTarget(ghost.x, ghost.y, exitX, exitY);
-          
-          if (Math.abs(ghost.x - exitX) < 1 && Math.abs(ghost.y - exitY) < 1) {
-            ghost.isReleased = true;
-            ghost.direction = 'left'; // Initial direction when released
-            return { ...ghost, x: exitX, y: exitY };
-          }
-          
-          return { ...ghost, x: nextPos.x, y: nextPos.y };
+        // Debug log for ghost state
+        console.log(`[updateGhosts] ${ghost.type} | pos=(${ghost.x},${ghost.y}) | dir=${ghost.direction} | mode=${ghost.mode} | released=${ghost.isReleased}`);
+        // Update ghost mode using behavior
+        const { mode: newMode, changed } = ghost.behavior.updateMode(ghost, prevState);
+        if (changed) {
+          console.log(`[Ghost ${ghost.type}] Mode changed from ${ghost.mode} to ${newMode}`);
+          ghost.mode = newMode;
         }
 
-        const currentState = ghost.stateMachine.getSnapshot();
-        const mode = currentState.context.mode;
-        
-        const baseSpeed = ghost.baseSpeed * 1.5 * (deltaTime / FRAME_TIME);
-        const speed = mode === 'frightened' ? 
-          baseSpeed * GHOST_FRIGHTENED_SPEED_MULTIPLIER : 
-          mode === 'chase' ? baseSpeed * 1.2 : baseSpeed;
+        let speed = GHOST_SPEED;
+        if (ghost.mode === 'frightened') speed *= GHOST_FRIGHTENED_SPEED_MULTIPLIER;
+        if (ghost.mode === 'eaten') speed *= GHOST_EATEN_SPEED_MULTIPLIER;
+        if (ghost.mode === 'house' || ghost.mode === 'exiting') speed = GHOST_HOUSE_EXIT_SPEED;
+        speed *= deltaTime / FRAME_TIME;
 
-        // Calculate current cell position
-        const centerX = ghost.x + CELL_SIZE / 2;
-        const centerY = ghost.y + CELL_SIZE / 2;
-        const currentCellX = Math.floor(centerX / CELL_SIZE);
-        const currentCellY = Math.floor(centerY / CELL_SIZE);
-        
-        // Calculate position within current cell
-        const offsetX = centerX - (currentCellX * CELL_SIZE + CELL_SIZE / 2);
-        const offsetY = centerY - (currentCellY * CELL_SIZE + CELL_SIZE / 2);
-        
-        // Check if we're close enough to the center of a cell to make decisions
-        const isNearCenter = Math.abs(offsetX) <= speed && Math.abs(offsetY) <= speed;
+        const currentCellX = pixelToGrid(ghost.x + CELL_SIZE / 2);
+        const currentCellY = pixelToGrid(ghost.y + CELL_SIZE / 2);
+        const offsetX = Math.abs((ghost.x + CELL_SIZE / 2) - (currentCellX * CELL_SIZE + CELL_SIZE / 2));
+        const offsetY = Math.abs((ghost.y + CELL_SIZE / 2) - (currentCellY * CELL_SIZE + CELL_SIZE / 2));
+        const isNearCenter = offsetX < GRID_ALIGNMENT_THRESHOLD && offsetY < GRID_ALIGNMENT_THRESHOLD;
 
+        let directionChanged = false;
+
+        // --- FORCE EXITING LOGIC (Restored) ---
+        if (ghost.mode === 'exiting' && currentCellY > 8) {
+          const doorX = 10 * CELL_SIZE;
+          let nextX = doorX;
+          let nextY = ghost.y - speed;
+          // Snap to center of door column if not already there
+          if (Math.abs(ghost.x - doorX) > 1) {
+            nextX = doorX; // Snap X
+          } else {
+            nextX = ghost.x; // Keep current X if aligned
+          }
+          
+          // If we're about to overshoot the door row, clamp to door row position
+          if (nextY < 8 * CELL_SIZE) {
+            nextY = 8 * CELL_SIZE;
+          }
+          // Directly return the updated ghost state for forced exit movement
+          return { ...ghost, x: nextX, y: nextY, direction: 'up', mode: ghost.mode };
+        }
+        // --- END FORCE EXITING LOGIC ---
+
+        // Calculate available directions if needed (at intersection or no direction)
         if (isNearCenter || !ghost.direction || !isValidPosition(ghost.x, ghost.y, prevState.maze)) {
-          // Get available directions using direct maze checks
           const availableDirections: string[] = [];
           
-          // Check each direction using maze array
-          if (currentCellY > 0 && !prevState.maze[currentCellY - 1][currentCellX]) availableDirections.push('up');
-          if (currentCellY < prevState.maze.length - 1 && !prevState.maze[currentCellY + 1][currentCellX]) availableDirections.push('down');
-          if (currentCellX > 0 && !prevState.maze[currentCellY][currentCellX - 1]) availableDirections.push('left');
-          if (currentCellX < prevState.maze[0].length - 1 && !prevState.maze[currentCellY][currentCellX + 1]) availableDirections.push('right');
+          // Use standard logic for ALL cells once not forced by exiting logic
+          if (currentCellY > 0 && prevState.maze[currentCellY - 1][currentCellX] !== 1) availableDirections.push('up');
+          if (currentCellY < prevState.maze.length - 1 && prevState.maze[currentCellY + 1][currentCellX] !== 1) availableDirections.push('down');
+          if (currentCellX > 0 && prevState.maze[currentCellY][currentCellX - 1] !== 1) availableDirections.push('left');
+          if (currentCellX < prevState.maze[0].length - 1 && prevState.maze[currentCellY][currentCellX + 1] !== 1) availableDirections.push('right');
 
-          // Remove opposite direction unless it's the only option
+          // Filter out opposite direction (no 180 turns)
           const opposite = getOppositeDirection(ghost.direction);
           if (availableDirections.length > 1 && ghost.direction) {
             const filteredDirections = availableDirections.filter(dir => dir !== opposite);
             if (filteredDirections.length > 0) {
-              availableDirections.length = 0;
-              availableDirections.push(...filteredDirections);
+              availableDirections.length = 0; // Clear original array
+              availableDirections.push(...filteredDirections); // Add filtered ones
             }
           }
 
+          // Choose best direction if options exist
           if (availableDirections.length > 0) {
             const ghostState = {
               position: { x: ghost.x, y: ghost.y },
-              mode: mode,
+              mode: ghost.mode,
               isReleased: ghost.isReleased,
               currentSpeed: speed,
               lastUpdateTime: Date.now()
             };
-            
             const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, redGhostPos);
             
-            // Score each available direction
             const directionScores = availableDirections.map(dir => {
               let nextCellX = currentCellX;
               let nextCellY = currentCellY;
-              
               switch (dir) {
                 case 'up': nextCellY--; break;
                 case 'down': nextCellY++; break;
                 case 'left': nextCellX--; break;
                 case 'right': nextCellX++; break;
               }
-              
               const nextX = nextCellX * CELL_SIZE;
               const nextY = nextCellY * CELL_SIZE;
-              
-              // Don't go back to ghost house if already released
-              if (ghost.isReleased && isInGhostHouse(nextX, nextY)) {
-                return { direction: dir, score: -Infinity };
+              // Penalize going back into the ghost house unless eaten
+              if (ghost.mode !== 'eaten' && ghost.mode !== 'exiting' && ghost.isReleased && isInGhostHouse(nextX, nextY)) {
+                 return { direction: dir, score: -Infinity }; // Heavily penalize re-entry
               }
-              
               const distanceToTarget = calculateDistance(nextX, nextY, target.x, target.y);
-              
-              // Reduced random factor and increased direction persistence
-              const randomFactor = mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.2;
-              const directionBonus = dir === ghost.direction ? 2 : 0;
-              
+              const randomFactor = ghost.mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.2;
+              const directionBonus = dir === ghost.direction ? 2 : 0; // Slight bonus for continuing straight
               return {
                 direction: dir,
                 score: -distanceToTarget + randomFactor + directionBonus
               };
             });
+            const bestDirection = directionScores.reduce((best, current) => current.score > best.score ? current : best);
 
-            // Choose best direction
-            const bestDirection = directionScores.reduce((best, current) => 
-              current.score > best.score ? current : best
-            );
+            // --- Restore Debug Log for Door Cell --- 
+            if(currentCellX === 10 && currentCellY === 8 && (ghost.mode === 'scatter' || ghost.mode === 'chase')) {
+              console.log(`[Ghost ${ghost.type} at Door (10,8)] Mode=${ghost.mode}, Avail=${availableDirections.join(',')}, Target=(${target.x.toFixed(1)},${target.y.toFixed(1)}), Scores=${JSON.stringify(directionScores.map(ds => ({d: ds.direction, s: ds.score.toFixed(1)})))}, Chosen=${bestDirection.direction}, PrevDir=${ghost.direction}`);
+            }
+            // --- END Restore Debug Log ---
 
+            if (ghost.direction !== bestDirection.direction) {
+              directionChanged = true;
+            }
             ghost.direction = bestDirection.direction;
-            
-            // Snap to grid when changing direction
-            ghost.x = currentCellX * CELL_SIZE;
-            ghost.y = currentCellY * CELL_SIZE;
           }
         }
 
-        // Move in current direction
+        // Calculate next position based on chosen direction
         let nextX = ghost.x;
         let nextY = ghost.y;
-        
         switch (ghost.direction) {
           case 'up': nextY -= speed; break;
           case 'down': nextY += speed; break;
           case 'left': nextX -= speed; break;
           case 'right': nextX += speed; break;
         }
-
-        // Check if next position is valid
-        if (isValidPosition(nextX, nextY, prevState.maze)) {
-          return { ...ghost, x: nextX, y: nextY, mode };
+        // Only snap to grid if direction changed or hit a wall
+        if (directionChanged || !isValidPosition(nextX, nextY, prevState.maze, ghost.mode === 'exiting')) {
+          nextX = currentCellX * CELL_SIZE;
+          nextY = currentCellY * CELL_SIZE;
         }
-
-        // If we hit a wall, align to grid
-        return {
-          ...ghost,
-          x: currentCellX * CELL_SIZE,
-          y: currentCellY * CELL_SIZE,
-          mode
-        };
+        return { ...ghost, x: nextX, y: nextY, mode: ghost.mode };
       });
-
       return { ...prevState, ghosts: newGhosts };
     });
   }, []);
-
-  // Update ghost targets when Pacman moves
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    setGameState(prevState => {
-      const pacmanGridPos = { x: pixelToGrid(prevState.pacman.x), y: pixelToGrid(prevState.pacman.y) };
-      const newGhosts = prevState.ghosts.map(ghost => {
-        if (ghost.isReleased) {
-          ghost.stateMachine.send({ type: 'UPDATE_CHASE_TARGET', target: pacmanGridPos });
-        }
-        return ghost;
-      });
-      return { ...prevState, ghosts: newGhosts };
-    });
-  }, [isPlaying, gameState.pacman.x, gameState.pacman.y]);
 
   // Update the useEffect for game start
   useEffect(() => {
@@ -1038,3 +1001,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 }
 
 // NO DUPLICATE CODE OR IMPORTS BELOW THIS LINE
+
+const isGhostHouseDoor = (x: number, y: number): boolean => {
+  return x === 10 && y === 8;
+};

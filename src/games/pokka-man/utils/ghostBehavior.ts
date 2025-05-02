@@ -1,5 +1,7 @@
-import { GhostMode } from './ghostStateMachine';
-import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS } from './gameConstants';
+import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS, POWER_PELLET_DURATION, GHOST_SCATTER_DURATION, GHOST_CHASE_DURATION } from './gameConstants';
+
+// Define GhostMode type locally since we removed XState
+export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house' | 'exiting';
 
 interface Position {
   x: number;
@@ -11,16 +13,14 @@ interface Ghost {
   y: number;
   direction: string;
   type: 'pink' | 'blue' | 'purple' | 'skin';
-  mode: 'chase' | 'scatter' | 'frightened' | 'eaten';
-  targetX: number;
-  targetY: number;
+  mode: GhostMode;
   isReleased: boolean;
-  stateMachine: any;
-  path: Array<{ x: number; y: number }>;
-  lastPathUpdate: number;
-  baseSpeed: number;
-  consecutiveEats: number;
-  spawnDelay: number;
+  behavior: GhostBehavior;
+  targetX?: number;
+  targetY?: number;
+  baseSpeed?: number;
+  consecutiveEats?: number;
+  spawnDelay?: number;
 }
 
 interface GameState {
@@ -63,6 +63,7 @@ export default class GhostBehavior {
   private lastDirectionChange: number = 0;
   private lastTargetUpdate: number = 0;
   private currentTarget: Position;
+  private lastModeChange: number = 0;
 
   constructor(type: string, scatterTarget: Position, maze: number[][]) {
     this.type = type;
@@ -107,8 +108,17 @@ export default class GhostBehavior {
       };
     }
     
+    // If ghost is exiting, always target the door
+    if (ghost.mode === 'exiting') {
+      console.log(`[GhostBehavior] ${this.type} exiting mode, targeting door at (${GHOST_EXIT_POSITION.x},${GHOST_EXIT_POSITION.y})`);
+      return {
+        x: GHOST_EXIT_POSITION.x * CELL_SIZE,
+        y: GHOST_EXIT_POSITION.y * CELL_SIZE
+      };
+    }
+    
     // Only update target periodically to prevent erratic movement
-    if (currentTime - this.lastTargetUpdate < 500) {
+    if (currentTime - this.lastTargetUpdate < 100) {
       return this.currentTarget;
     }
     
@@ -129,6 +139,8 @@ export default class GhostBehavior {
     }
     
     this.currentTarget = target;
+    // Debug log for target selection
+    console.log(`[GhostBehavior] ${this.type} mode=${ghost.mode} isReleased=${ghost.isReleased} returning target=(${target.x},${target.y})`);
     return target;
   }
 
@@ -257,7 +269,7 @@ export default class GhostBehavior {
     const validDirections = directions.filter(dir => {
       const newX = gridX + dir.x;
       const newY = gridY + dir.y;
-      return this.isValidPosition(newX, newY);
+      return this.isValidGridPosition(newX, newY);
     });
 
     if (validDirections.length === 0) return pos;
@@ -305,15 +317,62 @@ export default class GhostBehavior {
     );
   }
 
-  private isValidPosition(x: number, y: number): boolean {
-    // Check bounds
-    if (x < 0 || x >= this.maze[0].length || y < 0 || y >= this.maze.length) {
-      return false;
+  private isValidGridPosition(x: number, y: number, allowGhostHouse: boolean = false): boolean {
+    // Always allow movement within ghost house bounds if specified
+    if (allowGhostHouse && x >= GHOST_HOUSE_BOUNDS.left && 
+        x <= GHOST_HOUSE_BOUNDS.right && 
+        y >= GHOST_HOUSE_BOUNDS.top && 
+        y <= GHOST_HOUSE_BOUNDS.bottom) {
+      return true;
     }
-    
-    // Check if position is a wall (1) or empty (0) or has a dot (2) or power pellet (3)
-    const cell = this.maze[y][x];
-    return cell !== 1;
+  
+    return x >= 0 && x < this.maze[0].length &&
+           y >= 0 && y < this.maze.length &&
+           this.maze[y][x] !== 1;
+  }
+
+  // Add method to handle mode transitions
+  updateMode(ghost: Ghost, gameState: GameState): { mode: GhostMode, changed: boolean } {
+    const currentTime = Date.now();
+    const personality = GHOST_PERSONALITIES[ghost.type];
+    let newMode = ghost.mode;
+    let changed = false;
+
+    console.log(`[GhostBehavior] ${this.type} current mode=${ghost.mode} isReleased=${ghost.isReleased}`);
+
+    if (ghost.mode === 'frightened' && currentTime - this.lastModeChange > POWER_PELLET_DURATION) {
+      newMode = 'chase';
+      changed = true;
+    }
+    if (ghost.mode === 'eaten' && this.isInGhostHouse({ x: ghost.x, y: ghost.y })) {
+      newMode = 'house';
+      changed = true;
+    }
+    if (ghost.mode === 'house' && ghost.isReleased) {
+      newMode = 'exiting';
+      changed = true;
+    }
+    if (ghost.mode === 'exiting' && 
+        Math.abs(ghost.x - GHOST_EXIT_POSITION.x * CELL_SIZE) < 2 &&
+        Math.abs(ghost.y - GHOST_EXIT_POSITION.y * CELL_SIZE) < 2) {
+      newMode = 'scatter';
+      changed = true;
+    }
+    if (ghost.mode === 'scatter' && currentTime - this.lastModeChange > GHOST_SCATTER_DURATION) {
+      newMode = 'chase';
+      changed = true;
+    }
+    if (ghost.mode === 'chase' && currentTime - this.lastModeChange > GHOST_CHASE_DURATION) {
+      newMode = 'scatter';
+      changed = true;
+    }
+
+    if (changed) {
+      console.log(`[GhostBehavior] ${this.type} mode changed from ${ghost.mode} to ${newMode}`);
+      this.lastModeChange = currentTime;
+    }
+
+    return { mode: newMode, changed };
   }
 }
 
