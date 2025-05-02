@@ -1,5 +1,5 @@
 import { GhostMode } from './ghostStateMachine';
-import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION } from './gameConstants';
+import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS } from './gameConstants';
 
 interface Position {
   x: number;
@@ -76,19 +76,37 @@ export default class GhostBehavior {
   getTargetPosition(ghost: GhostState, pacman: PacmanState, redGhost?: Position): Position {
     const currentTime = Date.now();
     
-    // If ghost is in the ghost house and not released, target the exit position
+    // Handle ghost house movement
     if (!ghost.isReleased) {
-      // Move up to the ghost house exit
-      const exitPos = {
+      // Get current grid position
+      const gridX = Math.floor(ghost.position.x / CELL_SIZE);
+      const gridY = Math.floor(ghost.position.y / CELL_SIZE);
+      
+      // If we're at the exit position, we're ready to leave
+      if (gridX === GHOST_EXIT_POSITION.x && gridY === GHOST_EXIT_POSITION.y) {
+        return {
+          x: GHOST_EXIT_POSITION.x * CELL_SIZE,
+          y: GHOST_EXIT_POSITION.y * CELL_SIZE
+        };
+      }
+      
+      // If we're in the ghost house, move up and down
+      if (this.isInGhostHouse(ghost.position)) {
+        // Move up and down in the house
+        const houseCenterY = GHOST_HOUSE_POSITION.y * CELL_SIZE;
+        const verticalOffset = Math.sin(currentTime / 500) * CELL_SIZE * 0.5;
+        
+        return {
+          x: GHOST_HOUSE_POSITION.x * CELL_SIZE,
+          y: houseCenterY + verticalOffset
+        };
+      }
+      
+      // If we're not in the house and not at the exit, move toward the exit
+      return {
         x: GHOST_EXIT_POSITION.x * CELL_SIZE,
         y: GHOST_EXIT_POSITION.y * CELL_SIZE
       };
-      
-      // If the exit is not reachable, find an intermediate point
-      if (!this.isReachablePosition(ghost.position, exitPos)) {
-        return this.getRandomAdjacentTarget(ghost.position);
-      }
-      return exitPos;
     }
     
     // Only update target periodically to prevent erratic movement
@@ -104,42 +122,52 @@ export default class GhostBehavior {
     if (ghost.mode === 'frightened') {
       target = this.getFrightenedTarget(ghost.position, currentTime);
     } else if (ghost.mode === 'eaten') {
-      const distanceToHouse = this.calculateDistance(ghost.position, {
-        x: GHOST_EXIT_POSITION.x * CELL_SIZE,
-        y: GHOST_EXIT_POSITION.y * CELL_SIZE
-      });
-      target = distanceToHouse > CELL_SIZE * 2 ? 
-        { x: GHOST_EXIT_POSITION.x * CELL_SIZE, y: GHOST_EXIT_POSITION.y * CELL_SIZE } :
-        { x: this.ghostHouse.x * CELL_SIZE, y: this.ghostHouse.y * CELL_SIZE };
+      target = this.getEatenTarget(ghost.position);
     } else if (ghost.mode === 'scatter') {
       target = { x: this.scatterTarget.x * CELL_SIZE, y: this.scatterTarget.y * CELL_SIZE };
     } else {
       // Chase mode - each ghost has unique behavior
-      switch (this.type) {
-        case 'pink':
-          target = this.getPinkTarget(pacman, ghost);
-          break;
-        case 'blue':
-          target = this.getBlueTarget(pacman, redGhost || ghost.position, ghost);
-          break;
-        case 'purple':
-          target = this.getPurpleTarget(ghost.position, pacman, ghost);
-          break;
-        case 'skin':
-          target = this.getSkinTarget(ghost.position, pacman, ghost);
-          break;
-        default:
-          target = pacman.position;
-      }
-    }
-    
-    // If the target is not reachable, find an intermediate point
-    if (!this.isReachablePosition(ghost.position, target)) {
-      return this.getRandomAdjacentTarget(ghost.position);
+      target = this.getChaseTarget(ghost, pacman, redGhost);
     }
     
     this.currentTarget = target;
     return target;
+  }
+
+  private isInGhostHouse(position: Position): boolean {
+    const gridX = Math.floor(position.x / CELL_SIZE);
+    const gridY = Math.floor(position.y / CELL_SIZE);
+    
+    return gridX >= GHOST_HOUSE_BOUNDS.left && 
+           gridX <= GHOST_HOUSE_BOUNDS.right && 
+           gridY >= GHOST_HOUSE_BOUNDS.top && 
+           gridY <= GHOST_HOUSE_BOUNDS.bottom;
+  }
+
+  private getEatenTarget(position: Position): Position {
+    const distanceToHouse = this.calculateDistance(position, {
+      x: GHOST_EXIT_POSITION.x * CELL_SIZE,
+      y: GHOST_EXIT_POSITION.y * CELL_SIZE
+    });
+    
+    return distanceToHouse > CELL_SIZE * 2 ? 
+      { x: GHOST_EXIT_POSITION.x * CELL_SIZE, y: GHOST_EXIT_POSITION.y * CELL_SIZE } :
+      { x: GHOST_HOUSE_POSITION.x * CELL_SIZE, y: GHOST_HOUSE_POSITION.y * CELL_SIZE };
+  }
+
+  private getChaseTarget(ghost: GhostState, pacman: PacmanState, redGhost?: Position): Position {
+    switch (this.type) {
+      case 'pink':
+        return this.getPinkTarget(pacman, ghost);
+      case 'blue':
+        return this.getBlueTarget(pacman, redGhost || ghost.position, ghost);
+      case 'purple':
+        return this.getPurpleTarget(ghost.position, pacman, ghost);
+      case 'skin':
+        return this.getSkinTarget(ghost.position, pacman, ghost);
+      default:
+        return pacman.position;
+    }
   }
 
   private getPinkTarget(pacman: PacmanState, _ghost: GhostState): Position {

@@ -1,4 +1,4 @@
-import { createMachine, MachineConfig } from 'xstate';
+import { createMachine, MachineConfig, send } from 'xstate';
 import { GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION } from './gameConstants';
 
 export type GhostMode = 'house' | 'exiting' | 'scatter' | 'chase' | 'frightened' | 'eaten';
@@ -10,6 +10,7 @@ interface GhostStateContext {
   lastModeChange: number;
   isReleased: boolean;
   exitProgress: number;
+  position: { x: number; y: number };
 }
 
 interface GhostStateSchema {
@@ -27,6 +28,7 @@ type GhostEvent =
   | { type: 'POWER_PELLET' }
   | { type: 'EATEN' }
   | { type: 'EXIT_COMPLETE' }
+  | { type: 'UPDATE_POSITION', position: { x: number; y: number } }
   | { type: 'UPDATE_CHASE_TARGET', target: { x: number; y: number } };
 
 export const createGhostStateMachine = (scatterTarget: { x: number; y: number }, spawnDelay: number) => {
@@ -39,7 +41,8 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
       scatterTarget,
       lastModeChange: Date.now(),
       isReleased: false,
-      exitProgress: 0
+      exitProgress: 0,
+      position: GHOST_HOUSE_POSITION
     },
     states: {
       house: {
@@ -52,6 +55,15 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
         },
         after: {
           SPAWN_DELAY: 'exiting'
+        },
+        on: {
+          UPDATE_POSITION: {
+            actions: (context, event) => {
+              if (event.type === 'UPDATE_POSITION') {
+                context.position = event.position;
+              }
+            }
+          }
         }
       },
       exiting: {
@@ -61,6 +73,21 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
           context.lastModeChange = Date.now();
         },
         on: {
+          UPDATE_POSITION: {
+            actions: [
+              (context, event) => {
+                if (event.type === 'UPDATE_POSITION') {
+                  context.position = event.position;
+                }
+              },
+              (context) => {
+                if (Math.abs(context.position.x - GHOST_EXIT_POSITION.x) < 0.1 &&
+                    Math.abs(context.position.y - GHOST_EXIT_POSITION.y) < 0.1) {
+                  return send('EXIT_COMPLETE');
+                }
+              }
+            ]
+          },
           EXIT_COMPLETE: {
             target: 'scatter',
             actions: (context) => {
