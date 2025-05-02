@@ -227,7 +227,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           targetX: GHOST_SCATTER_TARGETS[index].x * CELL_SIZE,
           targetY: GHOST_SCATTER_TARGETS[index].y * CELL_SIZE,
           isReleased: index === 0,
-          stateMachine: interpret(createGhostStateMachine(GHOST_SCATTER_TARGETS[index])).start(),
+          stateMachine: interpret(createGhostStateMachine(GHOST_SCATTER_TARGETS[index], personality.spawnDelay)).start(),
           behavior,
           path: [],
           lastPathUpdate: 0,

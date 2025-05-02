@@ -1,5 +1,5 @@
 import { GhostMode } from './ghostStateMachine';
-import { CELL_SIZE, GHOST_PERSONALITIES } from './gameConstants';
+import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION } from './gameConstants';
 
 interface Position {
   x: number;
@@ -76,6 +76,12 @@ export class GhostBehavior {
   getTargetPosition(ghost: GhostState, pacman: PacmanState, redGhost?: Position): Position {
     const currentTime = Date.now();
     
+    // If ghost is in the ghost house and not released, target the exit position
+    if (!ghost.isReleased) {
+      // Move up to the ghost house exit
+      return GHOST_EXIT_POSITION;
+    }
+    
     // Only update target periodically to prevent erratic movement
     if (currentTime - this.lastTargetUpdate < 500) {
       return this.currentTarget;
@@ -89,7 +95,13 @@ export class GhostBehavior {
     }
 
     if (ghost.mode === 'eaten') {
-      this.currentTarget = this.ghostHouse;
+      // When eaten, first go to ghost house entrance, then to spawn position
+      const distanceToHouse = this.calculateDistance(ghost.position, GHOST_EXIT_POSITION);
+      if (distanceToHouse > CELL_SIZE * 2) {
+        this.currentTarget = GHOST_EXIT_POSITION;
+      } else {
+        this.currentTarget = this.ghostHouse;
+      }
       return this.currentTarget;
     }
 
