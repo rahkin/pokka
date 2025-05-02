@@ -96,20 +96,6 @@ interface GameCanvasProps {
 const gridToPixel = (grid: number) => grid * CELL_SIZE;
 const pixelToGrid = (pixel: number) => Math.floor(pixel / CELL_SIZE);
 
-// Helper function to get available directions at a position
-const getAvailableDirections = (x: number, y: number, maze: number[][], testDistance?: number): string[] => {
-  const directions: string[] = [];
-  const distance = testDistance || CELL_SIZE * 0.3;  // Reduced from 0.6 to allow more movement
-  
-  // Test each direction with a smaller offset
-  if (isValidPosition(x, y - distance, maze)) directions.push('up');
-  if (isValidPosition(x, y + distance, maze)) directions.push('down');
-  if (isValidPosition(x - distance, y, maze)) directions.push('left');
-  if (isValidPosition(x + distance, y, maze)) directions.push('right');
-
-  return directions;
-};
-
 // Helper function to calculate distance between two points
 const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
   return Math.abs(x2 - x1) + Math.abs(y2 - y1);
@@ -160,26 +146,27 @@ const checkCollisions = (
   return null;
 };
 
-// Helper function to calculate wall avoidance bonus
-// const calculateWallAvoidanceBonus = (x: number, y: number, maze: number[][]): number => {
-//   const gridX = Math.floor(x / CELL_SIZE);
-//   const gridY = Math.floor(y / CELL_SIZE);
-//   let bonus = 0;
-//   const penaltyFactor = 3;
-//   
-//   if (gridX > 0 && maze[gridY][gridX - 1] === 1) bonus += penaltyFactor;
-//   if (gridX < maze[0].length - 1 && maze[gridY][gridX + 1] === 1) bonus += penaltyFactor;
-//   if (gridY > 0 && maze[gridY - 1][gridX] === 1) bonus += penaltyFactor;
-//   if (gridY < maze.length - 1 && maze[gridY + 1][gridX] === 1) bonus += penaltyFactor;
-//   
-//   const diagonalPenalty = penaltyFactor / 2;
-//   if (gridX > 0 && gridY > 0 && maze[gridY - 1][gridX - 1] === 1) bonus += diagonalPenalty;
-//   if (gridX < maze[0].length - 1 && gridY > 0 && maze[gridY - 1][gridX + 1] === 1) bonus += diagonalPenalty;
-//   if (gridX > 0 && gridY < maze.length - 1 && maze[gridY + 1][gridX - 1] === 1) bonus += diagonalPenalty;
-//   if (gridX < maze[0].length - 1 && gridY < maze.length - 1 && maze[gridY + 1][gridX + 1] === 1) bonus += diagonalPenalty;
-//   
-//   return bonus;
-// };
+// Helper function to check if a position is in the ghost house
+const isInGhostHouse = (x: number, y: number): boolean => {
+  const centerX = x + CELL_SIZE / 2;
+  const centerY = y + CELL_SIZE / 2;
+  const gridX = Math.floor(centerX / CELL_SIZE);
+  const gridY = Math.floor(centerY / CELL_SIZE);
+  
+  return gridX >= 8 && gridX <= 11 && gridY >= 9 && gridY <= 11;
+};
+
+// Helper function to get next position towards target
+const getNextPositionTowardsTarget = (currentX: number, currentY: number, targetX: number, targetY: number): { x: number; y: number } => {
+  const dx = targetX - currentX;
+  const dy = targetY - currentY;
+  
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return { x: currentX + Math.sign(dx) * CELL_SIZE, y: currentY };
+  } else {
+    return { x: currentX, y: currentY + Math.sign(dy) * CELL_SIZE };
+  }
+};
 
 // Change from const to function component and add proper export
 export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
@@ -747,7 +734,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
       const scoreChange = handleCollisions(pacman.x, pacman.y);
 
-      return {
+            return {
         ...prevState,
         pacman: { ...pacman },
         score: prevState.score + (scoreChange || 0),
@@ -776,7 +763,20 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       const redGhostPos = redGhost ? { x: redGhost.x, y: redGhost.y } : undefined;
 
       const newGhosts = prevState.ghosts.map(ghost => {
-        if (!ghost.isReleased) return ghost;
+        if (!ghost.isReleased) {
+          // Move towards exit position if released
+          const exitX = GHOST_EXIT_POSITION.x * CELL_SIZE;
+          const exitY = GHOST_EXIT_POSITION.y * CELL_SIZE;
+          const nextPos = getNextPositionTowardsTarget(ghost.x, ghost.y, exitX, exitY);
+          
+          if (Math.abs(ghost.x - exitX) < 1 && Math.abs(ghost.y - exitY) < 1) {
+            ghost.isReleased = true;
+            ghost.direction = 'left'; // Initial direction when released
+            return { ...ghost, x: exitX, y: exitY };
+          }
+          
+          return { ...ghost, x: nextPos.x, y: nextPos.y };
+        }
 
         const currentState = ghost.stateMachine.getSnapshot();
         const mode = currentState.context.mode;
@@ -804,10 +804,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           const availableDirections: string[] = [];
           
           // Check each direction using maze array
-          if (!prevState.maze[currentCellY - 1][currentCellX]) availableDirections.push('up');
-          if (!prevState.maze[currentCellY + 1][currentCellX]) availableDirections.push('down');
-          if (!prevState.maze[currentCellY][currentCellX - 1]) availableDirections.push('left');
-          if (!prevState.maze[currentCellY][currentCellX + 1]) availableDirections.push('right');
+          if (currentCellY > 0 && !prevState.maze[currentCellY - 1][currentCellX]) availableDirections.push('up');
+          if (currentCellY < prevState.maze.length - 1 && !prevState.maze[currentCellY + 1][currentCellX]) availableDirections.push('down');
+          if (currentCellX > 0 && !prevState.maze[currentCellY][currentCellX - 1]) availableDirections.push('left');
+          if (currentCellX < prevState.maze[0].length - 1 && !prevState.maze[currentCellY][currentCellX + 1]) availableDirections.push('right');
 
           // Remove opposite direction unless it's the only option
           const opposite = getOppositeDirection(ghost.direction);
@@ -844,6 +844,12 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
               
               const nextX = nextCellX * CELL_SIZE;
               const nextY = nextCellY * CELL_SIZE;
+              
+              // Don't go back to ghost house if already released
+              if (ghost.isReleased && isInGhostHouse(nextX, nextY)) {
+                return { direction: dir, score: -Infinity };
+              }
+              
               const distanceToTarget = calculateDistance(nextX, nextY, target.x, target.y);
               
               // Reduced random factor and increased direction persistence
