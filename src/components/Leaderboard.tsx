@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { subscribeToLeaderboard } from '../utils/scoreTracking';
-import { useUsername } from '../hooks/useUsername';
+import { useAccount } from 'wagmi';
 import { db } from '../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -79,7 +79,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
   const [scores, setScores] = useState<Score[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { username: currentUserUsername } = useUsername();
+  const { address: currentUserAddress } = useAccount();
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -154,15 +154,25 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ gameId, limit = 10 }) 
       );
     }
 
-    return scores.map((score, index) => (
-      <ScoreItem key={`${score.address}-${score.timestamp}`}>
-        <Address>
-          {index + 1}. {score.username || score.address.slice(-5)}
-          {score.username === currentUserUsername && ' (You)'}
-        </Address>
-        <Score>{score.score}</Score>
-      </ScoreItem>
-    ));
+    return scores.map((score, index) => {
+      // Determine display name: username or truncated address
+      const displayName = score.username 
+        ? `@${score.username}` 
+        : `${score.address.slice(0, 5)}...${score.address.slice(-5)}`;
+        
+      // Check if the current score belongs to the connected wallet
+      const isCurrentUser = currentUserAddress && score.address.toLowerCase() === currentUserAddress.toLowerCase();
+
+      return (
+        <ScoreItem key={`${score.address}-${score.timestamp}`}>
+          <Address>
+            {index + 1}. {displayName}
+            {isCurrentUser && ' (You)'}
+          </Address>
+          <Score>{score.score}</Score>
+        </ScoreItem>
+      );
+    });
   };
 
   return (

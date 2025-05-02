@@ -70,18 +70,33 @@ export const PokkaSnakeGame: React.FC = () => {
 
       if (!allowedOrigins.includes(event.origin)) return;
 
+      // --- DEBUG LOG --- 
+      console.log('[PokkaSnakeGame] Received message:', event.data);
+      // --- END DEBUG LOG ---
+
       // Handle score updates from the game
       if (event.data.type === 'score') {
-        setScore(event.data.score);
-        // Save score to leaderboard immediately when it updates
-        if (address) {
-          saveScore('pokka-snake', address, event.data.score);
+        // Ensure score is a number before updating/saving
+        const newScore = Number(event.data.score);
+        if (!isNaN(newScore)) { 
+          setScore(newScore);
+          if (address) {
+            console.log(`[PokkaSnakeGame] Saving intermediate score: ${newScore}`);
+            saveScore('pokka-snake', address, newScore);
+          }
         }
       }
       
       // Handle game over and submit final score
       if (event.data.type === 'gameOver' && address) {
-        saveScore('pokka-snake', address, event.data.finalScore);
+        // Ensure finalScore is a number before saving
+        const finalScore = Number(event.data.finalScore);
+        if (!isNaN(finalScore)) { 
+          console.log(`[PokkaSnakeGame] Saving final score: ${finalScore}`);
+          saveScore('pokka-snake', address, finalScore);
+        } else {
+          console.error('[PokkaSnakeGame] Received gameOver event with invalid finalScore:', event.data.finalScore);
+        }
       }
     };
 
