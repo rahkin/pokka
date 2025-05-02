@@ -332,9 +332,8 @@ export default class GhostBehavior {
   }
 
   // Add method to handle mode transitions
-  updateMode(ghost: Ghost, gameState: GameState): { mode: GhostMode, changed: boolean } {
+  updateMode(ghost: Ghost): { mode: GhostMode, changed: boolean } {
     const currentTime = Date.now();
-    const personality = GHOST_PERSONALITIES[ghost.type];
     let newMode = ghost.mode;
     let changed = false;
 
@@ -343,35 +342,31 @@ export default class GhostBehavior {
     if (ghost.mode === 'frightened' && currentTime - this.lastModeChange > POWER_PELLET_DURATION) {
       newMode = 'chase';
       changed = true;
+      this.lastModeChange = currentTime;
     }
     if (ghost.mode === 'eaten' && this.isInGhostHouse({ x: ghost.x, y: ghost.y })) {
       newMode = 'house';
       changed = true;
+      this.lastModeChange = currentTime;
     }
     if (ghost.mode === 'house' && ghost.isReleased) {
       newMode = 'exiting';
       changed = true;
+      this.lastModeChange = currentTime;
     }
     if (ghost.mode === 'exiting' && 
         Math.abs(ghost.x - GHOST_EXIT_POSITION.x * CELL_SIZE) < 2 &&
         Math.abs(ghost.y - GHOST_EXIT_POSITION.y * CELL_SIZE) < 2) {
       newMode = 'scatter';
       changed = true;
-    }
-    if (ghost.mode === 'scatter' && currentTime - this.lastModeChange > GHOST_SCATTER_DURATION) {
-      newMode = 'chase';
-      changed = true;
-    }
-    if (ghost.mode === 'chase' && currentTime - this.lastModeChange > GHOST_CHASE_DURATION) {
-      newMode = 'scatter';
-      changed = true;
+      this.lastModeChange = currentTime;
+      console.log(`[GhostBehavior] ${this.type} mode changed from exiting to scatter`);
     }
 
     if (changed) {
-      console.log(`[GhostBehavior] ${this.type} mode changed from ${ghost.mode} to ${newMode}`);
       this.lastModeChange = currentTime;
     }
-
+    
     return { mode: newMode, changed };
   }
 }

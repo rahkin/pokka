@@ -12,14 +12,11 @@ import {
   POWER_PELLET_VALUE,
   CHARACTER_SCALE,
   FRAME_TIME,
-  GHOST_SPEED_VARIATION,
   GHOST_POINTS,
   MAZE_LAYOUT,
   GHOST_FRIGHTENED_SPEED_MULTIPLIER,
   GHOST_PERSONALITIES,
   GHOST_SPAWN_POSITIONS,
-  GHOST_EXIT_POSITION,
-  GHOST_HOUSE_POSITION,
   GHOST_SCATTER_TARGETS,
   GHOST_EATEN_SPEED_MULTIPLIER,
   GHOST_HOUSE_EXIT_SPEED,
@@ -150,18 +147,6 @@ const isInGhostHouse = (x: number, y: number): boolean => {
   const gridY = Math.floor(centerY / CELL_SIZE);
   
   return gridX >= 8 && gridX <= 11 && gridY >= 9 && gridY <= 11;
-};
-
-// Helper function to get next position towards target
-const getNextPositionTowardsTarget = (currentX: number, currentY: number, targetX: number, targetY: number): { x: number; y: number } => {
-  const dx = targetX - currentX;
-  const dy = targetY - currentY;
-  
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return { x: currentX + Math.sign(dx) * CELL_SIZE, y: currentY };
-  } else {
-    return { x: currentX, y: currentY + Math.sign(dy) * CELL_SIZE };
-  }
 };
 
 // Change from const to function component and add proper export
@@ -1001,7 +986,3 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 }
 
 // NO DUPLICATE CODE OR IMPORTS BELOW THIS LINE
-
-const isGhostHouseDoor = (x: number, y: number): boolean => {
-  return x === 10 && y === 8;
-};
