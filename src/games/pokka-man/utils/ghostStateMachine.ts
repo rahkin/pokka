@@ -80,20 +80,10 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
           context.lastModeChange = Date.now();
         },
         after: {
-          20000: {
-            target: 'scatter',
-            actions: (context) => {
-              context.target = context.scatterTarget;
-            }
-          }
+          20000: 'scatter'
         },
         on: {
-          POWER_PELLET: {
-            target: 'frightened',
-            actions: (context) => {
-              context.lastModeChange = Date.now();
-            }
-          },
+          POWER_PELLET: 'frightened',
           EATEN: 'eaten',
           UPDATE_CHASE_TARGET: {
             actions: (context, event) => {
