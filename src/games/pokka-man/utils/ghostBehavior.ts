@@ -1,4 +1,4 @@
-import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS, POWER_PELLET_DURATION, GHOST_SCATTER_DURATION, GHOST_CHASE_DURATION } from './gameConstants';
+import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS, POWER_PELLET_DURATION } from './gameConstants';
 
 // Define GhostMode type locally since we removed XState
 export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house' | 'exiting';

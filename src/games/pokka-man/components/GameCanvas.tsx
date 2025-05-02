@@ -438,9 +438,11 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
 
     // Handle game over state change outside of setGameState
     if (localGameOver && !gameOverRef.current) {
+      console.log("[handleCollisions] Game Over detected!"); // Add log
       gameOverRef.current = true;
       if (onGameOver) {
-        // Call onGameOver asynchronously later using useEffect triggered by gameOver prop
+        console.log("[handleCollisions] Calling onGameOver callback..."); // Add log
+        onGameOver(); // Actually call the callback
       }
     }
 
@@ -737,7 +739,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         // Debug log for ghost state
         console.log(`[updateGhosts] ${ghost.type} | pos=(${ghost.x},${ghost.y}) | dir=${ghost.direction} | mode=${ghost.mode} | released=${ghost.isReleased}`);
         // Update ghost mode using behavior
-        const { mode: newMode, changed } = ghost.behavior.updateMode(ghost, prevState);
+        const { mode: newMode, changed } = ghost.behavior.updateMode(ghost);
         if (changed) {
           console.log(`[Ghost ${ghost.type}] Mode changed from ${ghost.mode} to ${newMode}`);
           ghost.mode = newMode;
