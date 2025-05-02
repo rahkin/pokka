@@ -268,9 +268,18 @@ export default class GhostBehavior {
   }
 
   private isValidPosition(x: number, y: number): boolean {
-    return x >= 0 && x < this.maze[0].length && 
-           y >= 0 && y < this.maze.length && 
-           this.maze[y][x] !== 1;
+    // Check bounds
+    if (x < 0 || x >= this.maze[0].length || y < 0 || y >= this.maze.length) {
+      return false;
+    }
+    
+    // Allow movement in ghost house area
+    if (y >= 9 && y <= 11 && x >= 8 && x <= 11) {
+      return true;
+    }
+    
+    // Check if position is a wall
+    return this.maze[y][x] !== 1;
   }
 }
 

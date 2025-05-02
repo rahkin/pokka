@@ -83,10 +83,10 @@ export const GHOST_SPAWN_POSITIONS = [
 
 // Ghost Scatter Targets (spread out more)
 export const GHOST_SCATTER_TARGETS = [
-  { x: 1, y: 1 },           // Pink (near top-left)
-  { x: 18, y: 1 },          // Blue (near top-right)
-  { x: 1, y: 20 },          // Purple (near bottom-left)
-  { x: 18, y: 20 }          // Skin (near bottom-right)
+  { x: 2, y: 2 },           // Pink (near top-left)
+  { x: 17, y: 2 },          // Blue (near top-right)
+  { x: 2, y: 19 },          // Purple (near bottom-left)
+  { x: 17, y: 19 }          // Skin (near bottom-right)
 ];
 
 // Ghost Personality Constants
