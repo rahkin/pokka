@@ -1,4 +1,4 @@
-import { createMachine, MachineConfig, BaseActionObject, ServiceMap, AnyEventObject, TypegenDisabled } from 'xstate';
+import { createMachine, MachineConfig } from 'xstate';
 import { GHOST_EXIT_POSITION } from './gameConstants';
 
 export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house';
