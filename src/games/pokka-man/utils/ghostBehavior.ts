@@ -79,7 +79,10 @@ export class GhostBehavior {
     // If ghost is in the ghost house and not released, target the exit position
     if (!ghost.isReleased) {
       // Move up to the ghost house exit
-      return GHOST_EXIT_POSITION;
+      return {
+        x: GHOST_EXIT_POSITION.x * CELL_SIZE,
+        y: GHOST_EXIT_POSITION.y * CELL_SIZE
+      };
     }
     
     // Only update target periodically to prevent erratic movement

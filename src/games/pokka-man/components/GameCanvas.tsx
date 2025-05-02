@@ -39,7 +39,7 @@ const Canvas = styled.canvas`
   touch-action: none; /* Prevent browser touch actions */
 `;
 
-type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
+type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house';
 
 interface Ghost {
   x: number;
@@ -223,10 +223,10 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           y: gridToPixel(pos.y),
           direction: 'up',
           type,
-          mode: 'scatter' as GhostMode,
-          targetX: GHOST_SCATTER_TARGETS[index].x * CELL_SIZE,
-          targetY: GHOST_SCATTER_TARGETS[index].y * CELL_SIZE,
-          isReleased: index === 0,
+          mode: 'house' as GhostMode,
+          targetX: GHOST_EXIT_POSITION.x * CELL_SIZE,
+          targetY: GHOST_EXIT_POSITION.y * CELL_SIZE,
+          isReleased: false,
           stateMachine: interpret(createGhostStateMachine(GHOST_SCATTER_TARGETS[index], personality.spawnDelay)).start(),
           behavior,
           path: [],

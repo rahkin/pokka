@@ -47,6 +47,8 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
             target: 'scatter',
             actions: (context) => {
               context.isReleased = true;
+              context.mode = 'scatter';
+              context.target = context.scatterTarget;
             }
           }
         }
