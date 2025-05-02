@@ -1,4 +1,4 @@
-export { PokkaManGame } from './PokkaManGame';
+export { PokkaManGame } from './components/PokkaManGame';
 export { GameCanvas } from './components/GameCanvas';
 export { MobileControls } from './components/MobileControls';
 export { useMobileControls } from './hooks/useMobileControls';

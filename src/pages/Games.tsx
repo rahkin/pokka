@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { useParams } from 'react-router-dom'
 import GameTiles from '../components/GameTiles'
-import { PokkaManGame } from '../games/pokka-man/PokkaManGame'
+import { PokkaManGame } from '../games/pokka-man'
 import { PokkaSnakeGame } from '../games/pokka-snake/PokkaSnakeGame'
 import { PokkaFallingBlocksGame } from '../games/pokka-falling-blocks/PokkaFallingBlocksGame'
 
