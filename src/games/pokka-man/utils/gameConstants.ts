@@ -72,14 +72,25 @@ export const SOUND_EFFECTS = {
 } as const;
 
 // Ghost House Configuration
+export const GHOST_HOUSE_BOUNDS = {
+  left: 8,
+  right: 11,
+  top: 9,
+  bottom: 11
+};
+
 export const GHOST_HOUSE_POSITION = { x: 10, y: 10 };
 export const GHOST_EXIT_POSITION = { x: 10, y: 8 };
 export const GHOST_SPAWN_POSITIONS = [
   { x: 9, y: 10 },   // Pink ghost
   { x: 10, y: 10 },  // Blue ghost
   { x: 11, y: 10 },  // Purple ghost
-  { x: 12, y: 10 }   // Skin ghost
+  { x: 10, y: 11 }   // Skin ghost - moved to avoid overlap
 ];
+
+// Ghost movement constants
+export const GHOST_HOUSE_EXIT_SPEED = 2.0;  // Slower speed while exiting
+export const GHOST_HOUSE_VERTICAL_OFFSET = 0.5;  // Small vertical movement in house
 
 // Ghost Scatter Targets (adjusted to be reachable)
 export const GHOST_SCATTER_TARGETS = [

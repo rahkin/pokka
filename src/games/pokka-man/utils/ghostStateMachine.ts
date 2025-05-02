@@ -1,7 +1,7 @@
 import { createMachine, MachineConfig } from 'xstate';
-import { GHOST_EXIT_POSITION } from './gameConstants';
+import { GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION } from './gameConstants';
 
-export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house';
+export type GhostMode = 'house' | 'exiting' | 'scatter' | 'chase' | 'frightened' | 'eaten';
 
 interface GhostStateContext {
   mode: GhostMode;
@@ -9,11 +9,13 @@ interface GhostStateContext {
   scatterTarget: { x: number; y: number };
   lastModeChange: number;
   isReleased: boolean;
+  exitProgress: number;
 }
 
 interface GhostStateSchema {
   states: {
     house: {};
+    exiting: {};
     scatter: {};
     chase: {};
     frightened: {};
@@ -21,7 +23,11 @@ interface GhostStateSchema {
   };
 }
 
-type GhostEvent = { type: 'POWER_PELLET' } | { type: 'EATEN' } | { type: 'UPDATE_CHASE_TARGET', target: { x: number; y: number } };
+type GhostEvent = 
+  | { type: 'POWER_PELLET' }
+  | { type: 'EATEN' }
+  | { type: 'EXIT_COMPLETE' }
+  | { type: 'UPDATE_CHASE_TARGET', target: { x: number; y: number } };
 
 export const createGhostStateMachine = (scatterTarget: { x: number; y: number }, spawnDelay: number) => {
   const config: MachineConfig<GhostStateContext, GhostStateSchema, GhostEvent> = {
@@ -29,21 +35,33 @@ export const createGhostStateMachine = (scatterTarget: { x: number; y: number },
     initial: 'house',
     context: {
       mode: 'house',
-      target: GHOST_EXIT_POSITION,
+      target: GHOST_HOUSE_POSITION,
       scatterTarget,
       lastModeChange: Date.now(),
-      isReleased: false
+      isReleased: false,
+      exitProgress: 0
     },
     states: {
       house: {
         entry: (context) => {
           context.mode = 'house';
-          context.target = GHOST_EXIT_POSITION;
+          context.target = GHOST_HOUSE_POSITION;
           context.isReleased = false;
+          context.exitProgress = 0;
           context.lastModeChange = Date.now();
         },
         after: {
-          SPAWN_DELAY: {
+          SPAWN_DELAY: 'exiting'
+        }
+      },
+      exiting: {
+        entry: (context) => {
+          context.mode = 'exiting';
+          context.target = GHOST_EXIT_POSITION;
+          context.lastModeChange = Date.now();
+        },
+        on: {
+          EXIT_COMPLETE: {
             target: 'scatter',
             actions: (context) => {
               context.isReleased = true;
