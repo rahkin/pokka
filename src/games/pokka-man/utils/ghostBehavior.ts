@@ -79,10 +79,16 @@ export default class GhostBehavior {
     // If ghost is in the ghost house and not released, target the exit position
     if (!ghost.isReleased) {
       // Move up to the ghost house exit
-      return {
+      const exitPos = {
         x: GHOST_EXIT_POSITION.x * CELL_SIZE,
         y: GHOST_EXIT_POSITION.y * CELL_SIZE
       };
+      
+      // If the exit is not reachable, find an intermediate point
+      if (!this.isReachablePosition(ghost.position, exitPos)) {
+        return this.getRandomAdjacentTarget(ghost.position);
+      }
+      return exitPos;
     }
     
     // Only update target periodically to prevent erratic movement
@@ -92,46 +98,48 @@ export default class GhostBehavior {
     
     this.lastTargetUpdate = currentTime;
     
+    // Get the target based on mode
+    let target: Position;
+    
     if (ghost.mode === 'frightened') {
-      this.currentTarget = this.getFrightenedTarget(ghost.position, currentTime);
-      return this.currentTarget;
-    }
-
-    if (ghost.mode === 'eaten') {
-      // When eaten, first go to ghost house entrance, then to spawn position
-      const distanceToHouse = this.calculateDistance(ghost.position, GHOST_EXIT_POSITION);
-      if (distanceToHouse > CELL_SIZE * 2) {
-        this.currentTarget = GHOST_EXIT_POSITION;
-      } else {
-        this.currentTarget = this.ghostHouse;
+      target = this.getFrightenedTarget(ghost.position, currentTime);
+    } else if (ghost.mode === 'eaten') {
+      const distanceToHouse = this.calculateDistance(ghost.position, {
+        x: GHOST_EXIT_POSITION.x * CELL_SIZE,
+        y: GHOST_EXIT_POSITION.y * CELL_SIZE
+      });
+      target = distanceToHouse > CELL_SIZE * 2 ? 
+        { x: GHOST_EXIT_POSITION.x * CELL_SIZE, y: GHOST_EXIT_POSITION.y * CELL_SIZE } :
+        { x: this.ghostHouse.x * CELL_SIZE, y: this.ghostHouse.y * CELL_SIZE };
+    } else if (ghost.mode === 'scatter') {
+      target = { x: this.scatterTarget.x * CELL_SIZE, y: this.scatterTarget.y * CELL_SIZE };
+    } else {
+      // Chase mode - each ghost has unique behavior
+      switch (this.type) {
+        case 'pink':
+          target = this.getPinkTarget(pacman, ghost);
+          break;
+        case 'blue':
+          target = this.getBlueTarget(pacman, redGhost || ghost.position, ghost);
+          break;
+        case 'purple':
+          target = this.getPurpleTarget(ghost.position, pacman, ghost);
+          break;
+        case 'skin':
+          target = this.getSkinTarget(ghost.position, pacman, ghost);
+          break;
+        default:
+          target = pacman.position;
       }
-      return this.currentTarget;
     }
-
-    if (ghost.mode === 'scatter') {
-      this.currentTarget = this.scatterTarget;
-      return this.currentTarget;
+    
+    // If the target is not reachable, find an intermediate point
+    if (!this.isReachablePosition(ghost.position, target)) {
+      return this.getRandomAdjacentTarget(ghost.position);
     }
-
-    // Chase mode - each ghost has unique behavior
-    switch (this.type) {
-      case 'pink':
-        this.currentTarget = this.getPinkTarget(pacman, ghost);
-        break;
-      case 'blue':
-        this.currentTarget = this.getBlueTarget(pacman, redGhost || ghost.position, ghost);
-        break;
-      case 'purple':
-        this.currentTarget = this.getPurpleTarget(ghost.position, pacman, ghost);
-        break;
-      case 'skin':
-        this.currentTarget = this.getSkinTarget(ghost.position, pacman, ghost);
-        break;
-      default:
-        this.currentTarget = pacman.position;
-    }
-
-    return this.currentTarget;
+    
+    this.currentTarget = target;
+    return target;
   }
 
   private getPinkTarget(pacman: PacmanState, _ghost: GhostState): Position {
@@ -216,9 +224,13 @@ export default class GhostBehavior {
       { x: 0, y: 1 }, { x: 0, y: -1 }
     ];
     
+    // Convert pixel coordinates to grid coordinates
+    const gridX = Math.floor(pos.x / CELL_SIZE);
+    const gridY = Math.floor(pos.y / CELL_SIZE);
+    
     const validDirections = directions.filter(dir => {
-      const newX = Math.floor(pos.x / CELL_SIZE) + dir.x;
-      const newY = Math.floor(pos.y / CELL_SIZE) + dir.y;
+      const newX = gridX + dir.x;
+      const newY = gridY + dir.y;
       return this.isValidPosition(newX, newY);
     });
 
@@ -226,8 +238,8 @@ export default class GhostBehavior {
 
     const randomDir = validDirections[Math.floor(Math.random() * validDirections.length)];
     return {
-      x: (Math.floor(pos.x / CELL_SIZE) + randomDir.x) * CELL_SIZE + CELL_SIZE / 2,
-      y: (Math.floor(pos.y / CELL_SIZE) + randomDir.y) * CELL_SIZE + CELL_SIZE / 2
+      x: (gridX + randomDir.x) * CELL_SIZE + CELL_SIZE / 2,
+      y: (gridY + randomDir.y) * CELL_SIZE + CELL_SIZE / 2
     };
   }
 
@@ -273,13 +285,30 @@ export default class GhostBehavior {
       return false;
     }
     
-    // Allow movement in ghost house area
-    if (y >= 9 && y <= 11 && x >= 8 && x <= 11) {
+    // Check if position is a wall (1) or empty (0) or has a dot (2) or power pellet (3)
+    const cell = this.maze[y][x];
+    return cell !== 1;
+  }
+
+  private isReachablePosition(from: Position, to: Position): boolean {
+    // Convert pixel coordinates to grid coordinates
+    const fromGridX = Math.floor(from.x / CELL_SIZE);
+    const fromGridY = Math.floor(from.y / CELL_SIZE);
+    const toGridX = Math.floor(to.x / CELL_SIZE);
+    const toGridY = Math.floor(to.y / CELL_SIZE);
+
+    // Simple check: if either position is invalid, return false
+    if (!this.isValidPosition(fromGridX, fromGridY) || !this.isValidPosition(toGridX, toGridY)) {
+      return false;
+    }
+
+    // If positions are adjacent, check if there's a wall between them
+    if (Math.abs(fromGridX - toGridX) + Math.abs(fromGridY - toGridY) === 1) {
       return true;
     }
-    
-    // Check if position is a wall
-    return this.maze[y][x] !== 1;
+
+    // For non-adjacent positions, return true and let the movement logic handle pathfinding
+    return true;
   }
 }
 

@@ -75,44 +75,44 @@ export const SOUND_EFFECTS = {
 export const GHOST_HOUSE_POSITION = { x: 10, y: 10 };
 export const GHOST_EXIT_POSITION = { x: 10, y: 8 };
 export const GHOST_SPAWN_POSITIONS = [
-  { x: 8, y: 10 },   // Pink ghost
-  { x: 9, y: 10 },   // Blue ghost
-  { x: 10, y: 10 },  // Purple ghost
-  { x: 11, y: 10 }   // Skin ghost
+  { x: 9, y: 10 },   // Pink ghost
+  { x: 10, y: 10 },  // Blue ghost
+  { x: 11, y: 10 },  // Purple ghost
+  { x: 12, y: 10 }   // Skin ghost
 ];
 
-// Ghost Scatter Targets (spread out more)
+// Ghost Scatter Targets (adjusted to be reachable)
 export const GHOST_SCATTER_TARGETS = [
-  { x: 2, y: 2 },           // Pink (near top-left)
-  { x: 17, y: 2 },          // Blue (near top-right)
-  { x: 2, y: 19 },          // Purple (near bottom-left)
-  { x: 17, y: 19 }          // Skin (near bottom-right)
+  { x: 2, y: 2 },     // Pink (top-left)
+  { x: 17, y: 2 },    // Blue (top-right)
+  { x: 2, y: 19 },    // Purple (bottom-left)
+  { x: 17, y: 19 }    // Skin (bottom-right)
 ];
 
 // Ghost Personality Constants
 export const GHOST_PERSONALITIES = {
   pink: {
     lookAheadTiles: 4,
-    turnProbability: 0.4,
+    turnProbability: 0.2,
     avoidanceRadius: 4,
     spawnDelay: 0
   },
   blue: {
-    vectorMultiplier: 2.5,
-    minDistance: 6,
-    avoidanceRadius: 5,
+    vectorMultiplier: 1.5,
+    minDistance: 4,
+    avoidanceRadius: 3,
     spawnDelay: 5000
   },
   purple: {
-    switchDistance: 7,
-    ambushDistance: 3,
-    avoidanceRadius: 4,
+    switchDistance: 5,
+    ambushDistance: 2,
+    avoidanceRadius: 3,
     spawnDelay: 10000
   },
   skin: {
-    chaseThreshold: 5,
-    scatterInterval: 2500,
-    avoidanceRadius: 5,
+    chaseThreshold: 4,
+    scatterInterval: 3000,
+    avoidanceRadius: 3,
     spawnDelay: 15000
   }
 };
