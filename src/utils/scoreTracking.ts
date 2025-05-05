@@ -24,12 +24,23 @@ export const saveScore = async (gameId: string, address: string, score: number):
     }
 
     const scoreRef = ref(database, `scores/${gameId}/${address}`);
-    await set(scoreRef, {
-      address,
-      score,
-      timestamp: Date.now(),
-      username
-    });
+    
+    // Get existing score first
+    const existingScoreSnapshot = await get(scoreRef);
+    const existingScore = existingScoreSnapshot.val()?.score || 0;
+
+    // Only update if new score is higher
+    if (score > existingScore) {
+      console.log(`Updating score for ${address}: ${existingScore} -> ${score}`);
+      await set(scoreRef, {
+        address,
+        score,
+        timestamp: Date.now(),
+        username
+      });
+    } else {
+      console.log(`Keeping existing score for ${address}: ${existingScore} (new score: ${score})`);
+    }
   } catch (error) {
     console.error('Error saving score:', error);
     throw error;
