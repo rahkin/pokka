@@ -110,19 +110,19 @@ export const GHOST_PERSONALITIES = {
     vectorMultiplier: 1.5,
     minDistance: 4,
     avoidanceRadius: 3,
-    spawnDelay: 5000
+    spawnDelay: 1000
   },
   purple: {
     switchDistance: 5,
     ambushDistance: 2,
     avoidanceRadius: 3,
-    spawnDelay: 10000
+    spawnDelay: 2000
   },
   skin: {
     chaseThreshold: 4,
     scatterInterval: 3000,
     avoidanceRadius: 3,
-    spawnDelay: 15000
+    spawnDelay: 3000
   }
 };
 

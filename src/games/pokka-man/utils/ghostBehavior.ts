@@ -72,7 +72,13 @@ export default class GhostBehavior {
     this.currentTarget = scatterTarget;
   }
 
-  getTargetPosition(ghost: GhostState, pacman: PacmanState, redGhost?: Position): Position {
+  getTargetPosition(
+    ghost: GhostState,
+    pacman: PacmanState,
+    redGhost?: Position,
+    allGhostPositions?: Array<{ x: number; y: number; type: string }>,
+    selfIndex?: number
+  ): Position {
     const currentTime = Date.now();
     
     // Handle ghost house movement
@@ -135,7 +141,7 @@ export default class GhostBehavior {
       target = { x: this.scatterTarget.x * CELL_SIZE, y: this.scatterTarget.y * CELL_SIZE };
     } else {
       // Chase mode - each ghost has unique behavior
-      target = this.getChaseTarget(ghost, pacman, redGhost);
+      target = this.getChaseTarget(ghost, pacman, redGhost, allGhostPositions, selfIndex);
     }
     
     this.currentTarget = target;
@@ -165,86 +171,138 @@ export default class GhostBehavior {
       { x: GHOST_HOUSE_POSITION.x * CELL_SIZE, y: GHOST_HOUSE_POSITION.y * CELL_SIZE };
   }
 
-  private getChaseTarget(ghost: GhostState, pacman: PacmanState, redGhost?: Position): Position {
+  private getChaseTarget(
+    ghost: GhostState,
+    pacman: PacmanState,
+    redGhost?: Position,
+    allGhostPositions?: Array<{ x: number; y: number; type: string }>,
+    selfIndex?: number
+  ): Position {
     switch (this.type) {
       case 'pink':
-        return this.getPinkTarget(pacman, ghost);
-      case 'blue':
-        return this.getBlueTarget(pacman, redGhost || ghost.position, ghost);
-      case 'purple':
-        return this.getPurpleTarget(ghost.position, pacman, ghost);
-      case 'skin':
-        return this.getSkinTarget(ghost.position, pacman, ghost);
+        // Pink: Direct chase
+        return pacman.position;
+      case 'blue': {
+        // Blue: Ambush ahead of Pokkaman, but if another ghost is already there, target a different intersection
+        const ahead = this.getPositionAhead(pacman.position, pacman.direction, 4);
+        if (allGhostPositions) {
+          const others = allGhostPositions.filter((g, i) => i !== selfIndex);
+          const tooClose = others.some(g => this.calculateDistance(g, ahead) < CELL_SIZE * 2);
+          if (tooClose) {
+            // Pick a nearby intersection instead
+            return this.getPositionAhead(pacman.position, pacman.direction, 2);
+          }
+        }
+        return ahead;
+      }
+      case 'purple': {
+        // Purple: Try to cut off escape routes by targeting the closest intersection to Pokkaman that is not near another ghost
+        if (allGhostPositions) {
+          const intersections = this.getPossiblePaths(pacman.position, pacman.direction);
+          let best = intersections[0];
+          let minScore = Infinity;
+          for (const pos of intersections) {
+            // Score: distance to self minus distance to other ghosts
+            const distToSelf = this.calculateDistance(ghost.position, pos);
+            const distToOthers = allGhostPositions
+              .filter((g, i) => i !== selfIndex)
+              .reduce((sum, g) => sum + this.calculateDistance(g, pos), 0);
+            const score = distToSelf - distToOthers * 0.5;
+            if (score < minScore) {
+              minScore = score;
+              best = pos;
+            }
+          }
+          return best;
+        }
+        return pacman.position;
+      }
+      case 'skin': {
+        // Skin: Herd Pokkaman toward the closest ghost (other than self)
+        if (allGhostPositions) {
+          let closestGhost = null;
+          let minDist = Infinity;
+          for (let i = 0; i < allGhostPositions.length; i++) {
+            if (i === selfIndex) continue;
+            const g = allGhostPositions[i];
+            const dist = this.calculateDistance(g, pacman.position);
+            if (dist < minDist) {
+              minDist = dist;
+              closestGhost = g;
+            }
+          }
+          if (closestGhost) {
+            // Target a point between Pokkaman and the closest ghost
+            return {
+              x: (pacman.position.x + closestGhost.x) / 2,
+              y: (pacman.position.y + closestGhost.y) / 2
+            };
+          }
+        }
+        return pacman.position;
+      }
       default:
         return pacman.position;
     }
   }
 
-  private getPinkTarget(pacman: PacmanState, _ghost: GhostState): Position {
-    const personality = GHOST_PERSONALITIES.pink;
-    const lookAhead = personality.lookAheadTiles;
+  private getPossiblePaths(pos: Position, direction: string): Position[] {
+    const paths: Position[] = [];
+    const directions = ['up', 'down', 'left', 'right'];
     
-    // Occasionally make random turns
-    if (Math.random() < personality.turnProbability && 
-        Date.now() - this.lastDirectionChange > 2000) {
-      this.lastDirectionChange = Date.now();
-      return this.getRandomAdjacentTarget(_ghost.position);
+    for (const dir of directions) {
+      if (dir !== this.getOppositeDirection(direction)) {
+        const nextPos = this.getPositionAhead(pos, dir, 1);
+        if (this.isValidGridPosition(
+          Math.floor(nextPos.x / CELL_SIZE),
+          Math.floor(nextPos.y / CELL_SIZE)
+        )) {
+          paths.push(nextPos);
+        }
+      }
     }
     
-    return this.getPositionAhead(pacman.position, pacman.direction, lookAhead);
+    return paths;
   }
 
-  private getBlueTarget(pacman: PacmanState, redGhost: Position, _ghost: GhostState): Position {
-    const personality = GHOST_PERSONALITIES.blue;
-    // Get position 2 tiles ahead of Pacman
-    const aheadPos = this.getPositionAhead(pacman.position, pacman.direction, 2);
+  private getStrategicPosition(ghostPos: Position, pacmanPos: Position): Position {
+    // Calculate the center of the maze
+    const centerX = Math.floor(this.maze[0].length / 2) * CELL_SIZE;
+    const centerY = Math.floor(this.maze.length / 2) * CELL_SIZE;
     
-    // Calculate vector from red ghost
-    const vectorX = (aheadPos.x - redGhost.x) * personality.vectorMultiplier;
-    const vectorY = (aheadPos.y - redGhost.y) * personality.vectorMultiplier;
+    // Calculate vector from center to Pacman
+    const vectorX = pacmanPos.x - centerX;
+    const vectorY = pacmanPos.y - centerY;
     
-    // Maintain minimum distance from red ghost
-    const distanceToRed = this.calculateDistance(_ghost.position, redGhost);
-    if (distanceToRed < personality.minDistance * CELL_SIZE) {
-      return this.getOppositePosition(_ghost.position, redGhost);
+    // Normalize vector
+    const length = Math.sqrt(vectorX * vectorX + vectorY * vectorY);
+    const normalizedX = vectorX / length;
+    const normalizedY = vectorY / length;
+    
+    // Calculate strategic position (opposite side of the maze from Pacman)
+    const strategicX = centerX - normalizedX * CELL_SIZE * 5;
+    const strategicY = centerY - normalizedY * CELL_SIZE * 5;
+    
+    // Ensure position is valid
+    if (this.isValidGridPosition(
+      Math.floor(strategicX / CELL_SIZE),
+      Math.floor(strategicY / CELL_SIZE)
+    )) {
+      return { x: strategicX, y: strategicY };
     }
     
-    return {
-      x: aheadPos.x + vectorX,
-      y: aheadPos.y + vectorY
-    };
+    // Fallback to random position
+    return this.getRandomAdjacentTarget(ghostPos);
   }
 
-  private getPurpleTarget(ghostPos: Position, pacman: PacmanState, _ghost: GhostState): Position {
-    const personality = GHOST_PERSONALITIES.purple;
-    const distance = this.calculateDistance(ghostPos, pacman.position);
-    
-    // Switch between behaviors based on distance
-    if (distance > personality.switchDistance * CELL_SIZE) {
-      return pacman.position; // Direct chase when far
-    } else {
-      // Move to ambush position when close
-      return this.getPositionAhead(
-        pacman.position,
-        pacman.direction,
-        personality.ambushDistance
-      );
+  private getOppositeDirection(direction: string): string {
+    switch (direction) {
+      case 'up': return 'down';
+      case 'down': return 'up';
+      case 'left': return 'right';
+      case 'right': return 'left';
+      default: return direction;
     }
-  }
-
-  private getSkinTarget(ghostPos: Position, pacman: PacmanState, _ghost: GhostState): Position {
-    const personality = GHOST_PERSONALITIES.skin;
-    const distance = this.calculateDistance(ghostPos, pacman.position);
-    
-    // Alternate between direct chase and scatter
-    const currentTime = Date.now();
-    if (currentTime % personality.scatterInterval < personality.scatterInterval / 2) {
-      return this.scatterTarget;
-    }
-    
-    return distance < personality.chaseThreshold * CELL_SIZE ?
-      pacman.position : // Direct chase when close
-      this.getRandomAdjacentTarget(ghostPos); // Random movement when far
   }
 
   private getFrightenedTarget(ghostPos: Position, currentTime: number): Position {
@@ -278,19 +336,6 @@ export default class GhostBehavior {
     return {
       x: (gridX + randomDir.x) * CELL_SIZE + CELL_SIZE / 2,
       y: (gridY + randomDir.y) * CELL_SIZE + CELL_SIZE / 2
-    };
-  }
-
-  private getOppositePosition(from: Position, to: Position): Position {
-    const dx = from.x - to.x;
-    const dy = from.y - to.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance === 0) return from;
-    
-    return {
-      x: from.x + (dx / distance) * CELL_SIZE * 2,
-      y: from.y + (dy / distance) * CELL_SIZE * 2
     };
   }
 

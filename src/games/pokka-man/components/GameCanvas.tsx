@@ -52,6 +52,7 @@ interface Ghost {
   baseSpeed?: number;
   consecutiveEats?: number;
   spawnDelay?: number;
+  randomnessActiveUntil: number;
 }
 
 interface GameState {
@@ -149,6 +150,21 @@ const isInGhostHouse = (x: number, y: number): boolean => {
   return gridX >= 8 && gridX <= 11 && gridY >= 9 && gridY <= 11;
 };
 
+// Helper to pick a random valid direction for a ghost
+function getRandomValidDirection(x: number, y: number, maze: number[][]): string {
+  const directions = [
+    { dir: 'up', dx: 0, dy: -CELL_SIZE },
+    { dir: 'down', dx: 0, dy: CELL_SIZE },
+    { dir: 'left', dx: -CELL_SIZE, dy: 0 },
+    { dir: 'right', dx: CELL_SIZE, dy: 0 }
+  ];
+  const valid = directions.filter(d =>
+    isValidPosition(x + d.dx, y + d.dy, maze, true, true)
+  );
+  if (valid.length === 0) return 'up';
+  return valid[Math.floor(Math.random() * valid.length)].dir;
+}
+
 // Change from const to function component and add proper export
 export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDirection, onTurnTaken, isPlaying, gameOver }: GameCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -200,14 +216,17 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       ghosts: GHOST_SPAWN_POSITIONS.map((pos, index) => {
         const type = ghostTypes[index];
         const behavior = new GhostBehavior(type, GHOST_SCATTER_TARGETS[index], MAZE_LAYOUT);
+        const x = gridToPixel(pos.x);
+        const y = gridToPixel(pos.y);
         return {
-          x: gridToPixel(pos.x),
-          y: gridToPixel(pos.y),
-          direction: 'up',
+          x,
+          y,
+          direction: getRandomValidDirection(x, y, MAZE_LAYOUT),
           type,
           mode: 'house' as GhostMode,
           isReleased: index === 0,
-          behavior
+          behavior,
+          randomnessActiveUntil: Date.now() + 5000 // 5 seconds of randomness
         };
       }),
     maze: MAZE_LAYOUT,
@@ -250,14 +269,19 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           visualY: gridToPixel(16),
           currentMovingDirection: currentDirection
         },
-        ghosts: prev.ghosts.map((ghost, index) => ({
-          ...ghost,
-          x: gridToPixel(GHOST_SPAWN_POSITIONS[index].x),
-          y: gridToPixel(GHOST_SPAWN_POSITIONS[index].y),
-          direction: 'up',
-          mode: 'house' as GhostMode,
-          isReleased: index === 0
-        })),
+        ghosts: prev.ghosts.map((ghost, index) => {
+          const x = gridToPixel(GHOST_SPAWN_POSITIONS[index].x);
+          const y = gridToPixel(GHOST_SPAWN_POSITIONS[index].y);
+          return {
+            ...ghost,
+            x,
+            y,
+            direction: getRandomValidDirection(x, y, MAZE_LAYOUT),
+            mode: 'house' as GhostMode,
+            isReleased: index === 0,
+            randomnessActiveUntil: Date.now() + 5000
+          };
+        }),
         dots: prev.dots.map(dot => ({ ...dot })),
         powerPellets: prev.powerPellets.map(pellet => ({ ...pellet }))
       }));
@@ -309,7 +333,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
                 ...ghost,
                 direction: 'up',
                 mode: 'exiting' as GhostMode,
-                isReleased: true
+                isReleased: true,
+                randomnessActiveUntil: Date.now() + 5000
               };
             }
             return ghost;
@@ -735,7 +760,8 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         direction: prevState.pacman.currentMovingDirection
       };
       const redGhostPos = prevState.ghosts.find(g => g.type === 'pink');
-      const newGhosts = prevState.ghosts.map(ghost => {
+      const allGhostPositions = prevState.ghosts.map(g => ({ x: g.x, y: g.y, type: g.type }));
+      const newGhosts = prevState.ghosts.map((ghost, idx) => {
         // Debug log for ghost state
         console.log(`[updateGhosts] ${ghost.type} | pos=(${ghost.x},${ghost.y}) | dir=${ghost.direction} | mode=${ghost.mode} | released=${ghost.isReleased}`);
         // Update ghost mode using behavior
@@ -770,7 +796,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           } else {
             nextX = ghost.x; // Keep current X if aligned
           }
-          
           // If we're about to overshoot the door row, clamp to door row position
           if (nextY < 8 * CELL_SIZE) {
             nextY = 8 * CELL_SIZE;
@@ -783,24 +808,18 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         // Calculate available directions if needed (at intersection or no direction)
         if (isNearCenter || !ghost.direction || !isValidPosition(ghost.x, ghost.y, prevState.maze)) {
           const availableDirections: string[] = [];
-          
-          // Use standard logic for ALL cells once not forced by exiting logic
           if (currentCellY > 0 && prevState.maze[currentCellY - 1][currentCellX] !== 1) availableDirections.push('up');
           if (currentCellY < prevState.maze.length - 1 && prevState.maze[currentCellY + 1][currentCellX] !== 1) availableDirections.push('down');
           if (currentCellX > 0 && prevState.maze[currentCellY][currentCellX - 1] !== 1) availableDirections.push('left');
           if (currentCellX < prevState.maze[0].length - 1 && prevState.maze[currentCellY][currentCellX + 1] !== 1) availableDirections.push('right');
-
-          // Filter out opposite direction (no 180 turns)
           const opposite = getOppositeDirection(ghost.direction);
           if (availableDirections.length > 1 && ghost.direction) {
             const filteredDirections = availableDirections.filter(dir => dir !== opposite);
             if (filteredDirections.length > 0) {
-              availableDirections.length = 0; // Clear original array
-              availableDirections.push(...filteredDirections); // Add filtered ones
+              availableDirections.length = 0;
+              availableDirections.push(...filteredDirections);
             }
           }
-
-          // Choose best direction if options exist
           if (availableDirections.length > 0) {
             const ghostState = {
               position: { x: ghost.x, y: ghost.y },
@@ -809,47 +828,46 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
               currentSpeed: speed,
               lastUpdateTime: Date.now()
             };
-            const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, redGhostPos);
-            
-            const directionScores = availableDirections.map(dir => {
-              let nextCellX = currentCellX;
-              let nextCellY = currentCellY;
-              switch (dir) {
-                case 'up': nextCellY--; break;
-                case 'down': nextCellY++; break;
-                case 'left': nextCellX--; break;
-                case 'right': nextCellX++; break;
-              }
-              const nextX = nextCellX * CELL_SIZE;
-              const nextY = nextCellY * CELL_SIZE;
-              // Penalize going back into the ghost house unless eaten
-              if (ghost.mode !== 'eaten' && ghost.mode !== 'exiting' && ghost.isReleased && isInGhostHouse(nextX, nextY)) {
-                 return { direction: dir, score: -Infinity }; // Heavily penalize re-entry
-              }
-              const distanceToTarget = calculateDistance(nextX, nextY, target.x, target.y);
-              const randomFactor = ghost.mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.2;
-              const directionBonus = dir === ghost.direction ? 2 : 0; // Slight bonus for continuing straight
-              return {
-                direction: dir,
-                score: -distanceToTarget + randomFactor + directionBonus
-              };
-            });
-            const bestDirection = directionScores.reduce((best, current) => current.score > best.score ? current : best);
-
-            // --- Restore Debug Log for Door Cell --- 
-            if(currentCellX === 10 && currentCellY === 8 && (ghost.mode === 'scatter' || ghost.mode === 'chase')) {
-              console.log(`[Ghost ${ghost.type} at Door (10,8)] Mode=${ghost.mode}, Avail=${availableDirections.join(',')}, Target=(${target.x.toFixed(1)},${target.y.toFixed(1)}), Scores=${JSON.stringify(directionScores.map(ds => ({d: ds.direction, s: ds.score.toFixed(1)})))}, Chosen=${bestDirection.direction}, PrevDir=${ghost.direction}`);
+            const now = Date.now();
+            let chosenDirection;
+            if (ghost.randomnessActiveUntil && now < ghost.randomnessActiveUntil && Math.random() < 0.3) {
+              // Pick a random valid direction (not the opposite of current)
+              const randomDirs = availableDirections.filter(dir => dir !== getOppositeDirection(ghost.direction));
+              chosenDirection = randomDirs.length > 0 ? randomDirs[Math.floor(Math.random() * randomDirs.length)] : availableDirections[Math.floor(Math.random() * availableDirections.length)];
+            } else {
+              // Usual targeting logic
+              const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, redGhostPos, allGhostPositions, idx);
+              const directionScores = availableDirections.map(dir => {
+                let nextCellX = currentCellX;
+                let nextCellY = currentCellY;
+                switch (dir) {
+                  case 'up': nextCellY--; break;
+                  case 'down': nextCellY++; break;
+                  case 'left': nextCellX--; break;
+                  case 'right': nextCellX++; break;
+                }
+                const nextX = nextCellX * CELL_SIZE;
+                const nextY = nextCellY * CELL_SIZE;
+                if (ghost.mode !== 'eaten' && ghost.mode !== 'exiting' && ghost.isReleased && isInGhostHouse(nextX, nextY)) {
+                   return { direction: dir, score: -Infinity };
+                }
+                const distanceToTarget = calculateDistance(nextX, nextY, target.x, target.y);
+                const randomFactor = ghost.mode === 'frightened' ? Math.random() * 2 : Math.random() * 0.2;
+                const directionBonus = dir === ghost.direction ? 2 : 0;
+                return {
+                  direction: dir,
+                  score: -distanceToTarget + randomFactor + directionBonus
+                };
+              });
+              const bestDirection = directionScores.reduce((best, current) => current.score > best.score ? current : best);
+              chosenDirection = bestDirection.direction;
             }
-            // --- END Restore Debug Log ---
-
-            if (ghost.direction !== bestDirection.direction) {
+            if (ghost.direction !== chosenDirection) {
               directionChanged = true;
             }
-            ghost.direction = bestDirection.direction;
+            ghost.direction = chosenDirection;
           }
         }
-
-        // Calculate next position based on chosen direction
         let nextX = ghost.x;
         let nextY = ghost.y;
         switch (ghost.direction) {
@@ -858,7 +876,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
           case 'left': nextX -= speed; break;
           case 'right': nextX += speed; break;
         }
-        // Only snap to grid if direction changed or hit a wall
         if (directionChanged || !isValidPosition(nextX, nextY, prevState.maze, ghost.mode === 'exiting')) {
           nextX = currentCellX * CELL_SIZE;
           nextY = currentCellY * CELL_SIZE;
@@ -983,6 +1000,59 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isPlaying, gameOver]);
+
+  // Add at the top, after other useEffects
+  useEffect(() => {
+    if (!isPlaying) return () => {};
+
+    // Scatter/Chase mode intervals (in ms)
+    const SCATTER_DURATION = 7000; // 7 seconds scatter
+    const CHASE_DURATION = 20000;  // 20 seconds chase
+
+    let mode: 'scatter' | 'chase' = 'scatter';
+    let intervalId: NodeJS.Timeout;
+
+    const switchMode = () => {
+      mode = mode === 'scatter' ? 'chase' : 'scatter';
+      setGameState(prev => ({
+        ...prev,
+        isScatterMode: mode === 'scatter',
+        ghosts: prev.ghosts.map(g =>
+          (g.mode !== 'frightened' && g.mode !== 'eaten' && g.mode !== 'house' && g.mode !== 'exiting')
+            ? { ...g, mode }
+            : g
+        )
+      }));
+      // Schedule next switch
+      intervalId = setTimeout(switchMode, mode === 'scatter' ? SCATTER_DURATION : CHASE_DURATION);
+    };
+
+    // Start the first interval
+    intervalId = setTimeout(switchMode, SCATTER_DURATION);
+
+    return () => {
+      if (intervalId) clearTimeout(intervalId);
+    };
+  }, [isPlaying]);
+
+  // Add after the scatter/chase mode useEffect
+  useEffect(() => {
+    setGameState(prev => ({
+      ...prev,
+      ghosts: prev.ghosts.map(g => {
+        // Only update ghosts that are not eaten, house, or exiting
+        if (g.mode === 'eaten' || g.mode === 'house' || g.mode === 'exiting') return g;
+        if (prev.isPoweredUp) {
+          // Enter frightened mode
+          return { ...g, mode: 'frightened' };
+        } else {
+          // Return to current global mode (scatter or chase)
+          return { ...g, mode: prev.isScatterMode ? 'scatter' : 'chase' };
+        }
+      })
+    }));
+  // Only run when isPoweredUp changes
+  }, [gameState.isPoweredUp]);
 
   return <Canvas ref={canvasRef} />;
 }
