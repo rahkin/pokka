@@ -77,14 +77,15 @@ export class ObstacleSystem {
             mesh: wall,
             type: 'wall',
             position: wall.position.clone(),
-            radius: 1.5, // Adjusted collision radius for better detection
+            radius: 1.0, // Match the wall's half-width
+            size: new THREE.Vector3(2, 4, 2),
             update: null
         };
         this.obstacles.add(obstacle);
         console.log('ObstacleSystem: Created wall obstacle', {
             position: obstacle.position.clone(),
             radius: obstacle.radius,
-            size: new THREE.Vector3(2, 4, 2)
+            size: obstacle.size
         });
     }
 
@@ -210,19 +211,40 @@ export class ObstacleSystem {
             // Total minimum distance needed to avoid collision
             const minDistance = radius + obstacleRadius;
 
-            // Add a small buffer to prevent false positives
-            const collisionBuffer = 0.2;
+            // Add a larger buffer to prevent false positives
+            const collisionBuffer = 0.4;
             if (distance < minDistance - collisionBuffer) {
-                console.log('ObstacleSystem: Collision detected', {
-                    distance,
-                    minDistance,
-                    targetPosition: position.clone(),
-                    targetRadius: radius,
-                    obstaclePosition: obstaclePos.clone(),
-                    obstacleRadius: obstacleRadius,
-                    obstacleType: obstacle.type
-                });
-                return true;
+                // For walls, also check if we're actually in front of the wall
+                if (obstacle.type === 'wall') {
+                    const toWall = obstaclePos.clone().sub(position).normalize();
+                    const wallNormal = new THREE.Vector3(0, 0, 1); // Assuming walls face outward
+                    const dotProduct = toWall.dot(wallNormal);
+                    
+                    // Only trigger collision if we're actually in front of the wall
+                    if (dotProduct > 0) {
+                        console.log('ObstacleSystem: Wall collision detected', {
+                            distance,
+                            minDistance,
+                            targetPosition: position.clone(),
+                            targetRadius: radius,
+                            obstaclePosition: obstaclePos.clone(),
+                            obstacleRadius: obstacleRadius,
+                            dotProduct
+                        });
+                        return true;
+                    }
+                } else {
+                    console.log('ObstacleSystem: Collision detected', {
+                        distance,
+                        minDistance,
+                        targetPosition: position.clone(),
+                        targetRadius: radius,
+                        obstaclePosition: obstaclePos.clone(),
+                        obstacleRadius: obstacleRadius,
+                        obstacleType: obstacle.type
+                    });
+                    return true;
+                }
             }
         }
         
