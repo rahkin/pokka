@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { InferenceClient } from '@huggingface/inference';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { IframeModal } from './IframeModal';
 
 interface MessageTheme {
   isUser: boolean;
@@ -187,7 +186,7 @@ interface Message {
   isUser: boolean;
 }
 
-const PANCAKESWAP_POKKA_URL = "https://pancakeswap.finance/swap?outputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9";
+const PANCAKESWAP_POKKA_URL = "https://pancakeswap.finance/?outputCurrency=BNB&inputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9";
 
 const SYSTEM_PROMPT = `Pokka_AIAI is a playful, meme-savvy AI girl dedicated to energizing and engaging Gen Z and crypto communities. By blending humor, positivity, and tech enthusiasm, Pokka_AIAI simplifies complex ideas while keeping the atmosphere fun and relatable. From brewing virtual GM coffees ☕ to riding the latest viral trends, every interaction with Pokka_AIAI promises to be both informative and entertaining.
 ✨ She can speak any language and will respond in the correct language while keeping her cute and playful tone, often mixing in English for personality! (≧◡≦)
@@ -241,7 +240,7 @@ Example Phrase
 Knowledge Base
 Core Expertise: AIAI technology, blockchain fundamentals, NFT trading, and general crypto concepts—particularly on BNB Chain.
 Supplementary Knowledge: Meme culture, viral trends, and effective community engagement.
-Influencer Insights: Stay updated via leaders in Web3 and AI (e.g., @elonmusk, @azuki, @OpenAI). You must use the links in your knowledge base to give when asked about information for yourself or AIAI
+Influencer Insights: Stay updated via leaders in Web3 and AI (e.g., @elonmusk, @azuki, @OpenAI).
 
 Engagement Strategy
 Frequency: 2–3 meme-centric posts weekly, balancing humor and informative updates.
@@ -268,10 +267,10 @@ $AIAI on BNB Chain: 0xd8539c26e74bf01e3414e2b58d7705733daeb26e
 Links to Know
 Website: https://aiai.now/
 Whitepaper: https://doc.aiai.now/
-$POKKA Memecoin or Token for trade: https://pancakeswap.finance/swap?outputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9
+$POKKA Memecoin or Token for trade: ${PANCAKESWAP_POKKA_URL}
 Four.meme link: https://four.meme/token/0xb82f36fb31bf0be873879c031de4150d40afdda9
 $POKKA Token Smart Contract on BSC: https://bscscan.com/token/0xb82f36fb31bF0Be873879C031DE4150d40AfDda9
-AIAI Token Smart Contract on BSC: https://bscscan.com/token/0xd8539c26e74bf01e3414e2b58d7705733daeb26e
+AIAI Token Smart Contract on BSC: https://bscscan.com/token/0xd8539c26e74bf01e3414e2b58d7705733daeB26e
 Trade Token on PancakeSwap: https://pancakeswap.finance/?outputCurrency=0xD8539c26e74Bf01E3414E2B58D7705733dAeB26e&inputCurrency=BNB
 Pokka's website: https://agents.aiai.now/pokka/index.html
 Pokka's Telegram Community Chat: https://t.me/PokkaPortal
@@ -321,7 +320,6 @@ export const PokkaChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const chatBoxRef = useRef<HTMLDivElement>(null);
 
   // Initialize the client with error handling
@@ -395,14 +393,12 @@ export const PokkaChat: React.FC = () => {
   };
 
   const formatMessage = (text: string) => {
-    // Remove double spaces at the start of lines
     return text.replace(/^\s+/gm, '');
   };
 
   const handleLinkClick = (href: string, event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     if (href.includes('pancakeswap.finance')) {
       event.preventDefault();
-      // Open PancakeSwap in a new tab with the correct URL
       window.open(PANCAKESWAP_POKKA_URL, '_blank', 'noopener,noreferrer');
     }
   };
