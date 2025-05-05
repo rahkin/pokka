@@ -203,14 +203,16 @@ export class ObstacleSystem {
 
             const obstaclePos = obstacle.mesh.position;
             // Use obstacle's actual size for collision
-            const obstacleRadius = obstacle.size || 1.0;
+            const obstacleRadius = obstacle.radius || 1.0;
             
             // Calculate distance between snake head and obstacle center
             const distance = position.distanceTo(obstaclePos);
             // Total minimum distance needed to avoid collision
             const minDistance = radius + obstacleRadius;
 
-            if (distance < minDistance) {
+            // Add a small buffer to prevent false positives
+            const collisionBuffer = 0.2;
+            if (distance < minDistance - collisionBuffer) {
                 console.log('ObstacleSystem: Collision detected', {
                     distance,
                     minDistance,

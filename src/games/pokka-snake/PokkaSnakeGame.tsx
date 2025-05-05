@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { useAccount } from 'wagmi';
 import { Leaderboard } from '../../components/Leaderboard';
@@ -57,6 +57,8 @@ const ScoreDisplay = styled.div`
 export const PokkaSnakeGame: React.FC = () => {
   const { address } = useAccount();
   const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [hasProcessedGameOver, setHasProcessedGameOver] = useState(false);
 
   // Handle messages from the iframe
   React.useEffect(() => {
@@ -70,39 +72,35 @@ export const PokkaSnakeGame: React.FC = () => {
 
       if (!allowedOrigins.includes(event.origin)) return;
 
-      // --- DEBUG LOG --- 
       console.log('[PokkaSnakeGame] Received message:', event.data);
-      // --- END DEBUG LOG ---
 
       // Handle score updates from the game
       if (event.data.type === 'score') {
-        // Ensure score is a number before updating/saving
         const newScore = Number(event.data.score);
-        if (!isNaN(newScore)) { 
+        if (!isNaN(newScore)) {
           setScore(newScore);
-          if (address) {
-            console.log(`[PokkaSnakeGame] Saving intermediate score: ${newScore}`);
-            saveScore('pokka-snake', address, newScore);
-          }
         }
       }
       
       // Handle game over and submit final score
-      if (event.data.type === 'gameOver' && address) {
-        // Ensure finalScore is a number before saving
+      if (event.data.type === 'gameOver' && !hasProcessedGameOver) {
         const finalScore = Number(event.data.finalScore);
-        if (!isNaN(finalScore)) { 
+        if (!isNaN(finalScore) && finalScore > 0 && address) {
           console.log(`[PokkaSnakeGame] Saving final score: ${finalScore}`);
           saveScore('pokka-snake', address, finalScore);
-        } else {
-          console.error('[PokkaSnakeGame] Received gameOver event with invalid finalScore:', event.data.finalScore);
+          setScore(finalScore);
+          setGameOver(true);
+          setHasProcessedGameOver(true);
         }
       }
     };
 
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [address]);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      setHasProcessedGameOver(false); // Reset when component unmounts
+    };
+  }, [address, hasProcessedGameOver]);
 
   return (
     <GameContainer>
