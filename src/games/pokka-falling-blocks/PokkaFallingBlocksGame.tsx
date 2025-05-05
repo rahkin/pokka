@@ -452,20 +452,19 @@ export const PokkaFallingBlocksGame: React.FC = () => {
       soundManagerRef.current?.stopBgm(); // Stop BGM on game over
       gameStateRef.current.gameOver = true;
       
-      // Ensure we're using the final score
-      const finalScore = score;
+      // Save score immediately when game is over
       if (address) {
-        setTimeout(() => {
-          saveScore('pokka-falling-blocks', address, finalScore).then(() => {
-            const event = new CustomEvent('scoreUpdated', { 
-              detail: { 
-                gameId: 'pokka-falling-blocks',
-                score: finalScore 
-              } 
-            });
-            window.dispatchEvent(event);
+        saveScore('pokka-falling-blocks', address, score).then(() => {
+          const event = new CustomEvent('scoreUpdated', { 
+            detail: { 
+              gameId: 'pokka-falling-blocks',
+              score: score 
+            } 
           });
-        }, 100);
+          window.dispatchEvent(event);
+        }).catch(error => {
+          console.error('Error saving score:', error);
+        });
       }
     }
     
@@ -511,11 +510,16 @@ export const PokkaFallingBlocksGame: React.FC = () => {
     
     // Check for completed lines
     let linesCleared = 0;
-    for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+    let y = BOARD_HEIGHT - 1;
+    while (y >= 0) {
       if (newBoard[y].every(cell => cell !== '')) {
         newBoard.splice(y, 1);
         newBoard.unshift(Array(BOARD_WIDTH).fill(''));
         linesCleared++;
+        // Don't decrement y here because we need to check the same row again
+        // since the line above has moved down
+      } else {
+        y--;
       }
     }
     
