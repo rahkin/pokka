@@ -1,4 +1,4 @@
-import { CELL_SIZE, GHOST_PERSONALITIES, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS, POWER_PELLET_DURATION } from './gameConstants';
+import { CELL_SIZE, GHOST_EXIT_POSITION, GHOST_HOUSE_POSITION, GHOST_HOUSE_BOUNDS, POWER_PELLET_DURATION } from './gameConstants';
 
 // Define GhostMode type locally since we removed XState
 export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house' | 'exiting';
@@ -75,7 +75,6 @@ export default class GhostBehavior {
   getTargetPosition(
     ghost: GhostState,
     pacman: PacmanState,
-    redGhost?: Position,
     allGhostPositions?: Array<{ x: number; y: number; type: string }>,
     selfIndex?: number
   ): Position {
@@ -141,7 +140,7 @@ export default class GhostBehavior {
       target = { x: this.scatterTarget.x * CELL_SIZE, y: this.scatterTarget.y * CELL_SIZE };
     } else {
       // Chase mode - each ghost has unique behavior
-      target = this.getChaseTarget(ghost, pacman, redGhost, allGhostPositions, selfIndex);
+      target = this.getChaseTarget(ghost, pacman, allGhostPositions, selfIndex);
     }
     
     this.currentTarget = target;
@@ -174,7 +173,6 @@ export default class GhostBehavior {
   private getChaseTarget(
     ghost: GhostState,
     pacman: PacmanState,
-    redGhost?: Position,
     allGhostPositions?: Array<{ x: number; y: number; type: string }>,
     selfIndex?: number
   ): Position {
@@ -186,7 +184,7 @@ export default class GhostBehavior {
         // Blue: Ambush ahead of Pokkaman, but if another ghost is already there, target a different intersection
         const ahead = this.getPositionAhead(pacman.position, pacman.direction, 4);
         if (allGhostPositions) {
-          const others = allGhostPositions.filter((g, i) => i !== selfIndex);
+          const others = allGhostPositions.filter((_, i) => i !== selfIndex);
           const tooClose = others.some(g => this.calculateDistance(g, ahead) < CELL_SIZE * 2);
           if (tooClose) {
             // Pick a nearby intersection instead
@@ -205,7 +203,7 @@ export default class GhostBehavior {
             // Score: distance to self minus distance to other ghosts
             const distToSelf = this.calculateDistance(ghost.position, pos);
             const distToOthers = allGhostPositions
-              .filter((g, i) => i !== selfIndex)
+              .filter((_, i) => i !== selfIndex)
               .reduce((sum, g) => sum + this.calculateDistance(g, pos), 0);
             const score = distToSelf - distToOthers * 0.5;
             if (score < minScore) {
@@ -263,36 +261,6 @@ export default class GhostBehavior {
     }
     
     return paths;
-  }
-
-  private getStrategicPosition(ghostPos: Position, pacmanPos: Position): Position {
-    // Calculate the center of the maze
-    const centerX = Math.floor(this.maze[0].length / 2) * CELL_SIZE;
-    const centerY = Math.floor(this.maze.length / 2) * CELL_SIZE;
-    
-    // Calculate vector from center to Pacman
-    const vectorX = pacmanPos.x - centerX;
-    const vectorY = pacmanPos.y - centerY;
-    
-    // Normalize vector
-    const length = Math.sqrt(vectorX * vectorX + vectorY * vectorY);
-    const normalizedX = vectorX / length;
-    const normalizedY = vectorY / length;
-    
-    // Calculate strategic position (opposite side of the maze from Pacman)
-    const strategicX = centerX - normalizedX * CELL_SIZE * 5;
-    const strategicY = centerY - normalizedY * CELL_SIZE * 5;
-    
-    // Ensure position is valid
-    if (this.isValidGridPosition(
-      Math.floor(strategicX / CELL_SIZE),
-      Math.floor(strategicY / CELL_SIZE)
-    )) {
-      return { x: strategicX, y: strategicY };
-    }
-    
-    // Fallback to random position
-    return this.getRandomAdjacentTarget(ghostPos);
   }
 
   private getOppositeDirection(direction: string): string {
