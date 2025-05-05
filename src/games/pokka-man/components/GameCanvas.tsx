@@ -759,7 +759,6 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
         position: { x: prevState.pacman.x, y: prevState.pacman.y },
         direction: prevState.pacman.currentMovingDirection
       };
-      const redGhostPos = prevState.ghosts.find(g => g.type === 'pink');
       const allGhostPositions = prevState.ghosts.map(g => ({ x: g.x, y: g.y, type: g.type }));
       const newGhosts = prevState.ghosts.map((ghost, idx) => {
         // Debug log for ghost state
@@ -836,7 +835,7 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
               chosenDirection = randomDirs.length > 0 ? randomDirs[Math.floor(Math.random() * randomDirs.length)] : availableDirections[Math.floor(Math.random() * availableDirections.length)];
             } else {
               // Usual targeting logic
-              const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, redGhostPos, allGhostPositions, idx);
+              const target = ghost.behavior.getTargetPosition(ghostState, pacmanState, allGhostPositions, idx);
               const directionScores = availableDirections.map(dir => {
                 let nextCellX = currentCellX;
                 let nextCellY = currentCellY;
