@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useAccount } from 'wagmi';
 import { Leaderboard } from '../../components/Leaderboard';
@@ -57,7 +57,6 @@ const ScoreDisplay = styled.div`
 export const PokkaSnakeGame: React.FC = () => {
   const { address } = useAccount();
   const [score, setScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
   const [hasProcessedGameOver, setHasProcessedGameOver] = useState(false);
 
   // Handle messages from the iframe
@@ -89,7 +88,6 @@ export const PokkaSnakeGame: React.FC = () => {
           console.log(`[PokkaSnakeGame] Saving final score: ${finalScore}`);
           saveScore('pokka-snake', address, finalScore);
           setScore(finalScore);
-          setGameOver(true);
           setHasProcessedGameOver(true);
         }
       }
