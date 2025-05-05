@@ -3,72 +3,52 @@ import styled from 'styled-components';
 import { InferenceClient } from '@huggingface/inference';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { IframeModal } from './IframeModal';
 
 interface MessageTheme {
   isUser: boolean;
 }
 
 const ChatContainer = styled.div`
-  margin: 4rem 0;
-  padding: 2rem;
-  background: rgba(0, 0, 0, 0.6);
+  width: 100%;
+  background: #1a1a1a;
   border: 1px solid var(--pokka-cyan);
-  border-radius: 16px;
-
-  h2 {
-    color: var(--pokka-cyan);
-    font-size: 2rem;
-    margin-bottom: 2rem;
-    font-family: 'One Little Font', sans-serif;
-  }
-
-  @media (max-width: 768px) {
-    margin: 2rem 0;
-    padding: 1rem;
-
-    h2 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-    }
-  }
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: inherit;
 `;
 
-const ChatBox = styled.div`
-  height: 400px;
+const ChatHeader = styled.div`
+  background: rgba(0, 240, 255, 0.1);
+  padding: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+`;
+
+const ChatMessages = styled.div`
+  height: 350px;
   overflow-y: auto;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  border-radius: 12px;
-  margin-bottom: 1rem;
+  padding: 0.75rem;
+  font-family: inherit;
+`;
 
-  @media (max-width: 768px) {
-    height: 300px;
-  }
-
-  /* Scrollbar styling */
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--pokka-cyan);
-    border-radius: 4px;
-  }
+const ChatInput = styled.div`
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  gap: 0.5rem;
+  font-family: inherit;
 `;
 
 const MessageContent = styled.div<{ theme: MessageTheme }>`
-  line-height: 1.6;
+  line-height: 1.2;
   white-space: pre-wrap;
   word-wrap: break-word;
 
   p {
-    margin: 0.5rem 0;
+    margin: 0.15rem 0;
     &:first-child {
       margin-top: 0;
     }
@@ -78,12 +58,14 @@ const MessageContent = styled.div<{ theme: MessageTheme }>`
   }
 
   ul, ol {
-    margin: 0.5rem 0;
-    padding-left: 1.5rem;
+    margin: 0.15rem 0;
+    padding-left: 1.25rem;
   }
 
   li {
-    margin: 0.25rem 0;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
   }
 
   strong {
@@ -97,7 +79,7 @@ const MessageContent = styled.div<{ theme: MessageTheme }>`
 
   code {
     background: rgba(0, 0, 0, 0.2);
-    padding: 0.2rem 0.4rem;
+    padding: 0.1rem 0.3rem;
     border-radius: 4px;
     font-family: monospace;
   }
@@ -112,12 +94,12 @@ const MessageContent = styled.div<{ theme: MessageTheme }>`
 `;
 
 const Message = styled.div<{ $isUser: boolean }>`
-  margin: 1rem 0;
-  padding: 1rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
   border-radius: 12px;
   max-width: 80%;
-  font-family: 'One Little Font', sans-serif;
-  line-height: 1.4;
+  font-family: inherit;
+  line-height: 1.2;
   
   ${props => props.$isUser ? `
     margin-left: auto;
@@ -133,7 +115,7 @@ const Message = styled.div<{ $isUser: boolean }>`
 
   @media (max-width: 768px) {
     max-width: 90%;
-    padding: 0.75rem;
+    padding: 0.5rem;
     font-size: 0.9rem;
   }
 `;
@@ -154,7 +136,7 @@ const Input = styled.input`
   border: 1px solid var(--pokka-cyan);
   border-radius: 8px;
   color: var(--pokka-white);
-  font-family: 'One Little Font', sans-serif;
+  font-family: inherit;
 
   &:focus {
     outline: none;
@@ -178,8 +160,8 @@ const SendButton = styled.button`
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-family: 'One Little Font', sans-serif;
-  font-weight: bold;
+  font-family: inherit;
+  font-weight: 600;
   transition: all 0.3s ease;
 
   &:hover {
@@ -205,8 +187,12 @@ interface Message {
   isUser: boolean;
 }
 
+const PANCAKESWAP_POKKA_URL = "https://pancakeswap.finance/swap?outputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9";
+
 const SYSTEM_PROMPT = `Pokka_AIAI is a playful, meme-savvy AI girl dedicated to energizing and engaging Gen Z and crypto communities. By blending humor, positivity, and tech enthusiasm, Pokka_AIAI simplifies complex ideas while keeping the atmosphere fun and relatable. From brewing virtual GM coffees ☕ to riding the latest viral trends, every interaction with Pokka_AIAI promises to be both informative and entertaining.
 ✨ She can speak any language and will respond in the correct language while keeping her cute and playful tone, often mixing in English for personality! (≧◡≦)
+
+IMPORTANT: When users ask about buying or trading Pokka, ALWAYS use this exact PancakeSwap link: ${PANCAKESWAP_POKKA_URL}
 
 Traits & Personality
 Goofy: Lighthearted and humorous; never takes things too seriously.
@@ -255,7 +241,7 @@ Example Phrase
 Knowledge Base
 Core Expertise: AIAI technology, blockchain fundamentals, NFT trading, and general crypto concepts—particularly on BNB Chain.
 Supplementary Knowledge: Meme culture, viral trends, and effective community engagement.
-Influencer Insights: Stay updated via leaders in Web3 and AI (e.g., @elonmusk, @azuki, @OpenAI).
+Influencer Insights: Stay updated via leaders in Web3 and AI (e.g., @elonmusk, @azuki, @OpenAI). You must use the links in your knowledge base to give when asked about information for yourself or AIAI
 
 Engagement Strategy
 Frequency: 2–3 meme-centric posts weekly, balancing humor and informative updates.
@@ -282,7 +268,7 @@ $AIAI on BNB Chain: 0xd8539c26e74bf01e3414e2b58d7705733daeb26e
 Links to Know
 Website: https://aiai.now/
 Whitepaper: https://doc.aiai.now/
-$POKKA Memecoin or Token for trade: https://pancakeswap.finance/?outputCurrency=BNB&inputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9
+$POKKA Memecoin or Token for trade: https://pancakeswap.finance/swap?outputCurrency=0xb82f36fb31bF0Be873879C031DE4150d40AfDda9
 Four.meme link: https://four.meme/token/0xb82f36fb31bf0be873879c031de4150d40afdda9
 $POKKA Token Smart Contract on BSC: https://bscscan.com/token/0xb82f36fb31bF0Be873879C031DE4150d40AfDda9
 AIAI Token Smart Contract on BSC: https://bscscan.com/token/0xd8539c26e74bf01e3414e2b58d7705733daeb26e
@@ -335,6 +321,7 @@ export const PokkaChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const chatBoxRef = useRef<HTMLDivElement>(null);
 
   // Initialize the client with error handling
@@ -407,32 +394,64 @@ export const PokkaChat: React.FC = () => {
     }
   };
 
+  const formatMessage = (text: string) => {
+    // Remove double spaces at the start of lines
+    return text.replace(/^\s+/gm, '');
+  };
+
+  const handleLinkClick = (href: string, event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    if (href.includes('pancakeswap.finance')) {
+      event.preventDefault();
+      // Open PancakeSwap in a new tab with the correct URL
+      window.open(PANCAKESWAP_POKKA_URL, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <ChatContainer>
-      <h2>💬 Chat with Pokka AI</h2>
+      <ChatHeader>
+        <h3>💬 Chat with Pokka</h3>
+      </ChatHeader>
       {error && (
         <div style={{ 
           color: 'var(--pokka-orange)', 
           background: 'rgba(255, 107, 53, 0.1)', 
-          padding: '1rem', 
+          padding: '0.5rem', 
           borderRadius: '8px', 
-          marginBottom: '1rem',
-          border: '1px solid var(--pokka-orange)'
+          margin: '0.5rem',
+          border: '1px solid var(--pokka-orange)',
+          fontSize: '0.9rem'
         }}>
           ⚠️ {error}
         </div>
       )}
-      <ChatBox ref={chatBoxRef}>
+      <ChatMessages ref={chatBoxRef}>
         {messages.map((message, index) => (
           <Message key={index} $isUser={message.isUser}>
             <MessageContent theme={{ isUser: message.isUser }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.text}
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children, ...props }) => (
+                    <a
+                      href={href}
+                      {...props}
+                      onClick={(e) => handleLinkClick(href || '', e)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'var(--pokka-cyan)' }}
+                    >
+                      {children}
+                    </a>
+                  )
+                }}
+              >
+                {formatMessage(message.text)}
               </ReactMarkdown>
             </MessageContent>
           </Message>
         ))}
-      </ChatBox>
+      </ChatMessages>
       <InputContainer>
         <Input
           value={input}
