@@ -12,6 +12,7 @@ import '@rainbow-me/rainbowkit/styles.css'
 import Home from './pages/Home'
 import Games from './pages/Games'
 import Profile from './pages/Profile'
+import Leaderboard from './pages/Leaderboard'
 import TokenGate from './components/TokenGate'
 import Header from './components/Header'
 
@@ -46,6 +47,7 @@ function App() {
                 <Route path="/games" element={<Games />} />
                 <Route path="/games/:gameId" element={<Games />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
               </Routes>
             </TokenGate>
           </div>

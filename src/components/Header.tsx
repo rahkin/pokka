@@ -11,6 +11,7 @@ const HeaderContainer = styled.header`
   padding: 1rem 2rem;
   background: #1a1a1a;
   border-bottom: 1px solid #333;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 
   @media (max-width: 768px) {
     padding: 0.5rem 1rem;
@@ -30,6 +31,7 @@ const Nav = styled.nav`
   a {
     color: #fff;
     text-decoration: none;
+    font-weight: 500;
     &:hover {
       color: #0cf;
     }
@@ -48,6 +50,7 @@ const CustomConnectButton = styled.button`
   gap: 0.5rem;
   font-family: inherit;
   font-size: 1rem;
+  font-weight: 500;
 
   @media (max-width: 768px) {
     padding: 0.4rem 0.8rem;
@@ -74,6 +77,7 @@ const CustomConnectButton = styled.button`
 const BalanceDisplay = styled.span`
   color: #0cf;
   margin-right: 0.5rem;
+  font-weight: 500;
 
   @media (max-width: 768px) {
     font-size: 0.85rem;
@@ -89,6 +93,7 @@ const Header = () => {
       <Nav>
         <Link to="/">Home</Link>
         <Link to="/games">Games</Link>
+        <Link to="/leaderboard">Leaderboard</Link>
         <Link to="/profile">Profile</Link>
       </Nav>
       <ConnectButton.Custom>

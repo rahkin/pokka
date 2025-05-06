@@ -77,7 +77,8 @@ const NewsSection = styled.section`
     display: flex;
     align-items: center;
     gap: 1rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
 
     @media (max-width: 768px) {
       font-size: 1.5rem;
@@ -103,7 +104,7 @@ const NewsCard = styled.article`
   border-radius: 12px;
   padding: 1.5rem;
   transition: transform 0.3s ease;
-  font-family: 'One Little Font', sans-serif;
+  font-family: inherit;
 
   @media (max-width: 768px) {
     padding: 1rem;
@@ -115,7 +116,8 @@ const NewsCard = styled.article`
 
   h3 {
     margin-bottom: 1rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
 
     @media (max-width: 768px) {
       font-size: 1.1rem;
@@ -136,7 +138,7 @@ const NewsCard = styled.article`
   p {
     color: var(--pokka-white);
     margin-bottom: 1rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
 
     @media (max-width: 768px) {
       font-size: 0.9rem;
@@ -147,7 +149,7 @@ const NewsCard = styled.article`
   time {
     color: var(--pokka-orange);
     font-size: 0.9rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
 
     @media (max-width: 768px) {
       font-size: 0.8rem;
@@ -163,7 +165,8 @@ const FeaturedGames = styled.section`
     font-size: 2rem;
     margin-bottom: 2rem;
     text-align: center;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
   }
 `
 
@@ -178,7 +181,8 @@ const CryptoDashboard = styled.section`
     color: var(--pokka-cyan);
     font-size: 2rem;
     margin-bottom: 2rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
   }
 `
 
@@ -194,32 +198,49 @@ const DashboardCard = styled.div`
   border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
-  font-family: 'One Little Font', sans-serif;
+  font-family: inherit;
 
   h3 {
     color: var(--pokka-cyan);
     margin-bottom: 1rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
   }
 
   .value {
     font-size: 1.5rem;
     color: var(--pokka-white);
     margin-bottom: 0.5rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
   }
 
   .market-cap {
     font-size: 1.1rem;
     color: var(--pokka-orange);
     margin-bottom: 0.5rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
   }
 
   .trend {
     color: var(--pokka-orange);
     font-size: 0.9rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+  }
+`
+
+const ChatSection = styled.section`
+  margin: 4rem 0;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--pokka-cyan);
+  border-radius: 16px;
+
+  h2 {
+    color: var(--pokka-cyan);
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    font-family: inherit;
+    font-weight: 600;
   }
 `
 
@@ -235,14 +256,15 @@ const CTABanner = styled.section`
     color: var(--pokka-cyan);
     font-size: 2.5rem;
     margin-bottom: 1rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
+    font-weight: 600;
   }
 
   p {
     color: var(--pokka-white);
     font-size: 1.2rem;
     margin-bottom: 2rem;
-    font-family: 'One Little Font', sans-serif;
+    font-family: inherit;
   }
 `
 
@@ -252,7 +274,8 @@ const Footer = styled.footer`
   text-align: center;
   color: var(--pokka-white);
   opacity: 0.7;
-  font-family: 'One Little Font', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 `
 
 const RefreshButton = styled.button`
@@ -263,7 +286,8 @@ const RefreshButton = styled.button`
   padding: 0.5rem;
   border-radius: 50%;
   transition: transform 0.3s ease;
-  font-family: 'One Little Font', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 
   &:hover {
     transform: rotate(180deg);
@@ -410,7 +434,7 @@ const Home: React.FC = () => {
                 borderRadius: '8px',
                 padding: '0.75rem 2rem',
                 fontSize: '1.1rem',
-                fontFamily: "'One Little Font', sans-serif",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 transition: 'background 0.2s',
@@ -472,7 +496,10 @@ const Home: React.FC = () => {
         )}
       </CryptoDashboard>
 
-      <PokkaChat />
+      <ChatSection>
+        <h2>💬 Chat with Pokka</h2>
+        <PokkaChat />
+      </ChatSection>
 
       <CTABanner>
         <h2>🚀 Ready to Train Your Own AI Twin?</h2>

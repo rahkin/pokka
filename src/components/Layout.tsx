@@ -5,6 +5,20 @@ import { useUsername } from '../hooks/useUsername'
 import { UsernameModal } from './UsernameModal'
 import styled from 'styled-components'
 
+const LayoutContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+`
+
+const Main = styled.main`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+`
+
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -22,17 +36,17 @@ const UserInfo = styled.div`
 
 const Username = styled.span`
   color: var(--pokka-cyan);
-  font-family: 'One Little Font', sans-serif;
+  font-weight: 500;
 `
 
 const SetUsernameButton = styled.button`
   background: transparent;
   color: var(--pokka-orange);
   border: none;
-  font-family: 'One Little Font', sans-serif;
   cursor: pointer;
   padding: 0.5rem;
   font-size: 0.9rem;
+  font-weight: 500;
 
   &:hover {
     text-decoration: underline;
@@ -56,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isConnected, isLoading, username])
 
   return (
-    <div>
+    <LayoutContainer>
       <Header>
         <UserInfo>
           {isConnected && !isLoading && username && (
@@ -71,12 +85,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <ConnectButton />
       </Header>
 
-      <main>{children}</main>
+      <Main>{children}</Main>
 
       <UsernameModal
         isOpen={showUsernameModal}
         onClose={() => setShowUsernameModal(false)}
       />
-    </div>
+    </LayoutContainer>
   )
-} 
+}
+
+export { LayoutContainer, Main } 
