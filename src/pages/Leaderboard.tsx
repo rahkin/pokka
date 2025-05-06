@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import styled from 'styled-components';
 import { GameLeaderboard, LeaderboardEntry, GameScore } from '../types';
-import { collection, query, orderBy, limit, getDocs, where, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
+import { database } from '../config/firebase';
 
 const LeaderboardContainer = styled.div`
   padding: 2rem;
@@ -78,50 +78,54 @@ const Leaderboard = () => {
         for (const game of GAMES) {
           console.log(`Fetching scores for game: ${game.id}`);
           // Fetch top 10 scores
-          const scoresRef = collection(db, 'scores');
-          const q = query(
-            scoresRef,
-            where('gameId', '==', game.id),
-            orderBy('score', 'desc'),
-            limit(10)
-          );
+          const scoresRef = ref(database, `scores/${game.id}`);
+          const q = query(scoresRef, orderByChild('score'), limitToLast(10));
           
-          const snapshot = await getDocs(q);
-          console.log(`Found ${snapshot.size} scores for ${game.id}`);
+          const snapshot = await get(q);
+          console.log(`Found ${Object.keys(snapshot.val() || {}).length} scores for ${game.id}`);
           const topScores: LeaderboardEntry[] = [];
           
-          snapshot.forEach((doc: QueryDocumentSnapshot) => {
-            const data = doc.data() as GameScore;
-            console.log(`Score data for ${game.id}:`, data);
-            topScores.push({
-              ...data,
-              rank: topScores.length + 1,
-              isCurrentUser: data.userId === address,
-            } as LeaderboardEntry);
-          });
+          if (snapshot.exists()) {
+            const scores: { [key: string]: any } = snapshot.val();
+            const sortedScores = Object.entries(scores)
+              .map(([userId, data]: [string, any]) => ({
+                userId,
+                username: data.username || 'Anonymous',
+                score: data.score,
+                gameId: game.id,
+                timestamp: data.timestamp,
+                rank: 0,
+                isCurrentUser: userId === address
+              }))
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 10)
+              .map((score, index) => ({
+                ...score,
+                rank: index + 1
+              }));
+
+            topScores.push(...sortedScores);
+          }
 
           // Fetch user's rank if not in top 10
           let userRank: number | undefined;
           if (address) {
             console.log(`Fetching user rank for ${address} in ${game.id}`);
-            const userScoreQuery = query(
-              scoresRef,
-              where('gameId', '==', game.id),
-              where('userId', '==', address)
-            );
-            const userScoreSnapshot = await getDocs(userScoreQuery);
+            const userScoreRef = ref(database, `scores/${game.id}/${address}`);
+            const userScoreSnapshot = await get(userScoreRef);
             
-            if (!userScoreSnapshot.empty) {
-              const userScore = userScoreSnapshot.docs[0].data().score;
+            if (userScoreSnapshot.exists()) {
+              const userScore = userScoreSnapshot.val().score;
               console.log(`User score for ${game.id}:`, userScore);
-              const higherScoresQuery = query(
-                scoresRef,
-                where('gameId', '==', game.id),
-                where('score', '>', userScore)
-              );
-              const higherScoresSnapshot = await getDocs(higherScoresQuery);
-              userRank = higherScoresSnapshot.size + 1;
-              console.log(`User rank for ${game.id}:`, userRank);
+              
+              // Get all scores to calculate rank
+              const allScoresSnapshot = await get(scoresRef);
+              if (allScoresSnapshot.exists()) {
+                const allScores = Object.values(allScoresSnapshot.val()) as any[];
+                const higherScores = allScores.filter(score => score.score > userScore);
+                userRank = higherScores.length + 1;
+                console.log(`User rank for ${game.id}:`, userRank);
+              }
             }
           }
 
