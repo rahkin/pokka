@@ -66,21 +66,21 @@ const GameTiles: React.FC = () => {
   return (
     <GamesGrid>
       <GameCard>
-        <img src="/assets/images/pokka_header.png" alt="PokkaMan" />
+        <img src="/assets/images/pokkaman_tile.png" alt="PokkaMan" />
         <h2>PokkaMan</h2>
         <p>Guide Pokka through the maze, collect dots, and avoid ghosts in this classic arcade-style game!</p>
         <PlayButton to="/games/pokka-man">Play Now</PlayButton>
       </GameCard>
 
       <GameCard>
-        <img src="/assets/images/pokka_header.png" alt="Pokka's Falling Blocks" />
+        <img src="/assets/images/falling_blocks_tile.png" alt="Pokka's Falling Blocks" />
         <h2>Pokka's Falling Blocks</h2>
         <p>Stack and clear blocks in this addictive puzzle game. How high can you score?</p>
         <PlayButton to="/games/falling-blocks">Play Now</PlayButton>
       </GameCard>
 
       <GameCard>
-        <img src="/assets/images/pokka_header.png" alt="Pokka's Snakes" />
+        <img src="/assets/images/snakes_tile.png" alt="Pokka's Snakes" />
         <h2>Pokka's Snakes</h2>
         <p>A modern take on the classic snake game with 3D graphics, power-ups, and special effects!</p>
         <PlayButton to="/games/snakes">Play Now</PlayButton>
