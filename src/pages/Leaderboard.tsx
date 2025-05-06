@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import styled from 'styled-components';
-import { GameLeaderboard, LeaderboardEntry, GameScore } from '../types';
+import { GameLeaderboard, LeaderboardEntry } from '../types';
 import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
 import { database } from '../config/firebase';
 
@@ -45,9 +45,10 @@ const TableCell = styled.td`
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 `;
 
-const UserRow = styled.tr<{ isCurrentUser: boolean }>`
-  background: ${props => props.isCurrentUser ? 'rgba(0, 240, 255, 0.1)' : 'transparent'};
-  font-weight: ${props => props.isCurrentUser ? '600' : 'normal'};
+const LeaderboardRow = styled.tr<{ $isCurrentUser?: boolean }>`
+  background-color: ${props => props.$isCurrentUser ? 'rgba(255, 255, 255, 0.1)' : 'transparent'};
+  font-weight: ${props => props.$isCurrentUser ? 'bold' : 'normal'};
+  color: ${props => props.$isCurrentUser ? '#fff' : 'inherit'};
 `;
 
 const UserRank = styled.div`
@@ -65,6 +66,12 @@ const GAMES = [
   { id: 'pokka-snake', name: 'Pokka Snake' },
 ];
 
+// Helper function to abbreviate wallet address
+function abbreviateAddress(address?: string) {
+  if (!address) return '';
+  return address.slice(0, 6) + '...' + address.slice(-4);
+}
+
 const Leaderboard = () => {
   const { address } = useAccount();
   const [leaderboards, setLeaderboards] = useState<GameLeaderboard[]>([]);
@@ -73,72 +80,52 @@ const Leaderboard = () => {
   useEffect(() => {
     const fetchLeaderboards = async () => {
       try {
-        const leaderboardData: GameLeaderboard[] = [];
-
-        for (const game of GAMES) {
-          console.log(`Fetching scores for game: ${game.id}`);
-          // Fetch top 10 scores
-          const scoresRef = ref(database, `scores/${game.id}`);
-          const q = query(scoresRef, orderByChild('score'), limitToLast(10));
-          
-          const snapshot = await get(q);
-          console.log(`Found ${Object.keys(snapshot.val() || {}).length} scores for ${game.id}`);
-          const topScores: LeaderboardEntry[] = [];
-          
-          if (snapshot.exists()) {
-            const scores: { [key: string]: any } = snapshot.val();
-            const sortedScores = Object.entries(scores)
-              .map(([userId, data]: [string, any]) => ({
-                userId,
-                username: data.username || 'Anonymous',
-                score: data.score,
-                gameId: game.id,
-                timestamp: data.timestamp,
-                rank: 0,
-                isCurrentUser: userId === address
-              }))
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 10)
-              .map((score, index) => ({
-                ...score,
-                rank: index + 1
-              }));
-
-            topScores.push(...sortedScores);
-          }
-
-          // Fetch user's rank if not in top 10
-          let userRank: number | undefined;
-          if (address) {
-            console.log(`Fetching user rank for ${address} in ${game.id}`);
-            const userScoreRef = ref(database, `scores/${game.id}/${address}`);
-            const userScoreSnapshot = await get(userScoreRef);
+        const leaderboards: GameLeaderboard[] = await Promise.all(
+          GAMES.map(async (game) => {
+            const scoresRef = ref(database, `scores/${game.id}`);
+            const scoresSnapshot = await get(scoresRef);
+            const scores: LeaderboardEntry[] = [];
             
-            if (userScoreSnapshot.exists()) {
-              const userScore = userScoreSnapshot.val().score;
-              console.log(`User score for ${game.id}:`, userScore);
-              
-              // Get all scores to calculate rank
-              const allScoresSnapshot = await get(scoresRef);
-              if (allScoresSnapshot.exists()) {
-                const allScores = Object.values(allScoresSnapshot.val()) as any[];
-                const higherScores = allScores.filter(score => score.score > userScore);
-                userRank = higherScores.length + 1;
-                console.log(`User rank for ${game.id}:`, userRank);
+            scoresSnapshot.forEach((childSnapshot) => {
+              const scoreData = childSnapshot.val();
+              scores.push({
+                userId: childSnapshot.key!,
+                username: scoreData.username,
+                score: scoreData.score,
+                gameId: game.id,
+                timestamp: scoreData.timestamp,
+                rank: 0,
+                isCurrentUser: childSnapshot.key === address
+              });
+            });
+
+            // Sort scores in descending order
+            scores.sort((a, b) => b.score - a.score);
+
+            // Add ranks
+            scores.forEach((score, index) => {
+              score.rank = index + 1;
+            });
+
+            // Get user's rank if not in top 10
+            let userRank: LeaderboardEntry | undefined;
+            if (address) {
+              const userScore = scores.find(s => s.userId === address);
+              if (userScore) {
+                userRank = userScore;
               }
             }
-          }
 
-          leaderboardData.push({
-            gameId: game.id,
-            gameName: game.name,
-            topScores,
-            userRank,
-          });
-        }
+            return {
+              gameId: game.id,
+              gameName: game.name,
+              topScores: scores.slice(0, 10),
+              userRank
+            };
+          })
+        );
 
-        console.log('Final leaderboard data:', leaderboardData);
-        setLeaderboards(leaderboardData);
+        setLeaderboards(leaderboards);
       } catch (error) {
         console.error('Error fetching leaderboards:', error);
       } finally {
@@ -169,17 +156,29 @@ const Leaderboard = () => {
             </thead>
             <tbody>
               {gameLeaderboard.topScores.map((entry) => (
-                <UserRow key={entry.userId} isCurrentUser={entry.isCurrentUser}>
+                <LeaderboardRow 
+                  key={entry.userId} 
+                  $isCurrentUser={entry.isCurrentUser}
+                >
                   <TableCell>#{entry.rank}</TableCell>
-                  <TableCell>{entry.username}</TableCell>
+                  <TableCell>{entry.username && entry.username.trim() !== '' ? entry.username : abbreviateAddress(entry.userId)}</TableCell>
                   <TableCell>{entry.score}</TableCell>
-                </UserRow>
+                </LeaderboardRow>
               ))}
+              {gameLeaderboard.userRank && (
+                <>
+                  <LeaderboardRow $isCurrentUser={true}>
+                    <TableCell>#{gameLeaderboard.userRank.rank}</TableCell>
+                    <TableCell>{gameLeaderboard.userRank.username && gameLeaderboard.userRank.username.trim() !== '' ? gameLeaderboard.userRank.username : abbreviateAddress(gameLeaderboard.userRank.userId)}</TableCell>
+                    <TableCell>{gameLeaderboard.userRank.score}</TableCell>
+                  </LeaderboardRow>
+                </>
+              )}
             </tbody>
           </ScoreTable>
-          {gameLeaderboard.userRank && gameLeaderboard.userRank > 10 && (
+          {gameLeaderboard.userRank && gameLeaderboard.userRank.rank > 10 && (
             <UserRank>
-              Your Rank: #{gameLeaderboard.userRank}
+              Your Rank: #{gameLeaderboard.userRank.rank}
             </UserRank>
           )}
         </GameSection>
