@@ -33,14 +33,6 @@ const ChatMessages = styled.div`
   font-family: inherit;
 `;
 
-const ChatInput = styled.div`
-  padding: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  gap: 0.5rem;
-  font-family: inherit;
-`;
-
 const MessageContent = styled.div<{ theme: MessageTheme }>`
   line-height: 1.2;
   white-space: pre-wrap;
