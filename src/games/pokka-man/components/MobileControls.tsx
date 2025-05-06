@@ -84,7 +84,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
     onDirectionChange(direction);
   };
 
-  const handleClick = (direction: string) => (e: React.MouseEvent) => {
+  const handleClick = (direction: string) => () => {
     console.log('Mobile control clicked:', direction);
     onDirectionChange(direction);
   };
