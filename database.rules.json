@@ -1,10 +1,10 @@
 {
   "rules": {
     "scores": {
+      ".read": true,
       "$gameId": {
         ".indexOn": ["score"],
         "$userId": {
-          ".read": true,
           ".write": "auth != null"
         }
       }
