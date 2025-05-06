@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import styled from 'styled-components';
 import { GameLeaderboard, LeaderboardEntry } from '../types';
-import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../config/firebase';
 
 const LeaderboardContainer = styled.div`
@@ -155,7 +155,7 @@ const Leaderboard = () => {
               </tr>
             </thead>
             <tbody>
-              {gameLeaderboard.topScores.map((entry) => (
+              {gameLeaderboard.topScores.map((entry: LeaderboardEntry) => (
                 <LeaderboardRow 
                   key={entry.userId} 
                   $isCurrentUser={entry.isCurrentUser}
