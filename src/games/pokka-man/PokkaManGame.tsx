@@ -246,8 +246,10 @@ export const PokkaManGame: React.FC = () => {
   };
 
   const handleTurnTaken = useCallback(() => {
-    setNextDirection('');
-  }, []);
+    if (!isMobile) {
+      setNextDirection('');
+    }
+  }, [isMobile]);
 
   const handleGameOver = () => {
     setGameOver(true);
@@ -292,8 +294,8 @@ export const PokkaManGame: React.FC = () => {
             <RestartButton onClick={startGame}>Play Again</RestartButton>
           </GameOverOverlay>
         )}
-        {isMobile && <MobileControls onDirectionChange={handleDirectionChange} />}
       </GameSection>
+      {isMobile && <MobileControls onDirectionChange={handleDirectionChange} />}
       <SidebarSection>
         <HowToPlaySection>
           <HowToPlayTitle>How to Play</HowToPlayTitle>
@@ -339,7 +341,7 @@ export const PokkaManGame: React.FC = () => {
               <Divider />
               <ControlsSection>
                 <div style={{ marginBottom: '10px', color: 'var(--pokka-cyan)' }}>Mobile Controls:</div>
-                <div>Use the on-screen directional buttons at the bottom of the game to control Pokka's movement.</div>
+                <div>Use the on-screen directional buttons below the game to control Pokka's movement.</div>
               </ControlsSection>
             </>
           )}

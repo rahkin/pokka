@@ -17,6 +17,14 @@ const ControlsContainer = styled.div`
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+
+  @media (max-width: 768px) {
+    position: static;
+    left: unset;
+    bottom: unset;
+    transform: none;
+    margin: 20px auto 0 auto;
+  }
 `;
 
 const ControlButton = styled.button<{ isPressed?: boolean }>`
@@ -72,13 +80,13 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
   const handleTouchStart = (direction: string) => (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log('Mobile control pressed:', direction);
     onDirectionChange(direction);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDirectionChange('');
+  const handleClick = (direction: string) => (e: React.MouseEvent) => {
+    console.log('Mobile control clicked:', direction);
+    onDirectionChange(direction);
   };
 
   return (
@@ -87,7 +95,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
         <ControlButton
           className="control-button"
           onTouchStart={handleTouchStart('up')}
-          onTouchEnd={handleTouchEnd}
+          onClick={handleClick('up')}
           aria-label="Move Up"
         >
           ↑
@@ -97,7 +105,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
         <ControlButton
           className="control-button"
           onTouchStart={handleTouchStart('left')}
-          onTouchEnd={handleTouchEnd}
+          onClick={handleClick('left')}
           aria-label="Move Left"
         >
           ←
@@ -107,7 +115,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
         <ControlButton
           className="control-button"
           onTouchStart={handleTouchStart('down')}
-          onTouchEnd={handleTouchEnd}
+          onClick={handleClick('down')}
           aria-label="Move Down"
         >
           ↓
@@ -117,7 +125,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({ onDirectionChang
         <ControlButton
           className="control-button"
           onTouchStart={handleTouchStart('right')}
-          onTouchEnd={handleTouchEnd}
+          onClick={handleClick('right')}
           aria-label="Move Right"
         >
           →
