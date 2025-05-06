@@ -115,7 +115,6 @@ export default class GhostBehavior {
     
     // If ghost is exiting, always target the door
     if (ghost.mode === 'exiting') {
-      console.log(`[GhostBehavior] ${this.type} exiting mode, targeting door at (${GHOST_EXIT_POSITION.x},${GHOST_EXIT_POSITION.y})`);
       return {
         x: GHOST_EXIT_POSITION.x * CELL_SIZE,
         y: GHOST_EXIT_POSITION.y * CELL_SIZE
@@ -144,8 +143,6 @@ export default class GhostBehavior {
     }
     
     this.currentTarget = target;
-    // Debug log for target selection
-    console.log(`[GhostBehavior] ${this.type} mode=${ghost.mode} isReleased=${ghost.isReleased} returning target=(${target.x},${target.y})`);
     return target;
   }
 
@@ -350,8 +347,6 @@ export default class GhostBehavior {
     let newMode = ghost.mode;
     let changed = false;
 
-    console.log(`[GhostBehavior] ${this.type} current mode=${ghost.mode} isReleased=${ghost.isReleased}`);
-
     if (ghost.mode === 'frightened' && currentTime - this.lastModeChange > POWER_PELLET_DURATION) {
       newMode = 'chase';
       changed = true;
@@ -373,7 +368,6 @@ export default class GhostBehavior {
       newMode = 'scatter';
       changed = true;
       this.lastModeChange = currentTime;
-      console.log(`[GhostBehavior] ${this.type} mode changed from exiting to scatter`);
     }
 
     if (changed) {

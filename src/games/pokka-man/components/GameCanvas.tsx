@@ -23,18 +23,29 @@ import {
   GRID_ALIGNMENT_THRESHOLD
 } from '../utils/gameConstants';
 
+const CanvasWrapper = styled.div`
+  width: 100%;
+  aspect-ratio: 600 / 660;
+  max-width: 600px;
+  max-height: 660px;
+  margin: 0 auto;
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+`;
+
 const Canvas = styled.canvas`
-  width: 600px;
-  height: 660px;
+  width: 100%;
+  height: 100%;
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   -ms-interpolation-mode: nearest-neighbor;
   image-rendering: -webkit-optimize-contrast;
-  margin: 0 auto;
   background: #000;
-  outline: none; /* Remove focus outline */
-  touch-action: none; /* Prevent browser touch actions */
+  outline: none;
+  touch-action: none;
 `;
 
 type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten' | 'house' | 'exiting';
@@ -321,14 +332,11 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
     for (let index = 1; index < GHOST_SPAWN_POSITIONS.length; index++) {
       const type = ghostTypes[index];
       const spawnDelay = GHOST_PERSONALITIES[type].spawnDelay;
-      console.log(`[Ghost Release] Scheduling release for ${type} ghost in ${spawnDelay}ms`);
       
       const timeout = setTimeout(() => {
-        console.log(`[Ghost Release] Releasing ${type} ghost`);
         setGameState(prev => {
           const newGhosts = prev.ghosts.map((ghost, i) => {
             if (i === index) {
-              console.log(`[Ghost Release] Updating ghost ${i} (${type}) to released state`);
               return {
                 ...ghost,
                 direction: 'up',
@@ -761,12 +769,9 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
       };
       const allGhostPositions = prevState.ghosts.map(g => ({ x: g.x, y: g.y, type: g.type }));
       const newGhosts = prevState.ghosts.map((ghost, idx) => {
-        // Debug log for ghost state
-        console.log(`[updateGhosts] ${ghost.type} | pos=(${ghost.x},${ghost.y}) | dir=${ghost.direction} | mode=${ghost.mode} | released=${ghost.isReleased}`);
         // Update ghost mode using behavior
         const { mode: newMode, changed } = ghost.behavior.updateMode(ghost);
         if (changed) {
-          console.log(`[Ghost ${ghost.type}] Mode changed from ${ghost.mode} to ${newMode}`);
           ghost.mode = newMode;
         }
 
@@ -1053,7 +1058,26 @@ export function GameCanvas({ onScoreUpdate, onGameOver, nextDirection, currentDi
   // Only run when isPoweredUp changes
   }, [gameState.isPoweredUp]);
 
-  return <Canvas ref={canvasRef} />;
+  // Add a useEffect to set the canvas internal size to match the displayed size on mount and resize:
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const setCanvasSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      // Set internal pixel size to match display size for crisp rendering
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    };
+    setCanvasSize();
+    window.addEventListener('resize', setCanvasSize);
+    return () => window.removeEventListener('resize', setCanvasSize);
+  }, []);
+
+  return (
+    <CanvasWrapper>
+      <Canvas ref={canvasRef} />
+    </CanvasWrapper>
+  );
 }
 
 // NO DUPLICATE CODE OR IMPORTS BELOW THIS LINE
