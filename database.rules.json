@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "scores": {
+      "$gameId": {
+        ".indexOn": ["score"],
+        "$userId": {
+          ".read": true,
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+} 
