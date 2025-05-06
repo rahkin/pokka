@@ -254,35 +254,43 @@ const HowToPlayBox = styled.div`
   }
 `;
 
-// Add touch controls
+// Update TouchControls styles for modern look
 const TouchControls = styled.div`
-  display: none;
   position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
-  padding: 0 20px;
-  
-  @media (max-width: 768px) {
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 18px;
+  padding: 12px 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  @media (max-width: 900px) {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
   }
 `;
 
 const TouchButton = styled.button`
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid var(--pokka-cyan);
-  border-radius: 8px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 2px solid var(--pokka-cyan);
+  border-radius: 12px;
   color: var(--pokka-cyan);
-  padding: 15px;
-  font-size: 20px;
+  width: 54px;
+  height: 54px;
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: background 0.15s, transform 0.1s;
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-
   &:active {
-    background: rgba(0, 240, 255, 0.2);
+    background: rgba(0, 240, 255, 0.3);
+    transform: scale(0.95);
   }
 `;
 
@@ -729,21 +737,24 @@ export const PokkaFallingBlocksGame: React.FC = () => {
     spawnPiece();
   }, [spawnPiece]);
 
-  const handleTouchStart = useCallback((action: () => void) => (e: React.TouchEvent) => {
-    e.preventDefault();
-    action();
-  }, []);
+  // Helper for both click and touch
+  const handleButton = (action: () => void) => {
+    return {
+      onClick: (e: React.MouseEvent) => { e.preventDefault(); action(); },
+      onTouchStart: (e: React.TouchEvent) => { e.preventDefault(); action(); }
+    };
+  };
 
   return (
     <GameContainer>
       <GameSection>
         <canvas ref={canvasRef} />
         <TouchControls>
-          <TouchButton onTouchStart={handleTouchStart(moveLeft)}>←</TouchButton>
-          <TouchButton onTouchStart={handleTouchStart(rotate)}>↻</TouchButton>
-          <TouchButton onTouchStart={handleTouchStart(moveDown)}>↓</TouchButton>
-          <TouchButton onTouchStart={handleTouchStart(moveRight)}>→</TouchButton>
-          <TouchButton onTouchStart={handleTouchStart(hardDrop)}>⤓</TouchButton>
+          <TouchButton {...handleButton(moveLeft)} title="Left" aria-label="Move Left">←</TouchButton>
+          <TouchButton {...handleButton(rotate)} title="Rotate" aria-label="Rotate">⟳</TouchButton>
+          <TouchButton {...handleButton(moveDown)} title="Down" aria-label="Move Down">↓</TouchButton>
+          <TouchButton {...handleButton(moveRight)} title="Right" aria-label="Move Right">→</TouchButton>
+          <TouchButton {...handleButton(hardDrop)} title="Drop" aria-label="Hard Drop">⤓</TouchButton>
         </TouchControls>
       </GameSection>
       <SidebarSection>
