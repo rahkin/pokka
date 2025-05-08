@@ -260,7 +260,7 @@ const TouchControls = styled.div`
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
+  display: none; /* Hide by default */
   gap: 18px;
   z-index: 10;
   background: rgba(0, 0, 0, 0.5);
@@ -268,7 +268,7 @@ const TouchControls = styled.div`
   padding: 12px 18px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.25);
   @media (max-width: 900px) {
-    display: flex;
+    display: flex; /* Show on smaller screens */
   }
 `;
 
