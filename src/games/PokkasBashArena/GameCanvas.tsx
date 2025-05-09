@@ -15,6 +15,43 @@ const WALL_SEGMENTS = 32;
 const ORB_RADIUS = 0.3;
 const NUM_ORBS = 5;
 
+interface HealthBar {
+    background: THREE.Sprite;
+    foreground: THREE.Sprite;
+    update: (health: number, maxHealth: number) => void;
+}
+
+function createHealthBar(scene: THREE.Scene): HealthBar {
+    // Create background sprite (red)
+    const backgroundMaterial = new THREE.SpriteMaterial({ 
+        color: 0xff0000,
+        sizeAttenuation: false
+    });
+    const background = new THREE.Sprite(backgroundMaterial);
+    background.scale.set(0.1, 0.02, 1);
+    background.position.y = 1.5; // Position above player
+    scene.add(background);
+
+    // Create foreground sprite (green)
+    const foregroundMaterial = new THREE.SpriteMaterial({ 
+        color: 0x00ff00,
+        sizeAttenuation: false
+    });
+    const foreground = new THREE.Sprite(foregroundMaterial);
+    foreground.scale.set(0.1, 0.02, 1);
+    foreground.position.y = 1.5;
+    scene.add(foreground);
+
+    const update = (health: number, maxHealth: number) => {
+        const healthPercent = Math.max(0, Math.min(1, health / maxHealth));
+        foreground.scale.x = 0.1 * healthPercent;
+        // Center the foreground bar
+        foreground.position.x = background.position.x - (0.1 * (1 - healthPercent)) / 2;
+    };
+
+    return { background, foreground, update };
+}
+
 export interface Orb { mesh: THREE.Mesh; body: CANNON.Body; id: string; }
 export interface PlayerLike { 
     id: string; 
@@ -24,6 +61,14 @@ export interface PlayerLike {
     health: number;
     maxHealth: number;
     lastShotTime: number;
+    // Ability system
+    lastAbilityUse: number;
+    isShielded?: boolean;
+    shieldEndTime?: number;
+    shieldMesh?: THREE.Mesh;
+    isRapidFire?: boolean;
+    rapidFireEndTime?: number;
+    healthBar?: HealthBar;
 }
 
 const PokkasBashArena = () => {
@@ -203,7 +248,17 @@ const PokkasBashArena = () => {
     playerBody.angularDamping = 0.95; playerBody.fixedRotation = true; playerBody.allowSleep = false;
     console.log("[GameCanvas] playerBody created:", playerBody);
     gameInstances.current.playerBody = playerBody;
-    const humanPlayerRefObj: PlayerLike = { id: 'human_player', mesh: playerGroup, body: playerBody, isAI: false, health: 100, maxHealth: 100, lastShotTime: 0 };
+    const humanPlayerRefObj: PlayerLike = { 
+        id: 'human_player', 
+        mesh: playerGroup, 
+        body: playerBody, 
+        isAI: false, 
+        health: 100, 
+        maxHealth: 100, 
+        lastShotTime: 0, 
+        lastAbilityUse: 0,
+        healthBar: createHealthBar(scene)
+    };
     gameInstances.current.humanPlayerRef = humanPlayerRefObj;
     gameLogic.addPlayer(humanPlayerRefObj);
     
@@ -257,8 +312,8 @@ const PokkasBashArena = () => {
     const aiBody = physicsEngine.addPlayerBody(aiPhysicsShape, 1, aiGroup.position.clone(), true);
     console.log("[GameCanvas] aiBody created:", aiBody);
     gameInstances.current.aiBody = aiBody;
-    const aiController = new AIController('ai_opponent_1', aiBody, aiGroup, ARENA_RADIUS, combatSystem);
-    gameInstances.current.aiController = aiController;
+    const aiController = new AIController('ai_opponent_1', aiBody, aiGroup, ARENA_RADIUS, combatSystem, 'orange');
+    aiController.aiPlayer.healthBar = createHealthBar(scene);
     gameLogic.addAIPlayer(aiController);
 
     // Create second AI bot (green)
@@ -277,7 +332,8 @@ const PokkasBashArena = () => {
     scene.add(ai2Group);
     const ai2PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
     const ai2Body = physicsEngine.addPlayerBody(ai2PhysicsShape, 1, ai2Group.position.clone(), true);
-    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS, combatSystem);
+    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS, combatSystem, 'green');
+    ai2Controller.aiPlayer.healthBar = createHealthBar(scene);
     gameLogic.addAIPlayer(ai2Controller);
 
     // Create third AI bot (purple)
@@ -296,7 +352,8 @@ const PokkasBashArena = () => {
     scene.add(ai3Group);
     const ai3PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
     const ai3Body = physicsEngine.addPlayerBody(ai3PhysicsShape, 1, ai3Group.position.clone(), true);
-    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS, combatSystem);
+    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS, combatSystem, 'purple');
+    ai3Controller.aiPlayer.healthBar = createHealthBar(scene);
     gameLogic.addAIPlayer(ai3Controller);
 
     console.log("[GameCanvas] Attaching collision listener to aiBody...");
@@ -403,6 +460,31 @@ const PokkasBashArena = () => {
         gameInstances.current.camera.lookAt(gameInstances.current.playerMesh.position);
       }
 
+      // Update health bar positions
+      if (gameInstances.current.humanPlayerRef?.healthBar) {
+        const pos = gameInstances.current.humanPlayerRef.mesh.position;
+        gameInstances.current.humanPlayerRef.healthBar.background.position.set(pos.x, pos.y + 1.5, pos.z);
+        gameInstances.current.humanPlayerRef.healthBar.foreground.position.set(pos.x, pos.y + 1.5, pos.z);
+      }
+
+      // Update AI health bars
+      gameInstances.current.gameLogic?.aiPlayers.forEach((ai: AIController) => {
+        if (ai.aiPlayer.healthBar) {
+          const pos = ai.aiPlayer.mesh.position;
+          ai.aiPlayer.healthBar.background.position.set(pos.x, pos.y + 1.5, pos.z);
+          ai.aiPlayer.healthBar.foreground.position.set(pos.x, pos.y + 1.5, pos.z);
+          ai.aiPlayer.healthBar.update(ai.aiPlayer.health, ai.aiPlayer.maxHealth);
+        }
+      });
+
+      // Update player health bar
+      if (gameInstances.current.humanPlayerRef?.healthBar) {
+        gameInstances.current.humanPlayerRef.healthBar.update(
+          gameInstances.current.humanPlayerRef.health,
+          gameInstances.current.humanPlayerRef.maxHealth
+        );
+      }
+
       renderer.render(scene, camera);
     };
     animate();
@@ -497,6 +579,23 @@ const PokkasBashArena = () => {
       renderer.dispose();
       Object.keys(gameInstances.current).forEach(key => gameInstances.current[key] = null);
       gameInstances.current.combatSystem?.dispose();
+
+      // Clean up health bars
+      if (gameInstances.current.humanPlayerRef?.healthBar) {
+        scene.remove(gameInstances.current.humanPlayerRef.healthBar.background);
+        scene.remove(gameInstances.current.humanPlayerRef.healthBar.foreground);
+        gameInstances.current.humanPlayerRef.healthBar.background.material.dispose();
+        gameInstances.current.humanPlayerRef.healthBar.foreground.material.dispose();
+      }
+
+      gameInstances.current.gameLogic?.aiPlayers.forEach((ai: AIController) => {
+        if (ai.aiPlayer.healthBar) {
+          scene.remove(ai.aiPlayer.healthBar.background);
+          scene.remove(ai.aiPlayer.healthBar.foreground);
+          ai.aiPlayer.healthBar.background.material.dispose();
+          ai.aiPlayer.healthBar.foreground.material.dispose();
+        }
+      });
     };
   }, []);
 

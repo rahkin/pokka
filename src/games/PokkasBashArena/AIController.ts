@@ -14,6 +14,7 @@ export class AIController {
     private state: 'seeking_orb' | 'chasing_player' | 'idle' | 'avoiding' = 'idle';
     private combatSystem: CombatSystem;
     public aiPlayer: PlayerLike;
+    private aiType: 'orange' | 'green' | 'purple';
     
     private readonly moveForce = 15; // Slightly less than player for now
     private readonly detectionRadius = 8;
@@ -22,12 +23,13 @@ export class AIController {
     private readonly arenaRadius: number;
     private readonly SHOT_COOLDOWN = 1.0; // Longer cooldown than player for balance
 
-    constructor(id: string, aiBody: CANNON.Body, aiMesh: THREE.Object3D, arenaRadius: number, combatSystem: CombatSystem) {
+    constructor(id: string, aiBody: CANNON.Body, aiMesh: THREE.Object3D, arenaRadius: number, combatSystem: CombatSystem, aiType: 'orange' | 'green' | 'purple') {
         this.id = id;
         this.aiBody = aiBody;
         this.aiMesh = aiMesh;
         this.arenaRadius = arenaRadius;
         this.combatSystem = combatSystem;
+        this.aiType = aiType;
         this.aiBody.angularDamping = 0.95;
         this.aiBody.fixedRotation = true;
         this.aiBody.allowSleep = false;
@@ -38,7 +40,8 @@ export class AIController {
             isAI: true,
             health: 100,
             maxHealth: 100,
-            lastShotTime: 0
+            lastShotTime: 0,
+            lastAbilityUse: 0
         };
         (this.aiBody as any).userData = { id: this.id, type: 'ai_player' };
     }
@@ -77,6 +80,22 @@ export class AIController {
                         .normalize();
                     this.combatSystem.shootProjectile(this.aiPlayer, direction);
                     this.aiPlayer.lastShotTime = now;
+
+                    // Use special ability based on AI type
+                    switch (this.aiType) {
+                        case 'orange':
+                            // Rapid fire mode
+                            this.combatSystem.activateAbility(this.aiPlayer, 'RAPID_FIRE');
+                            break;
+                        case 'green':
+                            // Homing missile
+                            this.combatSystem.activateAbility(this.aiPlayer, 'HOMING_MISSILE', [this.targetPlayer]);
+                            break;
+                        case 'purple':
+                            // Area denial
+                            this.combatSystem.activateAbility(this.aiPlayer, 'AREA_DENIAL');
+                            break;
+                    }
                 }
             }
         }

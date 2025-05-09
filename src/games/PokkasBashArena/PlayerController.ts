@@ -58,6 +58,12 @@ export class PlayerController {
       case 'KeyS': case 'ArrowDown': this.moveState.backward = 1; break;
       case 'KeyA': case 'ArrowLeft': this.moveState.left = 1; break;
       case 'KeyD': case 'ArrowRight': this.moveState.right = 1; break;
+      case 'ShiftLeft': case 'ShiftRight':
+        this.combatSystem.activateAbility(this.player, 'DASH');
+        break;
+      case 'Space':
+        this.combatSystem.activateAbility(this.player, 'SHIELD');
+        break;
     }
   }
 

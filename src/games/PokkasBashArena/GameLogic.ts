@@ -4,15 +4,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsEngine } from './PhysicsEngine.ts';
 import { AIController } from './AIController.ts';
-import type { Orb } from './GameCanvas.tsx';
-
-// Defining PlayerLike here to avoid import issue, ideally this would be in a shared types file
-interface PlayerLike {
-    id: string;
-    mesh: THREE.Object3D;
-    body: CANNON.Body;
-    isAI?: boolean;
-}
+import type { Orb, PlayerLike } from './GameCanvas.tsx';
 
 export type GameState = 'waiting' | 'active' | 'countdown' | 'gameOver';
 
@@ -36,6 +28,13 @@ export class GameLogic {
   private onScoreUpdate: (newScore: number) => void;
   private onCountdownUpdate: (value: number) => void;
   private onGameOver: (finalScore: number) => void;
+  private readonly RESPAWN_TIME = 3; // seconds
+  private readonly SPAWN_POSITIONS = [
+    new THREE.Vector3(0, 0.5, 5),
+    new THREE.Vector3(5, 0.5, 0),
+    new THREE.Vector3(0, 0.5, -5),
+    new THREE.Vector3(-5, 0.5, 0)
+  ];
 
   constructor(
     scene: THREE.Scene, 
@@ -173,6 +172,17 @@ export class GameLogic {
     if (Math.floor(timeRemaining) !== Math.floor(timeRemaining + deltaTime)) {
       console.log(`[GameLogic] Time remaining: ${Math.floor(timeRemaining)}s`);
     }
+
+    // Check for player deaths
+    if (this.player && this.player.health <= 0) {
+      this.handlePlayerDeath(this.player);
+    }
+
+    this.aiPlayers.forEach(ai => {
+      if (ai.aiPlayer.health <= 0) {
+        this.handlePlayerDeath(ai.aiPlayer);
+      }
+    });
   }
   
   public triggerGameOver(): void {
@@ -195,5 +205,54 @@ export class GameLogic {
 
   public getGameState(): GameState {
     return this.gameState;
+  }
+
+  private handlePlayerDeath(player: PlayerLike): void {
+    // Hide the player
+    player.mesh.visible = false;
+    if (player.healthBar) {
+      player.healthBar.background.visible = false;
+      player.healthBar.foreground.visible = false;
+    }
+
+    // Disable physics
+    this.physicsEngine.world.removeBody(player.body);
+
+    // Schedule respawn
+    setTimeout(() => {
+      this.respawnPlayer(player);
+    }, this.RESPAWN_TIME * 1000);
+
+    // Update score if AI was killed by player
+    if (player.isAI) {
+      this.incrementScore(5); // 5 points for killing an AI
+    }
+  }
+
+  private respawnPlayer(player: PlayerLike): void {
+    if (this.gameState !== 'active') return;
+
+    // Choose random spawn position
+    const spawnPos = this.SPAWN_POSITIONS[Math.floor(Math.random() * this.SPAWN_POSITIONS.length)];
+    
+    // Reset position and health
+    player.body.position.copy(spawnPos as unknown as CANNON.Vec3);
+    player.body.velocity.set(0, 0, 0);
+    player.body.angularVelocity.set(0, 0, 0);
+    player.health = player.maxHealth;
+    
+    // Make visible again
+    player.mesh.visible = true;
+    if (player.healthBar) {
+      player.healthBar.background.visible = true;
+      player.healthBar.foreground.visible = true;
+    }
+
+    // Re-add to physics world
+    this.physicsEngine.world.addBody(player.body);
+
+    // Give temporary invulnerability
+    player.isShielded = true;
+    player.shieldEndTime = performance.now() / 1000 + 2; // 2 seconds of invulnerability
   }
 }
