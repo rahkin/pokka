@@ -166,28 +166,29 @@ export class PlayerController {
 
     const { forward, backward, left, right } = this.moveState;
     const worldForce = new CANNON.Vec3(0, 0, 0);
+    const scaledForce = this.moveForce * deltaTime; // Scale force by deltaTime for frame-rate independence
 
     // Calculate forward/backward force relative to camera
     if (forward) {
-      worldForce.x += this.cameraDirection.x * this.moveForce;
-      worldForce.z += this.cameraDirection.z * this.moveForce;
+      worldForce.x += this.cameraDirection.x * scaledForce;
+      worldForce.z += this.cameraDirection.z * scaledForce;
     }
     if (backward) {
-      worldForce.x -= this.cameraDirection.x * this.moveForce;
-      worldForce.z -= this.cameraDirection.z * this.moveForce;
+      worldForce.x -= this.cameraDirection.x * scaledForce;
+      worldForce.z -= this.cameraDirection.z * scaledForce;
     }
 
     // Calculate left/right strafe force relative to camera (perpendicular to cameraDirection)
     const strafeDirection = new THREE.Vector3(-this.cameraDirection.z, 0, this.cameraDirection.x); // Right-hand perpendicular vector
     if (left) {
       // Apply force opposite to the strafe (right) direction
-      worldForce.x -= strafeDirection.x * this.moveForce; // Changed from += to -=
-      worldForce.z -= strafeDirection.z * this.moveForce; // Changed from += to -=
+      worldForce.x -= strafeDirection.x * scaledForce;
+      worldForce.z -= strafeDirection.z * scaledForce;
     }
     if (right) {
       // Apply force in the strafe (right) direction
-      worldForce.x += strafeDirection.x * this.moveForce; // Changed from -= to +=
-      worldForce.z += strafeDirection.z * this.moveForce; // Changed from -= to +=
+      worldForce.x += strafeDirection.x * scaledForce;
+      worldForce.z += strafeDirection.z * scaledForce;
     }
     
     if (worldForce.lengthSquared() > 0) {

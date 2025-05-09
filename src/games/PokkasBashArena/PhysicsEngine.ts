@@ -96,7 +96,6 @@ export class PhysicsEngine {
 
     // Cylindrical Walls (composed of static boxes)
     const wallHeight = ARENA_HEIGHT;
-    const wallShape = new CANNON.Box(new CANNON.Vec3(WALL_THICKNESS / 2, wallHeight / 2, ARENA_RADIUS * Math.PI / WALL_SEGMENTS));
     // Adjusted wall segment length for better fit: (2 * PI * R) / N_segments / 2 for halfExtents. More accurately, length of chord.
     // The third parameter of CANNON.Box is half-depth, so we use the chord length.
     const segmentAngle = (Math.PI * 2) / WALL_SEGMENTS;
