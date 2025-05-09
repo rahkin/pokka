@@ -86,6 +86,13 @@ const GameTiles: React.FC = () => {
         <PlayButton to="/games/snakes">Play Now</PlayButton>
       </GameCard>
 
+      <GameCard>
+        <img src="/assets/images/pokka_header.png" alt="Pokka's Bash Arena" />
+        <h2>Pokka's Bash Arena</h2>
+        <p>Hovercraft battle game! Bump opponents and collect power orbs. 3D multiplayer fun.</p>
+        <PlayButton to="/games/pokkas-bash-arena">Play Now</PlayButton>
+      </GameCard>
+
       <ComingSoonCard>
         <img src="/assets/images/pokka_header.png" alt="Coming Soon" />
         <h2>More Games Coming Soon!</h2>

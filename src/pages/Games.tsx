@@ -5,6 +5,7 @@ import GameTiles from '../components/GameTiles'
 import { PokkaManGame } from '../games/pokka-man/PokkaManGame'
 import { PokkaSnakeGame } from '../games/pokka-snake/PokkaSnakeGame'
 import { PokkaFallingBlocksGame } from '../games/pokka-falling-blocks/PokkaFallingBlocksGame'
+import PokkasBashArena from '../games/PokkasBashArena/GameCanvas.tsx'
 
 const Container = styled.div`
   max-width: 1200px;
@@ -50,6 +51,8 @@ const Games: React.FC = () => {
       return <PokkaSnakeGame />
       case 'falling-blocks':
         return <PokkaFallingBlocksGame />
+      case 'pokkas-bash-arena':
+        return <PokkasBashArena />
       default:
       return (
         <Container>
