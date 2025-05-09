@@ -3,9 +3,8 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsEngine } from './PhysicsEngine.ts';
-import { PlayerController } from './PlayerController.ts';
 import { AIController } from './AIController.ts';
-import type { Orb } from './GameCanvas.tsx'; // Assuming Orb is correctly exported
+import type { Orb } from './GameCanvas.tsx';
 
 // Defining PlayerLike here to avoid import issue, ideally this would be in a shared types file
 interface PlayerLike {
@@ -96,7 +95,6 @@ export class GameLogic {
     }
   }
 
-  // Method to explicitly cancel the countdown timeout
   public cancelCountdown(): void {
     if (this.countdownTimeoutId) {
       console.log(`[GameLogic] Cancelling countdown timeout ID: ${this.countdownTimeoutId}`);
@@ -133,14 +131,14 @@ export class GameLogic {
   }
   
   public removeOrb(orbId: string): Orb | undefined {
-    console.log(`[GameLogic] Attempting to remove orb with ID: ${orbId}`); // Log search attempt
+    console.log(`[GameLogic] Attempting to remove orb with ID: ${orbId}`);
     const orbIndex = this.orbs.findIndex(o => o.id === orbId);
     if (orbIndex !== -1) {
       const [removedOrb] = this.orbs.splice(orbIndex, 1);
-      console.log(`[GameLogic] Orb found and removed: ${orbId}`); // Log success
+      console.log(`[GameLogic] Orb found and removed: ${orbId}`);
       return removedOrb;
     }
-    console.log(`[GameLogic] Orb NOT found: ${orbId}`); // Log failure
+    console.log(`[GameLogic] Orb NOT found: ${orbId}`);
     return undefined;
   }
 
@@ -180,9 +178,7 @@ export class GameLogic {
   public triggerGameOver(): void {
     if (this.gameState === 'gameOver') return;
     this.setGameState('gameOver');
-    // Pass the player's score as the final score
     this.onGameOver(this.score);
-    // Freeze physics bodies
     this.player?.body.sleep();
     this.aiPlayers.forEach(ai => ai.aiBody.sleep());
     this.orbs.forEach(orb => orb.body.sleep());
@@ -200,4 +196,4 @@ export class GameLogic {
   public getGameState(): GameState {
     return this.gameState;
   }
-} 
+}

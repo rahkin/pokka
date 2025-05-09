@@ -36,10 +36,27 @@ export class AIController {
         (this.aiBody as any).userData = { id: this.id, type: 'ai_player' };
     }
 
-    update(deltaTime: number, allOrbs: Orb[], humanPlayers: PlayerLike[]): void {
-        // Don't update AI if it's not supposed to be active (e.g., game not started - needs GameLogic state)
-        // For now, we assume it's always active once created for simplicity
-        this.findBestTarget(allOrbs, humanPlayers);
+    public update(deltaTime: number, orbs: Orb[], players: PlayerLike[]): void {
+        // Use deltaTime for smooth movement
+        const speed = 5 * deltaTime; // Base movement speed adjusted by deltaTime
+        
+        // Find closest orb
+        let closestOrb = this.findClosestOrb(orbs);
+        
+        if (closestOrb) {
+            // Calculate direction to closest orb
+            const direction = new THREE.Vector3()
+                .subVectors(closestOrb.mesh.position, this.aiMesh.position)
+                .normalize();
+            
+            // Apply force towards orb
+            this.aiBody.applyImpulse(
+                new CANNON.Vec3(direction.x * speed, 0, direction.z * speed),
+                new CANNON.Vec3(0, 0, 0)
+            );
+        }
+
+        this.findBestTarget(orbs, players);
         this.avoidWalls(); // Avoidance takes priority
         if (this.state !== 'avoiding') {
             this.moveTowardsTarget(deltaTime);
@@ -144,6 +161,21 @@ export class AIController {
             this.aiBody.velocity.normalize();
             this.aiBody.velocity.scale(maxSpeed, this.aiBody.velocity);
         }
+    }
+
+    private findClosestOrb(orbs: Orb[]): Orb | null {
+        let closestOrb: Orb | null = null;
+        let minOrbDistance = Infinity;
+
+        orbs.forEach(orb => {
+            const distance = this.aiMesh.position.distanceTo(orb.mesh.position);
+            if (distance < minOrbDistance) {
+                minOrbDistance = distance;
+                closestOrb = orb;
+            }
+        });
+
+        return closestOrb;
     }
 
     dispose(): void {

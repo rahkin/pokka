@@ -166,7 +166,7 @@ export class PlayerController {
 
     const { forward, backward, left, right } = this.moveState;
     const worldForce = new CANNON.Vec3(0, 0, 0);
-    const scaledForce = this.moveForce * deltaTime; // Scale force by deltaTime for frame-rate independence
+    const scaledForce = this.moveForce * (60 * deltaTime); // Scale for 60 FPS target, maintaining original force feel
 
     // Calculate forward/backward force relative to camera
     if (forward) {
