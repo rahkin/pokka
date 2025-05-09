@@ -248,6 +248,44 @@ const PokkasBashArena = () => {
     gameInstances.current.aiController = aiController;
     gameLogic.addAIPlayer(aiController);
 
+    // Create second AI bot (green)
+    const ai2CraftMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff66, metalness: 0.3, roughness: 0.4 });
+    const ai2BaseMesh = new THREE.Mesh(baseGeometry.clone(), ai2CraftMaterial);
+    ai2BaseMesh.castShadow = true;
+    ai2BaseMesh.receiveShadow = true;
+    const ai2CockpitMaterial = new THREE.MeshStandardMaterial({ color: 0x88ffaa, emissive: 0x228844, transparent: true, opacity: 0.7 });
+    const ai2CockpitMesh = new THREE.Mesh(cockpitGeometry.clone(), ai2CockpitMaterial);
+    ai2CockpitMesh.position.y = playerCraftHeight / 2;
+    ai2CockpitMesh.castShadow = true;
+    const ai2Group = new THREE.Group();
+    ai2Group.add(ai2BaseMesh);
+    ai2Group.add(ai2CockpitMesh);
+    ai2Group.position.set(-3, (playerCraftHeight + cockpitHeight) / 2, 0);
+    scene.add(ai2Group);
+    const ai2PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
+    const ai2Body = physicsEngine.addPlayerBody(ai2PhysicsShape, 1, ai2Group.position.clone(), true);
+    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS);
+    gameLogic.addAIPlayer(ai2Controller);
+
+    // Create third AI bot (purple)
+    const ai3CraftMaterial = new THREE.MeshStandardMaterial({ color: 0x9933ff, metalness: 0.3, roughness: 0.4 });
+    const ai3BaseMesh = new THREE.Mesh(baseGeometry.clone(), ai3CraftMaterial);
+    ai3BaseMesh.castShadow = true;
+    ai3BaseMesh.receiveShadow = true;
+    const ai3CockpitMaterial = new THREE.MeshStandardMaterial({ color: 0xcc99ff, emissive: 0x662299, transparent: true, opacity: 0.7 });
+    const ai3CockpitMesh = new THREE.Mesh(cockpitGeometry.clone(), ai3CockpitMaterial);
+    ai3CockpitMesh.position.y = playerCraftHeight / 2;
+    ai3CockpitMesh.castShadow = true;
+    const ai3Group = new THREE.Group();
+    ai3Group.add(ai3BaseMesh);
+    ai3Group.add(ai3CockpitMesh);
+    ai3Group.position.set(0, (playerCraftHeight + cockpitHeight) / 2, 3);
+    scene.add(ai3Group);
+    const ai3PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
+    const ai3Body = physicsEngine.addPlayerBody(ai3PhysicsShape, 1, ai3Group.position.clone(), true);
+    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS);
+    gameLogic.addAIPlayer(ai3Controller);
+
     console.log("[GameCanvas] Attaching collision listener to aiBody...");
     try {
         aiBody.addEventListener('collide', (event: any) => {
@@ -310,7 +348,10 @@ const PokkasBashArena = () => {
       const currentLogic = gameInstances.current.gameLogic as GameLogic | null;
       if (currentLogic) {
         const humanPlayersForAI: PlayerLike[] = gameInstances.current.humanPlayerRef ? [gameInstances.current.humanPlayerRef] : [];
-        aiController.update(deltaTime, currentLogic.orbs, humanPlayersForAI);
+        // Update all AI controllers
+        currentLogic.aiPlayers.forEach(aiController => {
+          aiController.update(deltaTime, currentLogic.orbs, humanPlayersForAI);
+        });
         currentLogic.update(deltaTime);
         
         if (currentLogic.gameState === 'active') {
@@ -329,10 +370,13 @@ const PokkasBashArena = () => {
       if (gameInstances.current.playerMesh && gameInstances.current.playerBody) {
         gameInstances.current.playerMesh.position.copy(gameInstances.current.playerBody.position as unknown as THREE.Vector3);
       }
-      if (gameInstances.current.aiMesh && gameInstances.current.aiBody) {
-        gameInstances.current.aiMesh.position.copy(gameInstances.current.aiBody.position as unknown as THREE.Vector3);
-      }
 
+      // Update all AI positions
+      currentLogic?.aiPlayers.forEach(aiController => {
+        aiController.aiMesh.position.copy(aiController.aiBody.position as unknown as THREE.Vector3);
+      });
+
+      // Update orb positions
       currentLogic?.orbs.forEach((orb: Orb) => {
         orb.mesh.position.copy(orb.body.position as unknown as THREE.Vector3);
         orb.mesh.quaternion.copy(orb.body.quaternion as unknown as THREE.Quaternion);
@@ -365,7 +409,22 @@ const PokkasBashArena = () => {
       console.log(`[useEffect Cleanup] Running. GameLogic ID: ${gl?.instanceId}. Scene children BEFORE orb cleanup: ${scene.children.length}`);
 
       gameInstances.current.playerController?.dispose();
-      gameInstances.current.aiController?.dispose();
+      // Dispose all AI controllers
+      gl?.aiPlayers.forEach(aiController => {
+        aiController.dispose();
+        scene.remove(aiController.aiMesh);
+        (aiController.aiMesh as THREE.Group).traverse(child => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            const material = child.material as THREE.Material | THREE.Material[];
+            if (Array.isArray(material)) {
+              material.forEach(m => m.dispose());
+            } else {
+              material.dispose();
+            }
+          }
+        });
+      });
       gameInstances.current.physicsEngine?.dispose();
 
       gl?.orbs.forEach((orb: Orb) => {
