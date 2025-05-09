@@ -13,7 +13,8 @@ export const COLLISION_GROUP = {
   AI: 2,
   ORB: 4, // Powers of 2 for bitmasking
   WALL: 8,
-  GROUND: 16
+  GROUND: 16,
+  PROJECTILE: 32
 };
 
 export class PhysicsEngine {

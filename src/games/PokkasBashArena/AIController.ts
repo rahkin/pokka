@@ -2,14 +2,8 @@
 
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three'; // For THREE.Vector3 and other types if needed
-import { Orb } from './GameCanvas.tsx'; // Assuming Orb interface is exported from GameCanvas
-
-interface PlayerLike {
-    id: string;
-    mesh: THREE.Object3D;
-    body: CANNON.Body;
-    isAI?: boolean;
-}
+import { Orb, PlayerLike } from './GameCanvas.tsx'; // Assuming Orb interface is exported from GameCanvas
+import { CombatSystem } from './CombatSystem';
 
 export class AIController {
     public id: string;
@@ -18,21 +12,34 @@ export class AIController {
     private targetOrb: Orb | null = null;
     private targetPlayer: PlayerLike | null = null;
     private state: 'seeking_orb' | 'chasing_player' | 'idle' | 'avoiding' = 'idle';
+    private combatSystem: CombatSystem;
+    public aiPlayer: PlayerLike;
     
     private readonly moveForce = 15; // Slightly less than player for now
     private readonly detectionRadius = 8;
     private readonly avoidanceDistance = 1.0;
-    private readonly playerStopDistance = 1.5; // How close AI tries to get to player before stopping force
+    private readonly playerStopDistance = 3.0; // Increased to maintain shooting distance
     private readonly arenaRadius: number;
+    private readonly SHOT_COOLDOWN = 1.0; // Longer cooldown than player for balance
 
-    constructor(id: string, aiBody: CANNON.Body, aiMesh: THREE.Object3D, arenaRadius: number) {
+    constructor(id: string, aiBody: CANNON.Body, aiMesh: THREE.Object3D, arenaRadius: number, combatSystem: CombatSystem) {
         this.id = id;
         this.aiBody = aiBody;
         this.aiMesh = aiMesh;
         this.arenaRadius = arenaRadius;
+        this.combatSystem = combatSystem;
         this.aiBody.angularDamping = 0.95;
         this.aiBody.fixedRotation = true;
         this.aiBody.allowSleep = false;
+        this.aiPlayer = {
+            id: this.id,
+            mesh: this.aiMesh,
+            body: this.aiBody,
+            isAI: true,
+            health: 100,
+            maxHealth: 100,
+            lastShotTime: 0
+        };
         (this.aiBody as any).userData = { id: this.id, type: 'ai_player' };
     }
 
@@ -60,6 +67,18 @@ export class AIController {
         this.avoidWalls(); // Avoidance takes priority
         if (this.state !== 'avoiding') {
             this.moveTowardsTarget(deltaTime);
+            
+            // Try to shoot at player if in combat
+            if (this.state === 'chasing_player' && this.targetPlayer) {
+                const now = performance.now() / 1000;
+                if (now - this.aiPlayer.lastShotTime >= this.SHOT_COOLDOWN) {
+                    const direction = new THREE.Vector3()
+                        .subVectors(this.targetPlayer.mesh.position, this.aiMesh.position)
+                        .normalize();
+                    this.combatSystem.shootProjectile(this.aiPlayer, direction);
+                    this.aiPlayer.lastShotTime = now;
+                }
+            }
         }
     }
 

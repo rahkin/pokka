@@ -1,5 +1,7 @@
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three'; // For camera direction vector
+import { CombatSystem } from './CombatSystem';
+import { PlayerLike } from './GameCanvas';
 
 // Handles human player input (keyboard + touch) for Pokka's Bash Arena
 export class PlayerController {
@@ -10,25 +12,32 @@ export class PlayerController {
   private touchJoystick: { base: HTMLDivElement; stick: HTMLDivElement } | null;
   private onKeyDownRef: (event: KeyboardEvent) => void;
   private onKeyUpRef: (event: KeyboardEvent) => void;
+  private onMouseDownRef: (event: MouseEvent) => void;
+  private combatSystem: CombatSystem;
+  private player: PlayerLike;
 
   // Touch control state
   private touchId: number | null = null;
   private joystickCenter: { x: number, y: number } | null = null;
   private readonly joystickRadius = 50; // px, half of joystickBase width/height
   private readonly moveForce = 25; // Slightly increased force
+  private readonly SHOT_COOLDOWN = 0.5; // seconds
 
   // To store camera forward direction (on XZ plane)
   private cameraDirection = new THREE.Vector3();
 
-  constructor(playerBody: CANNON.Body, domElement: HTMLElement, isMobile: boolean) {
-    this.playerBody = playerBody;
+  constructor(player: PlayerLike, domElement: HTMLElement, isMobile: boolean, combatSystem: CombatSystem) {
+    this.player = player;
+    this.playerBody = player.body;
     this.domElement = domElement;
     this.isMobile = isMobile;
+    this.combatSystem = combatSystem;
     this.moveState = { forward: 0, backward: 0, left: 0, right: 0 };
     this.touchJoystick = null;
 
     this.onKeyDownRef = this.onKeyDown.bind(this);
     this.onKeyUpRef = this.onKeyUp.bind(this);
+    this.onMouseDownRef = this.onMouseDown.bind(this);
 
     this.initEventListeners();
     if (this.isMobile) {
@@ -61,9 +70,20 @@ export class PlayerController {
     }
   }
 
+  private onMouseDown(event: MouseEvent): void {
+    if (event.button === 0) { // Left click
+      const now = performance.now() / 1000; // Convert to seconds
+      if (now - this.player.lastShotTime >= this.SHOT_COOLDOWN) {
+        this.combatSystem.shootProjectile(this.player, this.cameraDirection.clone());
+        this.player.lastShotTime = now;
+      }
+    }
+  }
+
   initEventListeners(): void {
     this.domElement.ownerDocument.addEventListener('keydown', this.onKeyDownRef);
     this.domElement.ownerDocument.addEventListener('keyup', this.onKeyUpRef);
+    this.domElement.ownerDocument.addEventListener('mousedown', this.onMouseDownRef);
     // TODO: Add listeners for back button (e.g., Escape key or a UI button)
   }
 
@@ -205,6 +225,7 @@ export class PlayerController {
   dispose(): void {
     this.domElement.ownerDocument.removeEventListener('keydown', this.onKeyDownRef);
     this.domElement.ownerDocument.removeEventListener('keyup', this.onKeyUpRef);
+    this.domElement.ownerDocument.removeEventListener('mousedown', this.onMouseDownRef);
 
     if (this.isMobile && this.touchJoystick) {
       this.touchJoystick.base.removeEventListener('touchstart', this.onTouchStart);

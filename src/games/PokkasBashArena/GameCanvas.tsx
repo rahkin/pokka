@@ -5,6 +5,7 @@ import { PhysicsEngine } from './PhysicsEngine.ts';
 import { PlayerController } from './PlayerController.ts';
 import { AIController } from './AIController.ts';
 import { GameLogic, GameState } from './GameLogic.ts';
+import { CombatSystem } from './CombatSystem.ts';
 
 const ARENA_RADIUS = 10;
 const ARENA_HEIGHT = 5;
@@ -15,7 +16,15 @@ const ORB_RADIUS = 0.3;
 const NUM_ORBS = 5;
 
 export interface Orb { mesh: THREE.Mesh; body: CANNON.Body; id: string; }
-export interface PlayerLike { id: string; mesh: THREE.Object3D; body: CANNON.Body; isAI?: boolean; }
+export interface PlayerLike { 
+    id: string; 
+    mesh: THREE.Object3D; 
+    body: CANNON.Body; 
+    isAI?: boolean;
+    health: number;
+    maxHealth: number;
+    lastShotTime: number;
+}
 
 const PokkasBashArena = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -32,6 +41,7 @@ const PokkasBashArena = () => {
     humanPlayerRef: null,
     camera: null,
     gameLogic: null,
+    combatSystem: null,
   });
   const [uiScore, setUiScore] = useState(0);
   const [uiGameState, setUiGameState] = useState<GameState>('waiting');
@@ -193,7 +203,7 @@ const PokkasBashArena = () => {
     playerBody.angularDamping = 0.95; playerBody.fixedRotation = true; playerBody.allowSleep = false;
     console.log("[GameCanvas] playerBody created:", playerBody);
     gameInstances.current.playerBody = playerBody;
-    const humanPlayerRefObj: PlayerLike = { id: 'human_player', mesh: playerGroup, body: playerBody, isAI: false };
+    const humanPlayerRefObj: PlayerLike = { id: 'human_player', mesh: playerGroup, body: playerBody, isAI: false, health: 100, maxHealth: 100, lastShotTime: 0 };
     gameInstances.current.humanPlayerRef = humanPlayerRefObj;
     gameLogic.addPlayer(humanPlayerRefObj);
     
@@ -230,8 +240,11 @@ const PokkasBashArena = () => {
         console.error("[GameCanvas] ERROR attaching player collision listener:", error);
     }
 
+    const combatSystem = new CombatSystem(scene, physicsEngine);
+    gameInstances.current.combatSystem = combatSystem;
+
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const playerController = new PlayerController(playerBody, renderer.domElement, isMobile);
+    const playerController = new PlayerController(humanPlayerRefObj, renderer.domElement, isMobile, combatSystem);
     gameInstances.current.playerController = playerController;
 
     const aiCraftMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600, metalness: 0.3, roughness: 0.4 });
@@ -244,7 +257,7 @@ const PokkasBashArena = () => {
     const aiBody = physicsEngine.addPlayerBody(aiPhysicsShape, 1, aiGroup.position.clone(), true);
     console.log("[GameCanvas] aiBody created:", aiBody);
     gameInstances.current.aiBody = aiBody;
-    const aiController = new AIController('ai_opponent_1', aiBody, aiGroup, ARENA_RADIUS);
+    const aiController = new AIController('ai_opponent_1', aiBody, aiGroup, ARENA_RADIUS, combatSystem);
     gameInstances.current.aiController = aiController;
     gameLogic.addAIPlayer(aiController);
 
@@ -264,7 +277,7 @@ const PokkasBashArena = () => {
     scene.add(ai2Group);
     const ai2PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
     const ai2Body = physicsEngine.addPlayerBody(ai2PhysicsShape, 1, ai2Group.position.clone(), true);
-    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS);
+    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS, combatSystem);
     gameLogic.addAIPlayer(ai2Controller);
 
     // Create third AI bot (purple)
@@ -283,7 +296,7 @@ const PokkasBashArena = () => {
     scene.add(ai3Group);
     const ai3PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
     const ai3Body = physicsEngine.addPlayerBody(ai3PhysicsShape, 1, ai3Group.position.clone(), true);
-    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS);
+    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS, combatSystem);
     gameLogic.addAIPlayer(ai3Controller);
 
     console.log("[GameCanvas] Attaching collision listener to aiBody...");
@@ -366,6 +379,7 @@ const PokkasBashArena = () => {
       }
       
       gameInstances.current.physicsEngine?.update(deltaTime);
+      gameInstances.current.combatSystem?.update(deltaTime);
 
       if (gameInstances.current.playerMesh && gameInstances.current.playerBody) {
         gameInstances.current.playerMesh.position.copy(gameInstances.current.playerBody.position as unknown as THREE.Vector3);
@@ -482,6 +496,7 @@ const PokkasBashArena = () => {
       }
       renderer.dispose();
       Object.keys(gameInstances.current).forEach(key => gameInstances.current[key] = null);
+      gameInstances.current.combatSystem?.dispose();
     };
   }, []);
 
