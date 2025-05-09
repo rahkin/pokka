@@ -38,7 +38,7 @@ export class AIController {
 
     public update(deltaTime: number, orbs: Orb[], players: PlayerLike[]): void {
         // Use deltaTime for smooth movement
-        const speed = 5 * deltaTime; // Base movement speed adjusted by deltaTime
+        const scaledForce = this.moveForce * (60 * deltaTime); // Scale for 60 FPS target
         
         // Find closest orb
         let closestOrb = this.findClosestOrb(orbs);
@@ -51,7 +51,7 @@ export class AIController {
             
             // Apply force towards orb
             this.aiBody.applyImpulse(
-                new CANNON.Vec3(direction.x * speed, 0, direction.z * speed),
+                new CANNON.Vec3(direction.x * scaledForce, 0, direction.z * scaledForce),
                 new CANNON.Vec3(0, 0, 0)
             );
         }
@@ -151,7 +151,8 @@ export class AIController {
             }
 
             const forceDirection = targetPos.vsub(currentPos).unit(); // Vector subtraction and normalization
-            const force = forceDirection.scale(this.moveForce);
+            const scaledForce = this.moveForce * (60 * deltaTime); // Scale for 60 FPS target, maintaining original force feel
+            const force = forceDirection.scale(scaledForce);
             this.aiBody.applyForce(force, currentPos); // Apply force at current position
         }
 
