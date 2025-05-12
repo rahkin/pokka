@@ -26,6 +26,9 @@ export class PlayerController {
   // To store camera forward direction (on XZ plane)
   private cameraDirection = new THREE.Vector3();
 
+  private mouse: { x: number; y: number } = { x: 0, y: 0 };
+  private camera: THREE.Camera | null = null;
+
   constructor(player: PlayerLike, domElement: HTMLElement, isMobile: boolean, combatSystem: CombatSystem) {
     this.player = player;
     this.playerBody = player.body;
@@ -47,6 +50,7 @@ export class PlayerController {
 
   // Method to update camera direction from GameCanvas
   public updateCameraDirection(camera: THREE.Camera): void {
+    this.camera = camera;
     camera.getWorldDirection(this.cameraDirection);
     this.cameraDirection.y = 0; // Project onto XZ plane
     this.cameraDirection.normalize();
@@ -82,7 +86,25 @@ export class PlayerController {
       // Use rapid fire cooldown if active
       const shotCooldown = this.player.isRapidFire ? 0.25 : this.SHOT_COOLDOWN;
       if (now - this.player.lastShotTime >= shotCooldown) {
-        this.combatSystem.shootProjectile(this.player, this.cameraDirection.clone());
+        let shootDirection = this.cameraDirection.clone();
+        if (this.camera && this.domElement) {
+          // Convert mouse position to normalized device coordinates (-1 to +1)
+          const rect = this.domElement.getBoundingClientRect();
+          const mouse = new THREE.Vector2(
+            ((event.clientX - rect.left) / rect.width) * 2 - 1,
+            -((event.clientY - rect.top) / rect.height) * 2 + 1
+          );
+          // Raycast from camera through mouse
+          const raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(mouse, this.camera);
+          // Intersect with XZ plane at player's Y
+          const planeY = this.player.mesh.position.y;
+          const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY);
+          const intersection = new THREE.Vector3();
+          raycaster.ray.intersectPlane(plane, intersection);
+          shootDirection = intersection.clone().sub(this.player.mesh.position).normalize();
+        }
+        this.combatSystem.shootProjectile(this.player, shootDirection);
         this.player.lastShotTime = now;
       }
     }
@@ -92,6 +114,12 @@ export class PlayerController {
     this.domElement.ownerDocument.addEventListener('keydown', this.onKeyDownRef);
     this.domElement.ownerDocument.addEventListener('keyup', this.onKeyUpRef);
     this.domElement.ownerDocument.addEventListener('mousedown', this.onMouseDownRef);
+    // Track mouse position for aiming
+    this.domElement.ownerDocument.addEventListener('mousemove', (event: MouseEvent) => {
+      const rect = this.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    });
     // TODO: Add listeners for back button (e.g., Escape key or a UI button)
   }
 

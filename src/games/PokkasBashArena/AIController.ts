@@ -25,12 +25,8 @@ export class AIController {
     private lastPosition = new THREE.Vector3();
     
     // Combat parameters
-    private lastShootTime = 0;
-    private readonly SHOT_COOLDOWN = 0.75;
     private currentTarget: PlayerLike | null = null;
     private targetChangeTimer = 0;
-    private readonly TARGET_SWITCH_TIME = 1.5; // Reduced from 3.0 to make targeting more dynamic
-    private readonly TARGET_MEMORY = 0.5; // New parameter to slightly favor keeping current target
 
     // Stuck detection
     private stuckThreshold = 0.1;
@@ -135,18 +131,22 @@ export class AIController {
 
     public update(deltaTime: number, orbs: Orb[], players: PlayerLike[]): void {
         if (this.aiPlayer.health <= 0 || !this.aiMesh.visible) return;
-
-        // Remove debug logging
         const currentPos = new THREE.Vector3(
             this.aiBody.position.x,
             this.aiBody.position.y,
             this.aiBody.position.z
         );
-
-        // Lock vertical position
-        this.aiBody.position.y = 0.5;
-        this.aiBody.velocity.y = 0;
-        this.aiBody.force.y = 0;
+        // Keep bots inside arena
+        const distFromCenter = Math.sqrt(currentPos.x * currentPos.x + currentPos.z * currentPos.z);
+        if (distFromCenter > this.arenaRadius - 1) {
+            // Move back toward center
+            const toCenter = new THREE.Vector3(-currentPos.x, 0, -currentPos.z).normalize();
+            const desiredVelocity = toCenter.multiplyScalar(this.MOVEMENT_SPEED);
+            this.targetVelocity.lerp(desiredVelocity, this.VELOCITY_SMOOTHING);
+            this.aiBody.velocity.set(this.targetVelocity.x, 0, this.targetVelocity.z);
+            this.lastPosition.copy(currentPos);
+            return;
+        }
 
         // Check if stuck
         const movement = new THREE.Vector3().subVectors(currentPos, this.lastPosition);
@@ -231,21 +231,28 @@ export class AIController {
                 this.targetVelocity.lerp(desiredVelocity, this.VELOCITY_SMOOTHING);
                 this.aiBody.velocity.set(this.targetVelocity.x, 0, this.targetVelocity.z);
             } else if (this.movementMode === 'approach') {
-                this.pursueTarget(currentPos, targetPos);
-            } else if (distanceToTarget < this.PERSONALITY_PARAMS[this.personality].engageDistance) {
+                // Only approach if not too close
+                if (distanceToTarget > this.MIN_DISTANCE) {
+                    this.pursueTarget(currentPos, targetPos);
+                } else {
+                    this.handleRetreat(currentPos, targetPos, orbs);
+                }
+            } else if (distanceToTarget < this.MIN_DISTANCE) {
+                // Too close, retreat
+                this.handleRetreat(currentPos, targetPos, orbs);
+            } else if (distanceToTarget < this.SHOOTING_RANGE) {
                 this.handleEngagement(currentPos, targetPos, this.PERSONALITY_PARAMS[this.personality]);
             } else {
                 this.pursueTarget(currentPos, targetPos);
             }
             // Handle combat
-            if (Math.random() < this.PERSONALITY_PARAMS[this.personality].shootingProbability * deltaTime) {
+            if (distanceToTarget < this.SHOOTING_RANGE && Math.random() < this.PERSONALITY_PARAMS[this.personality].shootingProbability * deltaTime) {
                 this.handleCombat(this.currentTarget);
             }
         } else {
             // No valid target, collect orbs or wander
             this.handleOrbCollection(currentPos, orbs);
         }
-
         // Store current position for next frame
         this.lastPosition.copy(currentPos);
     }
@@ -351,7 +358,7 @@ export class AIController {
     private handleEngagement(currentPos: THREE.Vector3, targetPos: THREE.Vector3, params: typeof this.PERSONALITY_PARAMS.AGGRESSIVE): void {
         // Calculate orbit position
         const toTarget = new THREE.Vector3().subVectors(targetPos, currentPos);
-        const distance = toTarget.length();
+        // const distance = toTarget.length(); // Remove unused
         // Use orbitDirection for clockwise/counterclockwise
         const orbitAngle = this.orbitDirection * (this.personality === 'AGGRESSIVE' ? Math.PI / 4 : Math.PI / 2);
         const orbitPos = new THREE.Vector3().copy(targetPos).add(
@@ -490,5 +497,5 @@ export class AIController {
         // Reset any active states
         this.currentTarget = null;
         this.targetVelocity.set(0, 0, 0);
-    }
+  }
 } 

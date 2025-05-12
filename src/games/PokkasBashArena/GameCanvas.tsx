@@ -10,10 +10,6 @@ import { ArenaSystem, ArenaLayout } from './ArenaSystem.ts';
 import { PowerUpSystem, PowerUp } from './PowerUpSystem.ts';
 
 const ARENA_RADIUS = 10;
-const ARENA_HEIGHT = 5;
-const WALL_THICKNESS = 0.5; 
-const WALL_SEGMENTS = 32;   
-
 const ORB_RADIUS = 0.3;
 const NUM_ORBS = 5;
 
@@ -227,7 +223,6 @@ const PokkasBashArena = () => {
     const playerCraftRadius = 0.5;
     const playerCraftHeight = 0.2;
     const cockpitRadius = 0.25;
-    const cockpitHeight = 0.3;
 
     const playerGroup = new THREE.Group(); 
     const baseGeometry = new THREE.CylinderGeometry(playerCraftRadius, playerCraftRadius * 0.8, playerCraftHeight, 16);
@@ -246,8 +241,8 @@ const PokkasBashArena = () => {
     scene.add(playerGroup);
     gameInstances.current.playerMesh = playerGroup;
 
-    const playerPhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
-    const playerBody = physicsEngine.addPlayerBody(playerPhysicsShape, 1, new THREE.Vector3(0, (playerCraftHeight + cockpitHeight) / 2, 0), false);
+    const playerPhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight, 16);
+    const playerBody = physicsEngine.addPlayerBody(playerPhysicsShape, 1, new THREE.Vector3(0, (playerCraftHeight) / 2, 0), false);
     playerBody.angularDamping = 0.95; playerBody.fixedRotation = true; playerBody.allowSleep = false;
     console.log("[GameCanvas] playerBody created:", playerBody);
     gameInstances.current.playerBody = playerBody;
@@ -369,7 +364,6 @@ const PokkasBashArena = () => {
         const playerCraftRadius = 0.5;
         const playerCraftHeight = 0.2;
         const cockpitRadius = 0.25;
-        const cockpitHeight = 0.3;
 
         const group = new THREE.Group();
         const baseGeometry = new THREE.CylinderGeometry(playerCraftRadius, playerCraftRadius * 0.8, playerCraftHeight, 16);

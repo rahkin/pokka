@@ -223,10 +223,7 @@ export class CombatSystem {
         }
 
         // Update area effects
-        this.areaEffects.forEach(area => {
-            // Add damage to players in area
-            // This would need to be implemented based on how you track players
-        });
+        // (Area effects logic placeholder: implement if needed)
     }
 
     public handleProjectileCollision(projectile: Projectile, target: PlayerLike): void {
