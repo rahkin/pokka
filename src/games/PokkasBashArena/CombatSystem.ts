@@ -12,6 +12,7 @@ export interface Projectile {
     lifetime: number;
     isHoming?: boolean;
     target?: PlayerLike;
+    removed?: boolean;
 }
 
 export interface SpecialAbility {
@@ -31,7 +32,6 @@ export class CombatSystem {
     private readonly PROJECTILE_SPEED = 15;
     private readonly PROJECTILE_LIFETIME = 2; // seconds
     private readonly PROJECTILE_RADIUS = 0.15;
-    private readonly BASIC_SHOT_COOLDOWN = 0.5; // seconds
     private readonly BASIC_SHOT_DAMAGE = 20;
     private readonly HOMING_TURN_SPEED = 2;
     private areaEffects: THREE.Mesh[] = [];
@@ -137,10 +137,12 @@ export class CombatSystem {
             collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.AI | COLLISION_GROUP.WALL
         });
 
+        const projectileId = `projectile-${Math.random().toString(36).substring(2)}`;
+        (projectileBody as any).userData = { type: 'projectile', id: projectileId, owner: shooter.id };
+
         const velocity = direction.normalize().multiplyScalar(this.PROJECTILE_SPEED);
         projectileBody.velocity.set(velocity.x, velocity.y, velocity.z);
 
-        const projectileId = `projectile-${Math.random().toString(36).substring(2)}`;
         const projectile: Projectile = {
             id: projectileId,
             mesh: projectileMesh,
@@ -155,24 +157,38 @@ export class CombatSystem {
         this.scene.add(projectileMesh);
         this.physicsEngine.world.addBody(projectileBody);
         this.projectiles.push(projectile);
+
+        console.log(`[CombatSystem] Shot projectile:`, {
+            id: projectileId,
+            owner: shooter.id,
+            ownerIsAI: shooter.isAI,
+            position: spawnPos,
+            velocity: velocity
+        });
     }
 
     public update(deltaTime: number): void {
-        const now = performance.now() / 1000;
-
         // Update projectiles
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
             projectile.lifetime -= deltaTime;
 
-            if (projectile.lifetime <= 0) {
+            // Remove expired or invalid projectiles
+            if (projectile.lifetime <= 0 || !projectile.body || !projectile.mesh) {
+                this.removeProjectile(projectile);
+                this.projectiles.splice(i, 1);
+                continue;
+            }
+
+            // Skip update if body is not in world
+            if (!this.physicsEngine.world.bodies.includes(projectile.body)) {
                 this.removeProjectile(projectile);
                 this.projectiles.splice(i, 1);
                 continue;
             }
 
             // Update homing projectiles
-            if (projectile.isHoming && projectile.target) {
+            if (projectile.isHoming && projectile.target && projectile.target.mesh.visible) {
                 const currentDir = new THREE.Vector3(
                     projectile.body.velocity.x,
                     projectile.body.velocity.y,
@@ -200,69 +216,95 @@ export class CombatSystem {
             }
 
             // Update projectile position
-            projectile.mesh.position.copy(projectile.body.position as unknown as THREE.Vector3);
-            projectile.mesh.quaternion.copy(projectile.body.quaternion as unknown as THREE.Quaternion);
+            if (projectile.body.position && projectile.mesh) {
+                projectile.mesh.position.copy(projectile.body.position as unknown as THREE.Vector3);
+                projectile.mesh.quaternion.copy(projectile.body.quaternion as unknown as THREE.Quaternion);
+            }
         }
 
-        // Check for players in area denial zones
+        // Update area effects
         this.areaEffects.forEach(area => {
-            const areaPos = new THREE.Vector2(area.position.x, area.position.z);
             // Add damage to players in area
             // This would need to be implemented based on how you track players
         });
     }
 
     public handleProjectileCollision(projectile: Projectile, target: PlayerLike): void {
-        if (projectile.owner !== target.id) {
+        // Skip if projectile is already removed or target is invalid
+        if (!projectile || !target || !target.mesh || !target.mesh.visible || projectile.owner === target.id) {
+            return;
+        }
+
+        try {
+            console.log(`[CombatSystem] Processing projectile collision:`, {
+                projectileId: projectile.id,
+                projectileOwner: projectile.owner,
+                targetId: target.id,
+                targetHealth: target.health,
+                targetIsShielded: target.isShielded
+            });
+
             if (!target.isShielded) {
                 // Apply damage/knockback
-                const knockbackForce = 10;
-                const direction = new CANNON.Vec3()
-                    .copy(projectile.body.velocity)
-                    .unit()
-                    .scale(knockbackForce);
-                
-                target.body.applyImpulse(direction, target.body.position);
-                target.health = Math.max(0, target.health - projectile.damage);
+                const knockback = 10;
+                const damage = projectile.damage;
+                target.health = Math.max(0, target.health - damage);
 
-                // Visual feedback for hit
-                const hitEffect = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.5, 8, 8),
-                    new THREE.MeshStandardMaterial({
-                        color: 0xffff00,
-                        emissive: 0xffff00,
-                        transparent: true,
-                        opacity: 0.7
-                    })
+                // Apply knockback
+                const knockbackDir = new THREE.Vector3()
+                    .subVectors(target.mesh.position, projectile.mesh.position)
+                    .normalize();
+                target.body.applyImpulse(
+                    new CANNON.Vec3(knockbackDir.x * knockback, 0, knockbackDir.z * knockback),
+                    target.body.position
                 );
-                hitEffect.position.copy(projectile.mesh.position);
-                this.scene.add(hitEffect);
 
-                // Fade out and remove hit effect
-                const startTime = performance.now();
-                const animate = () => {
-                    const elapsed = (performance.now() - startTime) / 1000;
-                    if (elapsed > 0.2) {
-                        this.scene.remove(hitEffect);
-                        hitEffect.geometry.dispose();
-                        (hitEffect.material as THREE.Material).dispose();
-                        return;
-                    }
-                    (hitEffect.material as THREE.Material).opacity = 0.7 * (1 - elapsed / 0.2);
-                    hitEffect.scale.multiplyScalar(1.05);
-                    requestAnimationFrame(animate);
-                };
-                animate();
+                console.log(`[CombatSystem] Applied damage:`, {
+                    targetId: target.id,
+                    newHealth: target.health,
+                    damage: damage,
+                    knockback: knockback
+                });
             }
+
+            // Remove projectile immediately after collision
             this.removeProjectile(projectile);
+            const projectileIndex = this.projectiles.findIndex(p => p.id === projectile.id);
+            if (projectileIndex !== -1) {
+                this.projectiles.splice(projectileIndex, 1);
+            }
+        } catch (error) {
+            console.error('[CombatSystem] Error handling projectile collision:', error);
+            // Ensure projectile is removed even if there's an error
+            this.removeProjectile(projectile);
+            const projectileIndex = this.projectiles.findIndex(p => p.id === projectile.id);
+            if (projectileIndex !== -1) {
+                this.projectiles.splice(projectileIndex, 1);
+            }
         }
     }
 
     private removeProjectile(projectile: Projectile): void {
-        this.scene.remove(projectile.mesh);
-        this.physicsEngine.world.removeBody(projectile.body);
-        projectile.mesh.geometry.dispose();
-        (projectile.mesh.material as THREE.Material).dispose();
+        if (!projectile || projectile.removed) return;
+        projectile.removed = true;
+        try {
+            // Remove from physics world first
+            if (projectile.body && this.physicsEngine.world.bodies.includes(projectile.body)) {
+                this.physicsEngine.world.removeBody(projectile.body);
+            }
+            // Then remove from scene
+            if (projectile.mesh && projectile.mesh.parent) {
+                projectile.mesh.parent.remove(projectile.mesh);
+                projectile.mesh.geometry.dispose();
+                (projectile.mesh.material as THREE.Material).dispose();
+            }
+            // Null out references
+            projectile.body = undefined as any;
+            projectile.mesh = undefined as any;
+            projectile.target = undefined;
+        } catch (error) {
+            console.error('[CombatSystem] Error removing projectile:', error);
+        }
     }
 
     public dispose(): void {
@@ -277,5 +319,23 @@ export class CombatSystem {
             (area.material as THREE.Material).dispose();
         });
         this.areaEffects = [];
+    }
+
+    public reset(): void {
+        console.log('[CombatSystem] Resetting combat system');
+        // Clean up all projectiles
+        this.projectiles.forEach(projectile => {
+            this.removeProjectile(projectile);
+        });
+        this.projectiles = [];
+
+        // Clean up area effects
+        this.areaEffects.forEach(area => {
+            this.scene.remove(area);
+            area.geometry.dispose();
+            (area.material as THREE.Material).dispose();
+        });
+        this.areaEffects = [];
+        console.log('[CombatSystem] Combat system reset complete');
     }
 } 

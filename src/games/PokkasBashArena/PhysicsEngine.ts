@@ -14,8 +14,9 @@ export const COLLISION_GROUP = {
   ORB: 4, // Powers of 2 for bitmasking
   WALL: 8,
   GROUND: 16,
-  PROJECTILE: 32
-};
+  PROJECTILE: 32,
+  POWER_UP: 64
+} as const;
 
 export class PhysicsEngine {
   public world: CANNON.World;

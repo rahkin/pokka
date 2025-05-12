@@ -5,6 +5,7 @@ import * as CANNON from 'cannon-es';
 import { PhysicsEngine } from './PhysicsEngine.ts';
 import { AIController } from './AIController.ts';
 import type { Orb, PlayerLike } from './GameCanvas.tsx';
+import { CombatSystem } from './CombatSystem.ts';
 
 export type GameState = 'waiting' | 'active' | 'countdown' | 'gameOver';
 
@@ -22,6 +23,7 @@ export class GameLogic {
   private countdownValue = 3;
   private countdownTimeoutId: NodeJS.Timeout | null = null;
   public readonly instanceId: string;
+  private combatSystem: CombatSystem;
 
   // Callbacks to GameCanvas for UI updates or specific actions
   private onStateChange: (newState: GameState) => void;
@@ -43,6 +45,7 @@ export class GameLogic {
     onScoreUpdate: (newScore: number) => void,
     onCountdownUpdate: (value: number) => void,
     onGameOver: (finalScore: number) => void,
+    combatSystem: CombatSystem
   ) {
     this.instanceId = `gl-${Math.random().toString(36).substring(2, 9)}`;
     this.scene = scene;
@@ -51,6 +54,7 @@ export class GameLogic {
     this.onScoreUpdate = onScoreUpdate;
     this.onCountdownUpdate = onCountdownUpdate;
     this.onGameOver = onGameOver;
+    this.combatSystem = combatSystem;
     this.setGameState('waiting');
   }
 
@@ -174,33 +178,119 @@ export class GameLogic {
     }
 
     // Check for player deaths
-    if (this.player && this.player.health <= 0) {
+    if (this.player && this.player.health <= 0 && this.player.mesh.visible) {
+      console.log('[GameLogic] Human player died');
       this.handlePlayerDeath(this.player);
+      // End game if player dies
+      this.triggerGameOver();
+      return;
     }
 
+    // Check for AI deaths
     this.aiPlayers.forEach(ai => {
-      if (ai.aiPlayer.health <= 0) {
+      if (ai.aiPlayer.health <= 0 && ai.aiPlayer.mesh.visible) {
+        console.log(`[GameLogic] AI player ${ai.id} died`);
         this.handlePlayerDeath(ai.aiPlayer);
       }
     });
+
+    // Check if all AIs are dead
+    const allAIsDead = this.aiPlayers.every(ai => ai.aiPlayer.health <= 0);
+    if (allAIsDead) {
+      console.log('[GameLogic] All AI players are dead, triggering game over');
+      this.triggerGameOver();
+    }
   }
   
   public triggerGameOver(): void {
     if (this.gameState === 'gameOver') return;
+    
+    console.log('[GameLogic] Game Over triggered');
+    console.log(`Final Score: ${this.score}`);
+    
     this.setGameState('gameOver');
     this.onGameOver(this.score);
-    this.player?.body.sleep();
-    this.aiPlayers.forEach(ai => ai.aiBody.sleep());
-    this.orbs.forEach(orb => orb.body.sleep());
+
+    // Clean up all physics bodies
+    if (this.player && this.player.body) {
+      this.player.body.sleep();
+    }
+    
+    this.aiPlayers.forEach(ai => {
+      if (ai.aiBody) {
+        ai.aiBody.sleep();
+      }
+    });
+
+    this.orbs.forEach(orb => {
+      if (orb.body) {
+        orb.body.sleep();
+      }
+    });
   }
 
   public resetGame(): void {
+    console.log('[GameLogic] Resetting game state');
     this.cancelCountdown();
     this.score = 0;
     this.aiScore = 0;
     this.gameTime = 0;
     this.onScoreUpdate(this.score);
+
+    // Reset combat system
+    this.combatSystem.reset();
+
+    // Reset human player
+    if (this.player) {
+      // Reset position and physics
+      const spawnPos = this.SPAWN_POSITIONS[0];
+      this.player.body.position.copy(spawnPos as unknown as CANNON.Vec3);
+      this.player.body.velocity.set(0, 0, 0);
+      this.player.body.angularVelocity.set(0, 0, 0);
+      this.player.body.position.y = 0.5;
+      
+      // Reset health and visibility
+      this.player.health = this.player.maxHealth;
+      this.player.mesh.visible = true;
+      if (this.player.healthBar) {
+        this.player.healthBar.background.visible = true;
+        this.player.healthBar.foreground.visible = true;
+        this.player.healthBar.update(this.player.health, this.player.maxHealth);
+      }
+
+      // Ensure body is in physics world
+      if (!this.physicsEngine.world.bodies.includes(this.player.body)) {
+        this.physicsEngine.world.addBody(this.player.body);
+      }
+    }
+
+    // Reset AI players
+    this.aiPlayers.forEach((ai, index) => {
+      const spawnPos = this.SPAWN_POSITIONS[(index + 1) % this.SPAWN_POSITIONS.length];
+      
+      // Reset position and physics
+      ai.aiBody.position.copy(spawnPos as unknown as CANNON.Vec3);
+      ai.aiBody.velocity.set(0, 0, 0);
+      ai.aiBody.angularVelocity.set(0, 0, 0);
+      ai.aiBody.position.y = 0.5;
+      
+      // Reset health and visibility
+      ai.aiPlayer.health = ai.aiPlayer.maxHealth;
+      ai.aiPlayer.mesh.visible = true;
+      if (ai.aiPlayer.healthBar) {
+        ai.aiPlayer.healthBar.background.visible = true;
+        ai.aiPlayer.healthBar.foreground.visible = true;
+        ai.aiPlayer.healthBar.update(ai.aiPlayer.health, ai.aiPlayer.maxHealth);
+      }
+
+      // Ensure body is in physics world
+      if (!this.physicsEngine.world.bodies.includes(ai.aiBody)) {
+        this.physicsEngine.world.addBody(ai.aiBody);
+      }
+    });
+
     this.setGameState('waiting');
+    console.log('[GameLogic] Game reset complete');
   }
 
   public getGameState(): GameState {
@@ -208,6 +298,7 @@ export class GameLogic {
   }
 
   private handlePlayerDeath(player: PlayerLike): void {
+    console.log(`[GameLogic] Handling death of player ${player.id}`);
     // Hide the player
     player.mesh.visible = false;
     if (player.healthBar) {
@@ -216,16 +307,20 @@ export class GameLogic {
     }
 
     // Disable physics
-    this.physicsEngine.world.removeBody(player.body);
-
-    // Schedule respawn
-    setTimeout(() => {
-      this.respawnPlayer(player);
-    }, this.RESPAWN_TIME * 1000);
+    if (this.physicsEngine.world.bodies.includes(player.body)) {
+      this.physicsEngine.world.removeBody(player.body);
+    }
 
     // Update score if AI was killed by player
-    if (player.isAI) {
+    if (player.isAI && this.gameState === 'active') {
       this.incrementScore(5); // 5 points for killing an AI
+    }
+
+    // Only respawn AIs during active game
+    if (player.isAI && this.gameState === 'active') {
+      setTimeout(() => {
+        this.respawnPlayer(player);
+      }, this.RESPAWN_TIME * 1000);
     }
   }
 

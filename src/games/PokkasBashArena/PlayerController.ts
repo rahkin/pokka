@@ -79,7 +79,9 @@ export class PlayerController {
   private onMouseDown(event: MouseEvent): void {
     if (event.button === 0) { // Left click
       const now = performance.now() / 1000; // Convert to seconds
-      if (now - this.player.lastShotTime >= this.SHOT_COOLDOWN) {
+      // Use rapid fire cooldown if active
+      const shotCooldown = this.player.isRapidFire ? 0.25 : this.SHOT_COOLDOWN;
+      if (now - this.player.lastShotTime >= shotCooldown) {
         this.combatSystem.shootProjectile(this.player, this.cameraDirection.clone());
         this.player.lastShotTime = now;
       }
@@ -192,7 +194,9 @@ export class PlayerController {
 
     const { forward, backward, left, right } = this.moveState;
     const worldForce = new CANNON.Vec3(0, 0, 0);
-    const scaledForce = this.moveForce * (60 * deltaTime); // Scale for 60 FPS target, maintaining original force feel
+    // Use boosted move force if speed boost is active
+    const moveForce = this.player.hasSpeedBoost ? this.moveForce * 1.7 : this.moveForce;
+    const scaledForce = moveForce * (60 * deltaTime); // Scale for 60 FPS target, maintaining original force feel
 
     // Calculate forward/backward force relative to camera
     if (forward) {
@@ -220,8 +224,8 @@ export class PlayerController {
     if (worldForce.lengthSquared() > 0) {
         this.playerBody.applyForce(worldForce, this.playerBody.position);
     }
-    
-    const maxSpeed = 5;
+    // Use boosted max speed if speed boost is active
+    const maxSpeed = this.player.hasSpeedBoost ? 9 : 5;
     if (this.playerBody.velocity.lengthSquared() > maxSpeed * maxSpeed) {
         this.playerBody.velocity.normalize();
         this.playerBody.velocity.scale(maxSpeed, this.playerBody.velocity);

@@ -1,11 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { PhysicsEngine } from './PhysicsEngine.ts';
+import { PhysicsEngine, COLLISION_GROUP } from './PhysicsEngine.ts';
 import { PlayerController } from './PlayerController.ts';
 import { AIController } from './AIController.ts';
 import { GameLogic, GameState } from './GameLogic.ts';
-import { CombatSystem } from './CombatSystem.ts';
+import { CombatSystem, Projectile } from './CombatSystem.ts';
+import { ArenaSystem, ArenaLayout } from './ArenaSystem.ts';
+import { PowerUpSystem, PowerUp } from './PowerUpSystem.ts';
 
 const ARENA_RADIUS = 10;
 const ARENA_HEIGHT = 5;
@@ -68,6 +70,11 @@ export interface PlayerLike {
     shieldMesh?: THREE.Mesh;
     isRapidFire?: boolean;
     rapidFireEndTime?: number;
+    // Power-up system
+    hasTripleShot?: boolean;
+    tripleShotEndTime?: number;
+    hasSpeedBoost?: boolean;
+    speedBoostEndTime?: number;
     healthBar?: HealthBar;
 }
 
@@ -87,12 +94,15 @@ const PokkasBashArena = () => {
     camera: null,
     gameLogic: null,
     combatSystem: null,
+    arenaSystem: null,
+    powerUpSystem: null,
   });
   const [uiScore, setUiScore] = useState(0);
   const [uiGameState, setUiGameState] = useState<GameState>('waiting');
   const [uiCountdown, setUiCountdown] = useState(0);
   const [uiFinalScore, setUiFinalScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(60);
+  const [currentArenaLayout, setCurrentArenaLayout] = useState<ArenaLayout>('BASIC');
 
   console.log(`[GameCanvas Render] Current uiGameState: ${uiGameState}`);
 
@@ -158,6 +168,18 @@ const PokkasBashArena = () => {
     gameInstances.current.physicsEngine = physicsEngine;
     console.log("[GameCanvas] PhysicsEngine initialized.");
 
+    const combatSystem = new CombatSystem(scene, physicsEngine);
+    gameInstances.current.combatSystem = combatSystem;
+
+    // Initialize Arena System
+    const arenaSystem = new ArenaSystem(scene, physicsEngine, ARENA_RADIUS);
+    arenaSystem.setLayout(currentArenaLayout);
+    gameInstances.current.arenaSystem = arenaSystem;
+
+    // Initialize Power-Up System
+    const powerUpSystem = new PowerUpSystem(scene, physicsEngine, ARENA_RADIUS);
+    gameInstances.current.powerUpSystem = powerUpSystem;
+
     console.log("[GameCanvas] Initializing GameLogic...");
     const gameLogic = new GameLogic(
         scene, 
@@ -174,7 +196,8 @@ const PokkasBashArena = () => {
         (finalScore) => {
             setUiFinalScore(finalScore);
             setUiGameState('gameOver');
-        }
+        },
+        combatSystem
     );
     gameInstances.current.gameLogic = gameLogic;
     console.log(`[GameCanvas] GameLogic initialized. Initial state: ${gameLogic.getGameState()}, GameLogic ID: ${gameLogic.instanceId}`);
@@ -200,26 +223,6 @@ const PokkasBashArena = () => {
     groundMesh.position.y = -0.25;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
-
-    const wallVisualHeight = ARENA_HEIGHT;
-    const wallVisualMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7 });
-    const segmentAngle = (Math.PI * 2) / WALL_SEGMENTS;
-    for (let i = 0; i < WALL_SEGMENTS; i++) {
-      const angle = i * segmentAngle;
-      const segmentLength = 2 * ARENA_RADIUS * Math.sin(segmentAngle / 2);
-      const wallSegmentGeometry = new THREE.BoxGeometry(WALL_THICKNESS, wallVisualHeight, segmentLength + 0.05); 
-      const wallMesh = new THREE.Mesh(wallSegmentGeometry, wallVisualMaterial);
-      wallMesh.position.set(
-        ARENA_RADIUS * Math.cos(angle),
-        wallVisualHeight / 2,
-        ARENA_RADIUS * Math.sin(angle)
-      );
-      wallMesh.quaternion.setFromEuler(new THREE.Euler(0, -angle, 0));
-      wallMesh.castShadow = true;
-      wallMesh.receiveShadow = true;
-      scene.add(wallMesh);
-      gameInstances.current.wallMeshes.push(wallMesh);
-    }
 
     const playerCraftRadius = 0.5;
     const playerCraftHeight = 0.2;
@@ -295,103 +298,214 @@ const PokkasBashArena = () => {
         console.error("[GameCanvas] ERROR attaching player collision listener:", error);
     }
 
-    const combatSystem = new CombatSystem(scene, physicsEngine);
-    gameInstances.current.combatSystem = combatSystem;
+    // Set up collision handling for all players
+    const setupCollisionHandler = (player: PlayerLike) => {
+        player.body.addEventListener('collide', (event: any) => {
+            try {
+                const gl = gameInstances.current.gameLogic as GameLogic | null;
+                if (!gl || gl.getGameState() !== 'active') return;
+
+                const collidedWith = event.body as CANNON.Body;
+                if (!collidedWith || !collidedWith.world) return; // Skip if body is not in world
+
+                const collidedUserData = (collidedWith as any).userData;
+                if (!collidedUserData) return;
+
+                console.log(`[Collision] Player ${player.id} collided with ${collidedUserData.type}`, {
+                    playerIsAI: player.isAI,
+                    collidedWithId: collidedUserData.id,
+                    playerHealth: player.health,
+                    collisionGroup: collidedWith.collisionFilterGroup
+                });
+
+                if (collidedUserData.type === 'orb') {
+                    // Handle orb collection
+                    const orbId = collidedUserData.id;
+                    const removedOrb = gl.removeOrb(orbId);
+                    if (removedOrb) {
+                        scene.remove(removedOrb.mesh);
+                        removedOrb.mesh.geometry.dispose();
+                        (removedOrb.mesh.material as THREE.Material).dispose();
+                        if (gameInstances.current.physicsEngine?.world.bodies.includes(removedOrb.body)) {
+                            gameInstances.current.physicsEngine?.removeBody(removedOrb.body);
+                        }
+                        gl.incrementScore(1, player.isAI);
+                        spawnOrb(scene, gameInstances.current.physicsEngine!, gl);
+                    }
+                } else if (collidedUserData.type === 'projectile') {
+                    // Handle projectile hits
+                    const projectile = gameInstances.current.combatSystem?.projectiles.find(
+                        (p: Projectile) => p.id === collidedUserData.id
+                    );
+                    
+                    if (projectile && projectile.owner !== player.id) {
+                        console.log(`[Projectile Hit] Player ${player.id} hit by projectile from ${projectile.owner}`, {
+                            damage: projectile.damage,
+                            currentHealth: player.health,
+                            projectileId: projectile.id,
+                            projectileOwner: projectile.owner
+                        });
+                        gameInstances.current.combatSystem?.handleProjectileCollision(projectile, player);
+                    }
+                } else if (collidedUserData.type === 'power_up') {
+                    const powerUp = gameInstances.current.powerUpSystem.powerUps.find(
+                        (p: PowerUp) => p.id === collidedUserData.id
+                    );
+                    if (powerUp) {
+                        gameInstances.current.powerUpSystem.handlePowerUpCollision(powerUp, player);
+                    }
+                }
+            } catch (error) {
+                console.error("[GameCanvas] Error in collision handler:", error);
+            }
+        });
+    };
+
+    // Set up player collision handling
+    setupCollisionHandler(humanPlayerRefObj);
+
+    // Create AI players with proper collision groups
+    const createPlayerMesh = (type: 'orange' | 'green' | 'purple'): THREE.Group => {
+        const playerCraftRadius = 0.5;
+        const playerCraftHeight = 0.2;
+        const cockpitRadius = 0.25;
+        const cockpitHeight = 0.3;
+
+        const group = new THREE.Group();
+        const baseGeometry = new THREE.CylinderGeometry(playerCraftRadius, playerCraftRadius * 0.8, playerCraftHeight, 16);
+        
+        let color: number;
+        let emissiveColor: number;
+        switch (type) {
+            case 'orange':
+                color = 0xff6600;
+                emissiveColor = 0x884422;
+                break;
+            case 'green':
+                color = 0x00ff66;
+                emissiveColor = 0x228844;
+                break;
+            case 'purple':
+                color = 0xff00ff;
+                emissiveColor = 0x880088;
+                break;
+        }
+
+        const baseMaterial = new THREE.MeshStandardMaterial({ 
+            color: color, 
+            metalness: 0.3, 
+            roughness: 0.4 
+        });
+        const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
+        baseMesh.castShadow = true;
+        baseMesh.receiveShadow = true;
+        group.add(baseMesh);
+
+        const cockpitGeometry = new THREE.SphereGeometry(cockpitRadius, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+        const cockpitMaterial = new THREE.MeshStandardMaterial({
+            color: color,
+            emissive: emissiveColor,
+            transparent: true,
+            opacity: 0.7
+        });
+        const cockpitMesh = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+        cockpitMesh.position.y = playerCraftHeight / 2;
+        cockpitMesh.castShadow = true;
+        group.add(cockpitMesh);
+
+        return group;
+    };
+
+    const aiTypes: ('orange' | 'green' | 'purple')[] = ['orange', 'green', 'purple'];
+    const aiPlayers: AIController[] = [];
+
+    aiTypes.forEach((aiType, index) => {
+        const aiMesh = createPlayerMesh(aiType);
+        scene.add(aiMesh);
+
+        const aiBody = new CANNON.Body({
+            mass: 1,
+            shape: new CANNON.Sphere(0.5),
+            position: new CANNON.Vec3(
+                Math.cos(index * Math.PI * 2 / 3) * 5,
+                0.5,
+                Math.sin(index * Math.PI * 2 / 3) * 5
+            ),
+            collisionFilterGroup: COLLISION_GROUP.AI,
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.AI | COLLISION_GROUP.WALL | COLLISION_GROUP.PROJECTILE | COLLISION_GROUP.ORB
+        });
+
+        // Configure AI body
+        aiBody.angularDamping = 0.9;
+        aiBody.linearDamping = 0.1;
+        aiBody.fixedRotation = true;
+        aiBody.allowSleep = false;
+        (aiBody as any).userData = { id: `ai-${index}`, type: 'ai_player' };
+
+        physicsEngine.world.addBody(aiBody);
+
+        const aiController = new AIController(
+            `ai-${index}`,
+            aiBody,
+            aiMesh,
+            ARENA_RADIUS,
+            combatSystem,
+            aiType
+        );
+
+        // Create health bar for AI
+        aiController.aiPlayer.healthBar = createHealthBar(scene);
+
+        // Set up collision handling for AI
+        setupCollisionHandler(aiController.aiPlayer);
+
+        aiPlayers.push(aiController);
+        gameLogic.addAIPlayer(aiController);
+    });
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const playerController = new PlayerController(humanPlayerRefObj, renderer.domElement, isMobile, combatSystem);
     gameInstances.current.playerController = playerController;
 
-    const aiCraftMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600, metalness: 0.3, roughness: 0.4 });
-    const aiBaseMesh = new THREE.Mesh(baseGeometry.clone(), aiCraftMaterial); aiBaseMesh.castShadow = true; aiBaseMesh.receiveShadow = true;
-    const aiCockpitMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa88, emissive:0x884422, transparent: true, opacity: 0.7 });
-    const aiCockpitMesh = new THREE.Mesh(cockpitGeometry.clone(), aiCockpitMaterial); aiCockpitMesh.position.y = playerCraftHeight / 2; aiCockpitMesh.castShadow = true;
-    const aiGroup = new THREE.Group(); aiGroup.add(aiBaseMesh); aiGroup.add(aiCockpitMesh);
-    aiGroup.position.set(3, (playerCraftHeight + cockpitHeight) / 2, 0); scene.add(aiGroup); gameInstances.current.aiMesh = aiGroup;
-    const aiPhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
-    const aiBody = physicsEngine.addPlayerBody(aiPhysicsShape, 1, aiGroup.position.clone(), true);
-    console.log("[GameCanvas] aiBody created:", aiBody);
-    gameInstances.current.aiBody = aiBody;
-    const aiController = new AIController('ai_opponent_1', aiBody, aiGroup, ARENA_RADIUS, combatSystem, 'orange');
-    aiController.aiPlayer.healthBar = createHealthBar(scene);
-    gameLogic.addAIPlayer(aiController);
-
-    // Create second AI bot (green)
-    const ai2CraftMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff66, metalness: 0.3, roughness: 0.4 });
-    const ai2BaseMesh = new THREE.Mesh(baseGeometry.clone(), ai2CraftMaterial);
-    ai2BaseMesh.castShadow = true;
-    ai2BaseMesh.receiveShadow = true;
-    const ai2CockpitMaterial = new THREE.MeshStandardMaterial({ color: 0x88ffaa, emissive: 0x228844, transparent: true, opacity: 0.7 });
-    const ai2CockpitMesh = new THREE.Mesh(cockpitGeometry.clone(), ai2CockpitMaterial);
-    ai2CockpitMesh.position.y = playerCraftHeight / 2;
-    ai2CockpitMesh.castShadow = true;
-    const ai2Group = new THREE.Group();
-    ai2Group.add(ai2BaseMesh);
-    ai2Group.add(ai2CockpitMesh);
-    ai2Group.position.set(-3, (playerCraftHeight + cockpitHeight) / 2, 0);
-    scene.add(ai2Group);
-    const ai2PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
-    const ai2Body = physicsEngine.addPlayerBody(ai2PhysicsShape, 1, ai2Group.position.clone(), true);
-    const ai2Controller = new AIController('ai_opponent_2', ai2Body, ai2Group, ARENA_RADIUS, combatSystem, 'green');
-    ai2Controller.aiPlayer.healthBar = createHealthBar(scene);
-    gameLogic.addAIPlayer(ai2Controller);
-
-    // Create third AI bot (purple)
-    const ai3CraftMaterial = new THREE.MeshStandardMaterial({ color: 0x9933ff, metalness: 0.3, roughness: 0.4 });
-    const ai3BaseMesh = new THREE.Mesh(baseGeometry.clone(), ai3CraftMaterial);
-    ai3BaseMesh.castShadow = true;
-    ai3BaseMesh.receiveShadow = true;
-    const ai3CockpitMaterial = new THREE.MeshStandardMaterial({ color: 0xcc99ff, emissive: 0x662299, transparent: true, opacity: 0.7 });
-    const ai3CockpitMesh = new THREE.Mesh(cockpitGeometry.clone(), ai3CockpitMaterial);
-    ai3CockpitMesh.position.y = playerCraftHeight / 2;
-    ai3CockpitMesh.castShadow = true;
-    const ai3Group = new THREE.Group();
-    ai3Group.add(ai3BaseMesh);
-    ai3Group.add(ai3CockpitMesh);
-    ai3Group.position.set(0, (playerCraftHeight + cockpitHeight) / 2, 3);
-    scene.add(ai3Group);
-    const ai3PhysicsShape = new CANNON.Cylinder(playerCraftRadius, playerCraftRadius, playerCraftHeight + cockpitHeight, 16);
-    const ai3Body = physicsEngine.addPlayerBody(ai3PhysicsShape, 1, ai3Group.position.clone(), true);
-    const ai3Controller = new AIController('ai_opponent_3', ai3Body, ai3Group, ARENA_RADIUS, combatSystem, 'purple');
-    ai3Controller.aiPlayer.healthBar = createHealthBar(scene);
-    gameLogic.addAIPlayer(ai3Controller);
-
     console.log("[GameCanvas] Attaching collision listener to aiBody...");
     try {
-        aiBody.addEventListener('collide', (event: any) => {
-            const gl = gameInstances.current.gameLogic as GameLogic | null;
-            const physicsEngineInstance = gameInstances.current.physicsEngine as PhysicsEngine | null;
-            
-            if (!gl || !physicsEngineInstance) {
-                console.log("[GameCanvas AI Collision] No GameLogic or PhysicsEngine instance found");
-                return;
-            }
-            
-            console.log(`[AI Collision] AI ID: ${gameInstances.current.aiController?.id}, GameLogic State: ${gl.getGameState()}`);
-            
-            if (gl.getGameState() !== 'active') {
-                console.log("[GameCanvas AI Collision] Game not active, ignoring collision");
-                return;
-            }
-
-            const collidedWith = event.body as CANNON.Body;
-            const collidedUserData = (collidedWith as any).userData;
-            if (collidedUserData && collidedUserData.type === 'orb') {
-                const orbId = collidedUserData.id;
-                const removedOrb = gl.removeOrb(orbId); 
-                if (removedOrb) {
-                    scene.remove(removedOrb.mesh);
-                    removedOrb.mesh.geometry.dispose();
-                    (removedOrb.mesh.material as THREE.Material).dispose();
-                    physicsEngineInstance.removeBody(removedOrb.body);
-                    gl.incrementScore(1, true);
-                    spawnOrb(scene, physicsEngineInstance, gl);
+        // Update collision handling for all AIs
+        gameLogic.aiPlayers.forEach(aiController => {
+            aiController.aiBody.addEventListener('collide', (event: any) => {
+                const gl = gameInstances.current.gameLogic as GameLogic | null;
+                const physicsEngineInstance = gameInstances.current.physicsEngine as PhysicsEngine | null;
+                
+                if (!gl || !physicsEngineInstance) {
+                    console.log("[GameCanvas AI Collision] No GameLogic or PhysicsEngine instance found");
+                    return;
                 }
-            }
+                
+                console.log(`[AI Collision] AI ID: ${aiController.id}, GameLogic State: ${gl.getGameState()}`);
+                
+                if (gl.getGameState() !== 'active') {
+                    console.log("[GameCanvas AI Collision] Game not active, ignoring collision");
+                    return;
+                }
+
+                const collidedWith = event.body as CANNON.Body;
+                const collidedUserData = (collidedWith as any).userData;
+                if (collidedUserData && collidedUserData.type === 'orb') {
+                    const orbId = collidedUserData.id;
+                    const removedOrb = gl.removeOrb(orbId); 
+                    if (removedOrb) {
+                        scene.remove(removedOrb.mesh);
+                        removedOrb.mesh.geometry.dispose();
+                        (removedOrb.mesh.material as THREE.Material).dispose();
+                        physicsEngineInstance.removeBody(removedOrb.body);
+                        gl.incrementScore(1, true);
+                        spawnOrb(scene, physicsEngineInstance, gl);
+                    }
+                }
+            });
         });
-        console.log("[GameCanvas] Attached collision listener to aiBody.");
+        console.log("[GameCanvas] Attached collision listeners to all AI bodies.");
     } catch (error) {
-        console.error("[GameCanvas] ERROR attaching AI collision listener:", error);
+        console.error("[GameCanvas] ERROR attaching AI collision listeners:", error);
     }
 
     for (let i = 0; i < NUM_ORBS; i++) {
@@ -417,10 +531,17 @@ const PokkasBashArena = () => {
       
       const currentLogic = gameInstances.current.gameLogic as GameLogic | null;
       if (currentLogic) {
-        const humanPlayersForAI: PlayerLike[] = gameInstances.current.humanPlayerRef ? [gameInstances.current.humanPlayerRef] : [];
-        // Update all AI controllers
+        // Include both human player and other AIs as potential targets
+        const allPlayers: PlayerLike[] = [
+          gameInstances.current.humanPlayerRef,
+          ...currentLogic.aiPlayers.map(ai => ai.aiPlayer)
+        ].filter(p => p && p.health > 0 && p.mesh.visible) as PlayerLike[];
+
+        // Update all AI controllers with complete list of potential targets
         currentLogic.aiPlayers.forEach(aiController => {
-          aiController.update(deltaTime, currentLogic.orbs, humanPlayersForAI);
+          // Filter out self from targets
+          const validTargets = allPlayers.filter(p => p.id !== aiController.id);
+          aiController.update(deltaTime, currentLogic.orbs, validTargets);
         });
         currentLogic.update(deltaTime);
         
@@ -430,13 +551,14 @@ const PokkasBashArena = () => {
         }
         
         if (logTimer > 2) {
-          console.log(`[Animate] GameLogic (${currentLogic.instanceId}) orbs count: ${currentLogic.orbs.length}`);
+          console.log(`[Animate] GameLogic (${currentLogic.instanceId}) orbs count: ${currentLogic.orbs.length}, Active AIs: ${currentLogic.aiPlayers.length}, Valid Targets: ${allPlayers.length}`);
           logTimer = 0;
         }
       }
       
       gameInstances.current.physicsEngine?.update(deltaTime);
       gameInstances.current.combatSystem?.update(deltaTime);
+      gameInstances.current.powerUpSystem?.update(deltaTime);
 
       if (gameInstances.current.playerMesh && gameInstances.current.playerBody) {
         gameInstances.current.playerMesh.position.copy(gameInstances.current.playerBody.position as unknown as THREE.Vector3);
@@ -485,6 +607,28 @@ const PokkasBashArena = () => {
         );
       }
 
+      // Update power-up effects
+      const currentTime = performance.now() / 1000;
+      if (gameInstances.current.humanPlayerRef) {
+        const player = gameInstances.current.humanPlayerRef;
+        if (player.rapidFireEndTime && currentTime > player.rapidFireEndTime) {
+          player.isRapidFire = false;
+        }
+        if (player.tripleShotEndTime && currentTime > player.tripleShotEndTime) {
+          player.hasTripleShot = false;
+        }
+        if (player.speedBoostEndTime && currentTime > player.speedBoostEndTime) {
+          player.hasSpeedBoost = false;
+        }
+        if (player.shieldEndTime && currentTime > player.shieldEndTime) {
+          player.isShielded = false;
+          if (player.shieldMesh) {
+            scene.remove(player.shieldMesh);
+            player.shieldMesh = undefined;
+          }
+        }
+      }
+
       renderer.render(scene, camera);
     };
     animate();
@@ -505,32 +649,38 @@ const PokkasBashArena = () => {
       console.log(`[useEffect Cleanup] Running. GameLogic ID: ${gl?.instanceId}. Scene children BEFORE orb cleanup: ${scene.children.length}`);
 
       gameInstances.current.playerController?.dispose();
-      // Dispose all AI controllers
-      gl?.aiPlayers.forEach(aiController => {
-        aiController.dispose();
-        scene.remove(aiController.aiMesh);
-        (aiController.aiMesh as THREE.Group).traverse(child => {
-          if (child instanceof THREE.Mesh) {
-            child.geometry.dispose();
-            const material = child.material as THREE.Material | THREE.Material[];
-            if (Array.isArray(material)) {
-              material.forEach(m => m.dispose());
-            } else {
-              material.dispose();
+      
+      // Dispose all AI controllers and their resources
+      if (gl) {
+        gl.aiPlayers.forEach(aiController => {
+          aiController.dispose();
+          scene.remove(aiController.aiMesh);
+          (aiController.aiMesh as THREE.Group).traverse(child => {
+            if (child instanceof THREE.Mesh) {
+              child.geometry.dispose();
+              const material = child.material as THREE.Material | THREE.Material[];
+              if (Array.isArray(material)) {
+                material.forEach(m => m.dispose());
+              } else {
+                material.dispose();
+              }
             }
-          }
+          });
         });
-      });
-      gameInstances.current.physicsEngine?.dispose();
 
-      gl?.orbs.forEach((orb: Orb) => {
-        console.log(`[useEffect Cleanup GL=${gl?.instanceId}] Removing orb: ${orb.id}, mesh ID: ${orb.mesh.id}, UUID: ${orb.mesh.uuid}`);
-        scene.remove(orb.mesh);
-        orb.mesh.geometry.dispose();
-        (orb.mesh.material as THREE.Material).dispose();
-        gameInstances.current.physicsEngine?.removeBody(orb.body);
-      });
-      if (gl) gl.orbs = [];
+        // Clean up orbs
+        gl.orbs.forEach((orb: Orb) => {
+          console.log(`[useEffect Cleanup GL=${gl?.instanceId}] Removing orb: ${orb.id}, mesh ID: ${orb.mesh.id}, UUID: ${orb.mesh.uuid}`);
+          scene.remove(orb.mesh);
+          orb.mesh.geometry.dispose();
+          (orb.mesh.material as THREE.Material).dispose();
+          gameInstances.current.physicsEngine?.removeBody(orb.body);
+        });
+        gl.orbs = [];
+      }
+
+      gameInstances.current.physicsEngine?.dispose();
+      
       console.log(`[useEffect Cleanup] Scene children AFTER orb cleanup: ${scene.children.length}`);
 
       gameInstances.current.wallMeshes.forEach((mesh: THREE.Mesh) => {
@@ -579,6 +729,8 @@ const PokkasBashArena = () => {
       renderer.dispose();
       Object.keys(gameInstances.current).forEach(key => gameInstances.current[key] = null);
       gameInstances.current.combatSystem?.dispose();
+      gameInstances.current.arenaSystem?.dispose();
+      gameInstances.current.powerUpSystem?.dispose();
 
       // Clean up health bars
       if (gameInstances.current.humanPlayerRef?.healthBar) {
@@ -600,13 +752,12 @@ const PokkasBashArena = () => {
   }, []);
 
   const handleStartGame = () => {
-    console.log("[GameCanvas] handleStartGame called. Current UI state:", uiGameState);
-    const gl = gameInstances.current.gameLogic as GameLogic | null;
-    if (gl) {
-      console.log(`[GameCanvas] Found GameLogic instance (${gl.instanceId}). Current game state:`, gl.getGameState());
-      gl.requestStartGame();
-    } else {
-      console.error("[GameCanvas] GameLogic not initialized when trying to start game.");
+    if (gameInstances.current.gameLogic) {
+      gameInstances.current.gameLogic.requestStartGame();
+      // Reset power-up system
+      gameInstances.current.powerUpSystem.reset();
+      // Reset arena system
+      gameInstances.current.arenaSystem.setLayout(currentArenaLayout);
     }
   };
 
@@ -617,13 +768,57 @@ const PokkasBashArena = () => {
       {/* Score display - only show during active game */}
       {uiGameState === 'active' && (
         <div style={styles.scoreStyle}>
-          Score: {uiScore} | Time: {timeRemaining}s
+          <div>Score: {uiScore} | Time: {timeRemaining}s</div>
+          {/* Power-up status display */}
+          {gameInstances.current.humanPlayerRef && (
+            <div style={styles.powerUpStyle}>
+              {gameInstances.current.humanPlayerRef.isRapidFire && (
+                <div style={{...styles.powerUpItem, color: '#ff0000'}}>Rapid Fire</div>
+              )}
+              {gameInstances.current.humanPlayerRef.hasTripleShot && (
+                <div style={{...styles.powerUpItem, color: '#ff00ff'}}>Triple Shot</div>
+              )}
+              {gameInstances.current.humanPlayerRef.hasSpeedBoost && (
+                <div style={{...styles.powerUpItem, color: '#00ffff'}}>Speed Boost</div>
+              )}
+              {gameInstances.current.humanPlayerRef.isShielded && (
+                <div style={{...styles.powerUpItem, color: '#ffff00'}}>Shield</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Game state specific overlays */}
       {uiGameState === 'waiting' && (
         <div style={styles.overlayContainerStyle}>
+          <div style={styles.overlayTextStyle}>Select Arena Layout:</div>
+          <div style={styles.layoutButtonsContainer}>
+            <button 
+              onClick={() => setCurrentArenaLayout('BASIC')} 
+              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'BASIC' ? '#0077cc' : '#555555'}}
+            >
+              Basic
+            </button>
+            <button 
+              onClick={() => setCurrentArenaLayout('PILLARS')} 
+              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'PILLARS' ? '#0077cc' : '#555555'}}
+            >
+              Pillars
+            </button>
+            <button 
+              onClick={() => setCurrentArenaLayout('MAZE')} 
+              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'MAZE' ? '#0077cc' : '#555555'}}
+            >
+              Maze
+            </button>
+            <button 
+              onClick={() => setCurrentArenaLayout('ASYMMETRIC')} 
+              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'ASYMMETRIC' ? '#0077cc' : '#555555'}}
+            >
+              Asymmetric
+            </button>
+          </div>
           <button onClick={handleStartGame} style={styles.buttonStyle}>Start Game</button>
         </div>
       )}
@@ -688,7 +883,37 @@ const styles = {
         borderRadius: '5px',
         zIndex: 1000,
         display: 'flex',
-        gap: '20px'
+        flexDirection: 'column' as 'column',
+        gap: '10px'
+    },
+    powerUpStyle: {
+        display: 'flex',
+        gap: '10px',
+        flexWrap: 'wrap' as 'wrap'
+    },
+    powerUpItem: {
+        fontSize: '18px',
+        padding: '5px 10px',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: '5px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px'
+    },
+    layoutButtonsContainer: {
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '20px',
+        justifyContent: 'center'
+    },
+    layoutButton: {
+        padding: '10px 20px',
+        fontSize: '18px',
+        cursor: 'pointer',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        transition: 'background-color 0.2s'
     }
 };
 
