@@ -12,6 +12,7 @@ import { PowerUpSystem, PowerUp } from './PowerUpSystem.ts';
 const ARENA_RADIUS = 10;
 const ORB_RADIUS = 0.3;
 const NUM_ORBS = 5;
+const ARENA_LAYOUTS: ArenaLayout[] = ['BASIC', 'PILLARS', 'MAZE', 'ASYMMETRIC'];
 
 interface HealthBar {
     background: THREE.Sprite;
@@ -99,6 +100,7 @@ const PokkasBashArena = () => {
   const [uiFinalScore, setUiFinalScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(60);
   const [currentArenaLayout, setCurrentArenaLayout] = useState<ArenaLayout>('BASIC');
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   console.log(`[GameCanvas Render] Current uiGameState: ${uiGameState}`);
 
@@ -474,13 +476,6 @@ const PokkasBashArena = () => {
                     return;
                 }
                 
-                console.log(`[AI Collision] AI ID: ${aiController.id}, GameLogic State: ${gl.getGameState()}`);
-                
-                if (gl.getGameState() !== 'active') {
-                    console.log("[GameCanvas AI Collision] Game not active, ignoring collision");
-                    return;
-                }
-
                 const collidedWith = event.body as CANNON.Body;
                 const collidedUserData = (collidedWith as any).userData;
                 if (collidedUserData && collidedUserData.type === 'orb') {
@@ -747,11 +742,14 @@ const PokkasBashArena = () => {
 
   const handleStartGame = () => {
     if (gameInstances.current.gameLogic) {
+      // Randomly select an arena layout
+      const randomLayout = ARENA_LAYOUTS[Math.floor(Math.random() * ARENA_LAYOUTS.length)];
+      setCurrentArenaLayout(randomLayout);
       gameInstances.current.gameLogic.requestStartGame();
       // Reset power-up system
       gameInstances.current.powerUpSystem.reset();
       // Reset arena system
-      gameInstances.current.arenaSystem.setLayout(currentArenaLayout);
+      gameInstances.current.arenaSystem.setLayout(randomLayout);
     }
   };
 
@@ -786,33 +784,29 @@ const PokkasBashArena = () => {
       {/* Game state specific overlays */}
       {uiGameState === 'waiting' && (
         <div style={styles.overlayContainerStyle}>
-          <div style={styles.overlayTextStyle}>Select Arena Layout:</div>
-          <div style={styles.layoutButtonsContainer}>
-            <button 
-              onClick={() => setCurrentArenaLayout('BASIC')} 
-              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'BASIC' ? '#0077cc' : '#555555'}}
-            >
-              Basic
-            </button>
-            <button 
-              onClick={() => setCurrentArenaLayout('PILLARS')} 
-              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'PILLARS' ? '#0077cc' : '#555555'}}
-            >
-              Pillars
-            </button>
-            <button 
-              onClick={() => setCurrentArenaLayout('MAZE')} 
-              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'MAZE' ? '#0077cc' : '#555555'}}
-            >
-              Maze
-            </button>
-            <button 
-              onClick={() => setCurrentArenaLayout('ASYMMETRIC')} 
-              style={{...styles.layoutButton, backgroundColor: currentArenaLayout === 'ASYMMETRIC' ? '#0077cc' : '#555555'}}
-            >
-              Asymmetric
-            </button>
-          </div>
+          {/* How to Play Button and Modal */}
+          <button onClick={() => setShowHowToPlay(true)} style={{...styles.buttonStyle, marginBottom: 20}}>How to Play</button>
+          {showHowToPlay && (
+            <div style={styles.howToPlayModal}>
+              <div style={styles.howToPlayTitle}>How to Play</div>
+              <ul style={styles.howToPlayList}>
+                <li>Move with WASD or arrow keys.</li>
+                <li>Click to shoot in the direction of your mouse pointer.</li>
+                <li>Collect orbs for points and power-ups for special abilities.</li>
+                <li>Use Shift to dash and Space to activate a shield.</li>
+                <li>Defeat AI bots and survive as long as possible!</li>
+              </ul>
+              <div style={{marginBottom: '12px', fontWeight: 'bold'}}>Power-Ups:</div>
+              <ul style={styles.howToPlayList}>
+                <li><span style={{color:'#ff0000'}}>Rapid Fire</span>: Shoot much faster for a short time.</li>
+                <li><span style={{color:'#ff00ff'}}>Triple Shot</span>: Shoot three projectiles at once for a short time.</li>
+                <li><span style={{color:'#00ffff'}}>Speed Boost</span>: Move much faster for a short time.</li>
+                <li><span style={{color:'#ffff00'}}>Shield</span>: Become invulnerable for a few seconds.</li>
+                <li><span style={{color:'#00ff00'}}>Health</span>: Instantly restore some health.</li>
+              </ul>
+              <button onClick={() => setShowHowToPlay(false)} style={styles.buttonStyle}>Close</button>
+            </div>
+          )}
           <button onClick={handleStartGame} style={styles.buttonStyle}>Start Game</button>
         </div>
       )}
@@ -894,20 +888,30 @@ const styles = {
         alignItems: 'center',
         gap: '5px'
     },
-    layoutButtonsContainer: {
-        display: 'flex',
-        gap: '10px',
-        marginBottom: '20px',
-        justifyContent: 'center'
-    },
-    layoutButton: {
-        padding: '10px 20px',
-        fontSize: '18px',
-        cursor: 'pointer',
+    howToPlayModal: {
+        position: 'absolute' as 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        backgroundColor: 'rgba(30,30,30,0.95)',
         color: 'white',
-        border: 'none',
-        borderRadius: '5px',
-        transition: 'background-color 0.2s'
+        padding: '30px',
+        borderRadius: '10px',
+        zIndex: 2000,
+        minWidth: '320px',
+        textAlign: 'left' as 'left',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.5)'
+    },
+    howToPlayTitle: {
+        fontSize: '28px',
+        fontWeight: 'bold' as 'bold',
+        marginBottom: '16px',
+        textAlign: 'center' as 'center'
+    },
+    howToPlayList: {
+        fontSize: '18px',
+        marginBottom: '20px',
+        paddingLeft: '20px'
     }
 };
 

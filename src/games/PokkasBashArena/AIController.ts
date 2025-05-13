@@ -18,7 +18,7 @@ export class AIController {
     
     // Movement parameters
     private readonly MOVEMENT_SPEED = 8;
-    private readonly SHOOTING_RANGE = 8;
+    private readonly SHOOTING_RANGE = 16;
     private readonly MIN_DISTANCE = 4; // Increased from 3
     private readonly VELOCITY_SMOOTHING = 0.1; // New smoothing factor
     private targetVelocity = new THREE.Vector3();
@@ -36,32 +36,32 @@ export class AIController {
     private personality: AIPersonality;
     private readonly PERSONALITY_PARAMS = {
         AGGRESSIVE: {
-            targetSwitchTime: 1.0,
-            engageDistance: 8,
+            targetSwitchTime: 0.7,
+            engageDistance: 12,
             retreatHealth: 20,
-            orbitDistance: 3,
-            shootingProbability: 0.8
+            orbitDistance: 2.5,
+            shootingProbability: 1.0
         },
         DEFENSIVE: {
-            targetSwitchTime: 2.0,
-            engageDistance: 6,
+            targetSwitchTime: 1.2,
+            engageDistance: 10,
             retreatHealth: 50,
-            orbitDistance: 5,
-            shootingProbability: 0.6
+            orbitDistance: 4.5,
+            shootingProbability: 1.0
         },
         OPPORTUNIST: {
-            targetSwitchTime: 1.5,
-            engageDistance: 7,
+            targetSwitchTime: 1.0,
+            engageDistance: 11,
             retreatHealth: 30,
-            orbitDistance: 4,
-            shootingProbability: 0.7
+            orbitDistance: 3.5,
+            shootingProbability: 1.0
         },
         TACTICAL: {
-            targetSwitchTime: 2.5,
-            engageDistance: 5,
+            targetSwitchTime: 1.5,
+            engageDistance: 9,
             retreatHealth: 40,
-            orbitDistance: 6,
-            shootingProbability: 0.5
+            orbitDistance: 5.5,
+            shootingProbability: 1.0
         }
     };
 
@@ -130,12 +130,20 @@ export class AIController {
     }
 
     public update(deltaTime: number, orbs: Orb[], players: PlayerLike[]): void {
-        if (this.aiPlayer.health <= 0 || !this.aiMesh.visible) return;
+        if (this.aiPlayer.health <= 0 || !this.aiMesh.visible) {
+            console.log(`[AI] ${this.id} update skipped: health=${this.aiPlayer.health}, visible=${this.aiMesh.visible}`);
+            return;
+        }
         const currentPos = new THREE.Vector3(
             this.aiBody.position.x,
             this.aiBody.position.y,
             this.aiBody.position.z
         );
+        // Lock Y position to prevent sinking
+        this.aiBody.position.y = 0.5;
+        this.aiMesh.position.y = 0.5;
+        this.aiBody.velocity.y = 0;
+        this.aiBody.force.y = 0;
         // Keep bots inside arena
         const distFromCenter = Math.sqrt(currentPos.x * currentPos.x + currentPos.z * currentPos.z);
         if (distFromCenter > this.arenaRadius - 1) {
@@ -203,14 +211,21 @@ export class AIController {
 
         // Update target based on personality or team-up
         this.targetChangeTimer += deltaTime;
+        let selectedTarget = null;
         if (focusTarget) {
             this.currentTarget = focusTarget;
+            selectedTarget = focusTarget;
         } else if (!this.currentTarget || 
             this.currentTarget.health <= 0 || 
             !this.currentTarget.mesh.visible ||
             this.targetChangeTimer >= this.PERSONALITY_PARAMS[this.personality].targetSwitchTime) {
             this.currentTarget = this.selectTargetBasedOnPersonality(players, this.PERSONALITY_PARAMS[this.personality]);
             this.targetChangeTimer = 0;
+            selectedTarget = this.currentTarget;
+        }
+        if (selectedTarget) {
+            // Remove spammy target selection log
+            // console.log(`[AI] ${this.id} selected target: ${selectedTarget.id}`);
         }
 
         // Handle movement based on mode
@@ -237,18 +252,32 @@ export class AIController {
                 } else {
                     this.handleRetreat(currentPos, targetPos, orbs);
                 }
+            } else if (this.movementMode === 'orbit') {
+                // Use handleEngagement for orbiting
+                this.handleEngagement(currentPos, targetPos, this.PERSONALITY_PARAMS[this.personality]);
             } else if (distanceToTarget < this.MIN_DISTANCE) {
                 // Too close, retreat
                 this.handleRetreat(currentPos, targetPos, orbs);
-            } else if (distanceToTarget < this.SHOOTING_RANGE) {
-                this.handleEngagement(currentPos, targetPos, this.PERSONALITY_PARAMS[this.personality]);
             } else {
                 this.pursueTarget(currentPos, targetPos);
             }
-            // Handle combat
-            if (distanceToTarget < this.SHOOTING_RANGE && Math.random() < this.PERSONALITY_PARAMS[this.personality].shootingProbability * deltaTime) {
-                this.handleCombat(this.currentTarget);
+
+            // --- SHOOTING LOGIC: Always check after movement ---
+            if (distanceToTarget < this.SHOOTING_RANGE) {
+                const shotCooldown = this.aiPlayer.isRapidFire ? 0.25 : 0.5;
+                const timeSinceLastShot = now - this.aiPlayer.lastShotTime;
+                if (timeSinceLastShot >= shotCooldown) {
+                    console.log(`[AI] ${this.id} shooting conditions:`, {
+                        distanceToTarget,
+                        timeSinceLastShot,
+                        shotCooldown,
+                        canShoot: true,
+                        isRapidFire: this.aiPlayer.isRapidFire
+                    });
+                    this.handleCombat(this.currentTarget);
+                }
             }
+            // --- END SHOOTING LOGIC ---
         } else {
             // No valid target, collect orbs or wander
             this.handleOrbCollection(currentPos, orbs);
@@ -267,22 +296,22 @@ export class AIController {
         if (validTargets.length === 0) return null;
 
         switch (this.personality) {
-            case 'AGGRESSIVE':
-                // Target the closest player
+            case 'AGGRESSIVE': {
+                // 70% chance to target human if present, 30% to target closest bot
+                const human = validTargets.find(p => !p.isAI);
+                if (human && Math.random() < 0.7) return human;
+                // Otherwise, target the closest
                 return this.findClosestTarget(validTargets);
-            
+            }
             case 'DEFENSIVE':
                 // Target the weakest player, but only if they're not too close
                 return this.findWeakestTarget(validTargets, params.engageDistance);
-            
             case 'OPPORTUNIST':
                 // Target players who are already engaged in combat
                 return this.findEngagedTarget(validTargets) || this.findClosestTarget(validTargets);
-            
             case 'TACTICAL':
                 // Target based on a combination of distance, health, and engagement
                 return this.findTacticalTarget(validTargets);
-            
             default:
                 return validTargets[Math.floor(Math.random() * validTargets.length)];
         }
@@ -358,9 +387,9 @@ export class AIController {
     private handleEngagement(currentPos: THREE.Vector3, targetPos: THREE.Vector3, params: typeof this.PERSONALITY_PARAMS.AGGRESSIVE): void {
         // Calculate orbit position
         const toTarget = new THREE.Vector3().subVectors(targetPos, currentPos);
-        // const distance = toTarget.length(); // Remove unused
-        // Use orbitDirection for clockwise/counterclockwise
-        const orbitAngle = this.orbitDirection * (this.personality === 'AGGRESSIVE' ? Math.PI / 4 : Math.PI / 2);
+        // Add a small random offset to orbit angle for more variety
+        const randomOffset = (Math.random() - 0.5) * 0.3;
+        const orbitAngle = this.orbitDirection * (this.personality === 'AGGRESSIVE' ? Math.PI / 4 : Math.PI / 2) + randomOffset;
         const orbitPos = new THREE.Vector3().copy(targetPos).add(
             toTarget.normalize().multiplyScalar(-params.orbitDistance).applyAxisAngle(new THREE.Vector3(0, 1, 0), orbitAngle)
         );
@@ -444,6 +473,7 @@ export class AIController {
                 (Math.random() - 0.5) * inaccuracy
             )).normalize();
 
+            console.log(`[AI] ${this.id} SHOOTING at ${target.id} (distance: ${currentPos.distanceTo(targetPos).toFixed(2)})`);
             this.combatSystem.shootProjectile(this.aiPlayer, direction);
             this.aiPlayer.lastShotTime = now;
 
