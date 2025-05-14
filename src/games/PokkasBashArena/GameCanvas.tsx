@@ -1,6 +1,9 @@
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { PhysicsEngine, COLLISION_GROUP } from './PhysicsEngine.ts';
 import { PlayerController } from './PlayerController.ts';
 import { AIController } from './AIController.ts';
@@ -8,6 +11,13 @@ import { GameLogic, GameState } from './GameLogic.ts';
 import { CombatSystem, Projectile } from './CombatSystem.ts';
 import { ArenaSystem, ArenaLayout } from './ArenaSystem.ts';
 import { PowerUpSystem, PowerUp } from './PowerUpSystem.ts';
+import { ParticleSystem } from './ParticleSystem.ts';
+import pxURL from './assets/skybox/px.png';
+import nxURL from './assets/skybox/nx.png';
+import pyURL from './assets/skybox/py.png';
+import nyURL from './assets/skybox/ny.png';
+import pzURL from './assets/skybox/pz.png';
+import nzURL from './assets/skybox/nz.png';
 
 const ARENA_RADIUS = 10;
 const ORB_RADIUS = 0.3;
@@ -93,6 +103,7 @@ const PokkasBashArena = () => {
     combatSystem: null,
     arenaSystem: null,
     powerUpSystem: null,
+    particleSystem: null,
   });
   const [uiScore, setUiScore] = useState(0);
   const [uiGameState, setUiGameState] = useState<GameState>('waiting');
@@ -108,7 +119,7 @@ const PokkasBashArena = () => {
     console.log(`[spawnOrb GL=${gameLogic.instanceId}] Called.`);
     const orbId = `orb-${Math.random().toString(36).substring(2, 15)}`;
     const orbGeometry = new THREE.SphereGeometry(ORB_RADIUS, 16, 16);
-    const orbMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const orbMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.5, metalness: 0.2 });
     const orbMesh = new THREE.Mesh(orbGeometry, orbMaterial);
     orbMesh.castShadow = true;
     orbMesh.name = orbId;
@@ -152,6 +163,38 @@ const PokkasBashArena = () => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
+    // Skybox/Environment Map Setup
+    const loader = new THREE.CubeTextureLoader();
+    const texture = loader.load([
+        pxURL, // Right
+        nxURL, // Left
+        pyURL, // Top
+        nyURL, // Bottom
+        pzURL, // Front
+        nzURL  // Back
+    ]);
+    scene.background = texture;
+    scene.environment = texture; // For reflections on MeshStandardMaterial
+
+    // Add Ambient Light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft white light, half intensity
+    scene.add(ambientLight);
+
+    // Add Directional Light
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // White light, strong intensity
+    directionalLight.position.set(10, 20, 10); // Position it to cast from an angle
+    directionalLight.castShadow = true;
+    // Configure shadow properties for the directional light (optional, but good for quality)
+    directionalLight.shadow.mapSize.width = 1024;
+    directionalLight.shadow.mapSize.height = 1024;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 50;
+    directionalLight.shadow.camera.left = -ARENA_RADIUS * 1.5;
+    directionalLight.shadow.camera.right = ARENA_RADIUS * 1.5;
+    directionalLight.shadow.camera.top = ARENA_RADIUS * 1.5;
+    directionalLight.shadow.camera.bottom = -ARENA_RADIUS * 1.5;
+    scene.add(directionalLight);
+
     const camera = new THREE.PerspectiveCamera(60, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
     gameInstances.current.camera = camera;
     
@@ -160,6 +203,19 @@ const PokkasBashArena = () => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     currentMount.appendChild(renderer.domElement);
+
+    // Post-processing - Bloom
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(currentMount.clientWidth, currentMount.clientHeight),
+        1.2, // strength
+        0.5, // radius
+        0.8  // threshold - pixels brighter than this threshold will contribute to bloom
+    );
+    composer.addPass(bloomPass);
 
     console.log("[GameCanvas] Initializing PhysicsEngine...");
     const physicsEngine = new PhysicsEngine();
@@ -177,6 +233,10 @@ const PokkasBashArena = () => {
     // Initialize Power-Up System
     const powerUpSystem = new PowerUpSystem(scene, physicsEngine, ARENA_RADIUS);
     gameInstances.current.powerUpSystem = powerUpSystem;
+
+    // Initialize Particle System
+    const particleSystem = new ParticleSystem(scene);
+    gameInstances.current.particleSystem = particleSystem;
 
     console.log("[GameCanvas] Initializing GameLogic...");
     const gameLogic = new GameLogic(
@@ -200,21 +260,6 @@ const PokkasBashArena = () => {
     gameInstances.current.gameLogic = gameLogic;
     console.log(`[GameCanvas] GameLogic initialized. Initial state: ${gameLogic.getGameState()}, GameLogic ID: ${gameLogic.instanceId}`);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    directionalLight.position.set(15, 25, 10);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.left = -ARENA_RADIUS * 1.5;
-    directionalLight.shadow.camera.right = ARENA_RADIUS * 1.5;
-    directionalLight.shadow.camera.top = ARENA_RADIUS * 1.5;
-    directionalLight.shadow.camera.bottom = -ARENA_RADIUS * 1.5;
-    scene.add(directionalLight);
-    
     const groundGeometry = new THREE.CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS, 0.5, 64);
     const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -282,6 +327,15 @@ const PokkasBashArena = () => {
                 const removedOrb = gl.removeOrb(orbId); 
                 if (removedOrb) {
                     scene.remove(removedOrb.mesh);
+                    // Emit particles on orb collection
+                    gameInstances.current.particleSystem?.emit(
+                        removedOrb.mesh.position.clone(),
+                        new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
+                        new THREE.Color(0xffff00), // Yellow particles
+                        0.2, // size
+                        0.5, // life in seconds
+                        10   // count
+                    );
                     removedOrb.mesh.geometry.dispose();
                     (removedOrb.mesh.material as THREE.Material).dispose();
                     gameInstances.current.physicsEngine?.removeBody(removedOrb.body); 
@@ -321,12 +375,30 @@ const PokkasBashArena = () => {
                     const removedOrb = gl.removeOrb(orbId);
                     if (removedOrb) {
                         scene.remove(removedOrb.mesh);
+                        // Emit particles on orb collection
+                        gameInstances.current.particleSystem?.emit(
+                            removedOrb.mesh.position.clone(),
+                            new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
+                            new THREE.Color(0xffff00), // Yellow particles
+                            0.2, // size
+                            0.5, // life in seconds
+                            10   // count
+                        );
                         removedOrb.mesh.geometry.dispose();
                         (removedOrb.mesh.material as THREE.Material).dispose();
                         if (gameInstances.current.physicsEngine?.world.bodies.includes(removedOrb.body)) {
                             gameInstances.current.physicsEngine?.removeBody(removedOrb.body);
                         }
                         gl.incrementScore(1, player.isAI);
+                        // Emit particles on orb collection by AI/Player
+                        gameInstances.current.particleSystem?.emit(
+                            removedOrb.mesh.position.clone(),
+                            new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
+                            new THREE.Color(player.isAI ? 0xffaa00 : 0x00ff00), // Orange for AI, Green for Player
+                            0.2, // size
+                            0.5, // life
+                            10   // count
+                        );
                         spawnOrb(scene, gameInstances.current.physicsEngine!, gl);
                     }
                 } else if (collidedUserData.type === 'projectile') {
@@ -483,10 +555,28 @@ const PokkasBashArena = () => {
                     const removedOrb = gl.removeOrb(orbId); 
                     if (removedOrb) {
                         scene.remove(removedOrb.mesh);
+                        // Emit particles on orb collection
+                        gameInstances.current.particleSystem?.emit(
+                            removedOrb.mesh.position.clone(),
+                            new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
+                            new THREE.Color(0xffaa00), // Orange particles for AI
+                            0.2, // size
+                            0.5, // life
+                            10   // count
+                        );
                         removedOrb.mesh.geometry.dispose();
                         (removedOrb.mesh.material as THREE.Material).dispose();
                         physicsEngineInstance.removeBody(removedOrb.body);
                         gl.incrementScore(1, true);
+                         // Emit particles on orb collection by AI
+                        gameInstances.current.particleSystem?.emit(
+                            removedOrb.mesh.position.clone(),
+                            new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
+                            new THREE.Color(0xffaa00), // Orange particles for AI
+                            0.2, // size
+                            0.5, // life
+                            10   // count
+                        );
                         spawnOrb(scene, physicsEngineInstance, gl);
                     }
                 }
@@ -548,6 +638,7 @@ const PokkasBashArena = () => {
       gameInstances.current.physicsEngine?.update(deltaTime);
       gameInstances.current.combatSystem?.update(deltaTime);
       gameInstances.current.powerUpSystem?.update(deltaTime);
+      gameInstances.current.particleSystem?.update(deltaTime);
 
       if (gameInstances.current.playerMesh && gameInstances.current.playerBody) {
         gameInstances.current.playerMesh.position.copy(gameInstances.current.playerBody.position as unknown as THREE.Vector3);
@@ -618,7 +709,7 @@ const PokkasBashArena = () => {
         }
       }
 
-      renderer.render(scene, camera);
+      composer.render(); // Use composer to render with effects
     };
     animate();
 
@@ -627,6 +718,7 @@ const PokkasBashArena = () => {
       gameInstances.current.camera.aspect = currentMount.clientWidth / currentMount.clientHeight;
       gameInstances.current.camera.updateProjectionMatrix();
       renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
+      composer.setSize(currentMount.clientWidth, currentMount.clientHeight); // Resize composer as well
     };
     window.addEventListener('resize', handleResize);
 
@@ -720,6 +812,7 @@ const PokkasBashArena = () => {
       gameInstances.current.combatSystem?.dispose();
       gameInstances.current.arenaSystem?.dispose();
       gameInstances.current.powerUpSystem?.dispose();
+      gameInstances.current.particleSystem?.dispose();
 
       // Clean up health bars
       if (gameInstances.current.humanPlayerRef?.healthBar) {
