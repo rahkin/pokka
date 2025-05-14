@@ -87,7 +87,7 @@ const GameTiles: React.FC = () => {
       </GameCard>
 
       <GameCard>
-        <img src="/assets/images/pokka_header.png" alt="Pokka's Bash Arena" />
+        <img src="/assets/images/bash_arena_tile.png" alt="Pokka's Bash Arena" />
         <h2>Pokka's Bash Arena</h2>
         <p>Hovercraft battle game! Bump opponents and collect power orbs. 3D multiplayer fun.</p>
         <PlayButton to="/games/pokkas-bash-arena">Play Now</PlayButton>
