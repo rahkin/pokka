@@ -627,21 +627,6 @@ const PokkasBashArena = () => {
     let animationFrameId: number;
     let logTimer = 0;
 
-    // Handle game state changes for audio
-    const handleGameStateChange = (newState: string) => {
-      console.log(`[GameCanvas] handleGameStateChange called with newState: ${newState}`);
-      if (newState === 'active') {
-        audioSystem.current?.stopMusic('menu');
-        audioSystem.current?.playMusic('game');
-        audioSystem.current?.playSound('game_start');
-        audioSystem.current?.startEngine();
-      } else if (newState === 'gameOver') {
-        audioSystem.current?.stopMusic('game');
-        audioSystem.current?.playSound('game_over');
-        audioSystem.current?.stopEngine();
-      }
-    };
-
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       const deltaTime = clock.getDelta();
