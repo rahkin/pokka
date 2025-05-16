@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PlayerLike } from './GameCanvas';
 import { PhysicsEngine, COLLISION_GROUP } from './PhysicsEngine';
+import { EventEmitter } from 'events';
 
 export interface Projectile {
     id: string;
@@ -25,7 +26,7 @@ export interface SpecialAbility {
 
 export type AbilityType = 'DASH' | 'SHIELD' | 'RAPID_FIRE' | 'HOMING_MISSILE' | 'AREA_DENIAL';
 
-export class CombatSystem {
+export class CombatSystem extends EventEmitter {
     private scene: THREE.Scene;
     private physicsEngine: PhysicsEngine;
     private projectiles: Projectile[] = [];
@@ -37,6 +38,7 @@ export class CombatSystem {
     private areaEffects: THREE.Mesh[] = [];
 
     constructor(scene: THREE.Scene, physicsEngine: PhysicsEngine) {
+        super();
         this.scene = scene;
         this.physicsEngine = physicsEngine;
     }
@@ -164,6 +166,17 @@ export class CombatSystem {
             ownerIsAI: shooter.isAI,
             position: spawnPos,
             velocity: velocity
+        });
+
+        // Emit shot event
+        this.emit('projectileShot', { position: spawnPos, direction, shooter });
+
+        // Add collision event listener
+        projectileBody.addEventListener('collide', (event: any) => {
+            // ... existing collision code ...
+
+            // Emit impact event
+            this.emit('projectileImpact', { position: projectileMesh.position, target: event.body });
         });
     }
 

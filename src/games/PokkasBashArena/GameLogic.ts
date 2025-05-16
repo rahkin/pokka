@@ -6,11 +6,10 @@ import { PhysicsEngine } from './PhysicsEngine.ts';
 import { AIController } from './AIController.ts';
 import type { Orb, PlayerLike } from './GameCanvas.tsx';
 import { CombatSystem } from './CombatSystem.ts';
-import { EventEmitter } from 'events';
 
 export type GameState = 'waiting' | 'active' | 'countdown' | 'gameOver';
 
-export class GameLogic extends EventEmitter {
+export class GameLogic {
   public scene: THREE.Scene;
   public physicsEngine: PhysicsEngine;
   public player: PlayerLike | null = null; // Represents the human player
@@ -48,7 +47,6 @@ export class GameLogic extends EventEmitter {
     onGameOver: (finalScore: number) => void,
     combatSystem: CombatSystem
   ) {
-    super();
     this.instanceId = `gl-${Math.random().toString(36).substring(2, 9)}`;
     this.scene = scene;
     this.physicsEngine = physicsEngine;
@@ -64,7 +62,6 @@ export class GameLogic extends EventEmitter {
     console.log(`[GameLogic] State transition: ${this.gameState} -> ${newState}`);
     this.gameState = newState;
     this.onStateChange(this.gameState);
-    this.emit('stateChange', this.gameState);
   }
 
   public requestStartGame(): void {
@@ -81,28 +78,47 @@ export class GameLogic extends EventEmitter {
   }
 
   private runCountdown(): void {
-    if (this.countdownTimeoutId) {
-      clearTimeout(this.countdownTimeoutId);
+    this.cancelCountdown();
+    console.log(`[GameLogic] runCountdown - Current value: ${this.countdownValue}, State: ${this.gameState}`);
+    if (this.countdownValue > 0) {
+      this.countdownTimeoutId = setTimeout(() => {
+        console.log(`[GameLogic] Countdown tick - Current: ${this.countdownValue}, State: ${this.gameState}`);
+        this.countdownValue--;
+        this.onCountdownUpdate(this.countdownValue);
+        if (this.countdownValue > 0) {
+          this.runCountdown();
+        } else {
+          console.log('[GameLogic] Countdown complete, starting game');
+          this.startGame();
+        }
+      }, 1000);
+    } else {
+      console.log(`[GameLogic] Countdown already at 0, starting game directly`);
+      this.startGame();
     }
-
-    const countdown = () => {
-      this.countdownValue--;
-      this.onCountdownUpdate(this.countdownValue);
-
-      if (this.countdownValue > 0) {
-        this.countdownTimeoutId = setTimeout(countdown, 1000);
-      } else {
-        this.setGameState('active');
-      }
-    };
-
-    this.countdownTimeoutId = setTimeout(countdown, 1000);
   }
 
-  private resetGame(): void {
-    this.score = 0;
-    this.onScoreUpdate(this.score);
+  public cancelCountdown(): void {
+    if (this.countdownTimeoutId) {
+      console.log(`[GameLogic] Cancelling countdown timeout ID: ${this.countdownTimeoutId}`);
+      clearTimeout(this.countdownTimeoutId);
+      this.countdownTimeoutId = null;
+    }
+  }
+
+  private startGame(): void {
+    console.log("[GameLogic] startGame called, current state:", this.gameState);
+    if (this.gameState !== 'countdown') {
+      console.warn("[GameLogic] Attempted to start game from invalid state:", this.gameState);
+      return;
+    }
+    this.setGameState('active');
     this.gameTime = 0;
+    console.log("[GameLogic] Waking up physics bodies");
+    this.player?.body.wakeUp();
+    this.aiPlayers.forEach(ai => ai.aiBody.wakeUp());
+    this.orbs.forEach(orb => orb.body.wakeUp());
+    console.log("[GameLogic] Game started successfully");
   }
 
   public addPlayer(player: PlayerLike): void {
@@ -211,6 +227,70 @@ export class GameLogic extends EventEmitter {
         orb.body.sleep();
       }
     });
+  }
+
+  public resetGame(): void {
+    console.log('[GameLogic] Resetting game state');
+    this.cancelCountdown();
+    this.score = 0;
+    this.aiScore = 0;
+    this.gameTime = 0;
+    this.onScoreUpdate(this.score);
+
+    // Reset combat system
+    this.combatSystem.reset();
+
+    // Reset human player
+    if (this.player) {
+      // Reset position and physics
+      const spawnPos = this.SPAWN_POSITIONS[0];
+      this.player.body.position.copy(spawnPos as unknown as CANNON.Vec3);
+      this.player.body.velocity.set(0, 0, 0);
+      this.player.body.angularVelocity.set(0, 0, 0);
+      this.player.body.position.y = 0.5;
+      
+      // Reset health and visibility
+      this.player.health = this.player.maxHealth;
+      this.player.mesh.visible = true;
+      if (this.player.healthBar) {
+        this.player.healthBar.background.visible = true;
+        this.player.healthBar.foreground.visible = true;
+        this.player.healthBar.update(this.player.health, this.player.maxHealth);
+      }
+
+      // Ensure body is in physics world
+      if (!this.physicsEngine.world.bodies.includes(this.player.body)) {
+        this.physicsEngine.world.addBody(this.player.body);
+      }
+    }
+
+    // Reset AI players
+    this.aiPlayers.forEach((ai, index) => {
+      const spawnPos = this.SPAWN_POSITIONS[(index + 1) % this.SPAWN_POSITIONS.length];
+      
+      // Reset position and physics
+      ai.aiBody.position.copy(spawnPos as unknown as CANNON.Vec3);
+      ai.aiBody.velocity.set(0, 0, 0);
+      ai.aiBody.angularVelocity.set(0, 0, 0);
+      ai.aiBody.position.y = 0.5;
+      
+      // Reset health and visibility
+      ai.aiPlayer.health = ai.aiPlayer.maxHealth;
+      ai.aiPlayer.mesh.visible = true;
+      if (ai.aiPlayer.healthBar) {
+        ai.aiPlayer.healthBar.background.visible = true;
+        ai.aiPlayer.healthBar.foreground.visible = true;
+        ai.aiPlayer.healthBar.update(ai.aiPlayer.health, ai.aiPlayer.maxHealth);
+      }
+
+      // Ensure body is in physics world
+      if (!this.physicsEngine.world.bodies.includes(ai.aiBody)) {
+        this.physicsEngine.world.addBody(ai.aiBody);
+      }
+    });
+
+    this.setGameState('waiting');
+    console.log('[GameLogic] Game reset complete');
   }
 
   public getGameState(): GameState {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsEngine, COLLISION_GROUP } from './PhysicsEngine';
 import { PlayerLike } from './GameCanvas';
+import { EventEmitter } from 'events';
 
 export type PowerUpType = 'HEALTH' | 'RAPID_FIRE' | 'TRIPLE_SHOT' | 'SPEED_BOOST' | 'SHIELD';
 
@@ -13,17 +14,18 @@ export interface PowerUp {
     duration: number;
 }
 
-export class PowerUpSystem {
+export class PowerUpSystem extends EventEmitter {
     private scene: THREE.Scene;
     private physicsEngine: PhysicsEngine;
     private powerUps: PowerUp[] = [];
-    private readonly SPAWN_INTERVAL = 10; // Spawn a power-up every 10 seconds
+    private readonly SPAWN_INTERVAL = 10000; // 10 seconds
     private readonly MAX_POWER_UPS = 3;
-    private lastSpawnTime = 0;
-    private readonly POWER_UP_RADIUS = 0.3;
+    private spawnTimer: number = 0;
+    private readonly POWER_UP_RADIUS = 0.5;
     private readonly ARENA_RADIUS: number;
 
     constructor(scene: THREE.Scene, physicsEngine: PhysicsEngine, arenaRadius: number) {
+        super();
         this.scene = scene;
         this.physicsEngine = physicsEngine;
         this.ARENA_RADIUS = arenaRadius;
@@ -36,10 +38,10 @@ export class PowerUpSystem {
         });
 
         // Check if it's time to spawn a new power-up
-        this.lastSpawnTime += deltaTime;
-        if (this.lastSpawnTime >= this.SPAWN_INTERVAL && this.powerUps.length < this.MAX_POWER_UPS) {
+        this.spawnTimer += deltaTime;
+        if (this.spawnTimer >= this.SPAWN_INTERVAL && this.powerUps.length < this.MAX_POWER_UPS) {
             this.spawnPowerUp();
-            this.lastSpawnTime = 0;
+            this.spawnTimer = 0;
         }
     }
 
@@ -140,6 +142,9 @@ export class PowerUpSystem {
                 break;
         }
 
+        // Emit collection event
+        this.emit('powerUpCollected', { type: powerUp.type, collector: player });
+
         // Remove power-up
         this.removePowerUp(powerUp);
     }
@@ -170,7 +175,7 @@ export class PowerUpSystem {
             this.removePowerUp(powerUp);
         });
         this.powerUps = [];
-        this.lastSpawnTime = 0;
+        this.spawnTimer = 0;
         // Extra: Remove any stray power-up bodies from physics world
         this.physicsEngine.world.bodies = this.physicsEngine.world.bodies.filter(body => {
             const userData = (body as any).userData;
