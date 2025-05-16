@@ -18,6 +18,7 @@ import pyURL from './assets/skybox/py.png';
 import nyURL from './assets/skybox/ny.png';
 import pzURL from './assets/skybox/pz.png';
 import nzURL from './assets/skybox/nz.png';
+import { AudioSystem } from './AudioSystem';
 
 const ARENA_RADIUS = 10;
 const ORB_RADIUS = 0.3;
@@ -112,6 +113,7 @@ const PokkasBashArena = () => {
   const [timeRemaining, setTimeRemaining] = useState(60);
   const [currentArenaLayout, setCurrentArenaLayout] = useState<ArenaLayout>('BASIC');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const audioSystem = useRef<AudioSystem | null>(null);
 
   console.log(`[GameCanvas Render] Current uiGameState: ${uiGameState}`);
 
@@ -341,7 +343,13 @@ const PokkasBashArena = () => {
                     gameInstances.current.physicsEngine?.removeBody(removedOrb.body); 
                     gl.incrementScore(1); 
                     spawnOrb(scene, gameInstances.current.physicsEngine!, gl); 
+                    audioSystem.current?.playSound('orb_collect', { pitch: 1 + Math.random() * 0.2 });
                 }
+            } else {
+                // General collision sound
+                audioSystem.current?.playSound('collision', { 
+                    volume: Math.min(event.contact.getImpactVelocityAlongNormal() * 0.1, 1)
+                });
             }
         });
         console.log("[GameCanvas] Attached collision listener to playerBody.");
@@ -400,6 +408,7 @@ const PokkasBashArena = () => {
                             10   // count
                         );
                         spawnOrb(scene, gameInstances.current.physicsEngine!, gl);
+                        audioSystem.current?.playSound('orb_collect', { pitch: 1 + Math.random() * 0.2 });
                     }
                 } else if (collidedUserData.type === 'projectile') {
                     // Handle projectile hits
@@ -578,6 +587,7 @@ const PokkasBashArena = () => {
                             10   // count
                         );
                         spawnOrb(scene, physicsEngineInstance, gl);
+                        audioSystem.current?.playSound('orb_collect', { pitch: 1 + Math.random() * 0.2 });
                     }
                 }
             });
@@ -597,6 +607,72 @@ const PokkasBashArena = () => {
     const clock = new THREE.Clock();
     let animationFrameId: number;
     let logTimer = 0;
+
+    // Initialize audio system
+    useEffect(() => {
+      const initAudio = async () => {
+        if (!audioSystem.current) {
+          console.log('[GameCanvas] Initializing audio system');
+          audioSystem.current = new AudioSystem();
+          await audioSystem.current.init();
+          audioSystem.current.playMusic('menu');
+        }
+      };
+      initAudio();
+
+      return () => {
+        if (audioSystem.current) {
+          audioSystem.current.dispose();
+          audioSystem.current = null;
+        }
+      };
+    }, []);
+
+    // Handle game state changes for audio
+    useEffect(() => {
+      const handleGameStateChange = (newState: string) => {
+        console.log(`[GameCanvas] Game state changed to: ${newState}`);
+        if (newState === 'active') {
+          console.log('[GameCanvas] Starting game music and engine sound');
+          audioSystem.current?.stopMusic('menu');
+          audioSystem.current?.playMusic('game');
+          audioSystem.current?.playSound('game_start');
+          audioSystem.current?.startEngine();
+        } else if (newState === 'gameOver') {
+          console.log('[GameCanvas] Playing game over sound and stopping music');
+          audioSystem.current?.stopMusic('game');
+          audioSystem.current?.playSound('game_over');
+          audioSystem.current?.stopEngine();
+        }
+      };
+
+      if (gameInstances.current.gameLogic) {
+        gameInstances.current.gameLogic.on('stateChange', handleGameStateChange);
+      }
+
+      return () => {
+        if (gameInstances.current.gameLogic) {
+          gameInstances.current.gameLogic.removeListener('stateChange', handleGameStateChange);
+        }
+      };
+    }, []);
+
+    // Handle user interaction to resume audio context
+    useEffect(() => {
+      const handleUserInteraction = async () => {
+        if (audioSystem.current) {
+          await audioSystem.current.context.resume();
+          console.log('[GameCanvas] Audio context resumed on user interaction');
+        }
+      };
+
+      const events = ['click', 'touchstart', 'keydown'];
+      events.forEach(event => document.addEventListener(event, handleUserInteraction, { once: true }));
+
+      return () => {
+        events.forEach(event => document.removeEventListener(event, handleUserInteraction));
+      };
+    }, []);
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -709,7 +785,16 @@ const PokkasBashArena = () => {
         }
       }
 
-      composer.render(); // Use composer to render with effects
+      // Update engine sound based on velocity
+      const updateEngineSound = () => {
+        if (playerBody) {
+          const velocity = playerBody.velocity.length();
+          audioSystem.current?.updateEngineSound(velocity);
+        }
+      };
+
+      updateEngineSound();
+      composer.render();
     };
     animate();
 
@@ -830,7 +915,31 @@ const PokkasBashArena = () => {
           ai.aiPlayer.healthBar.foreground.material.dispose();
         }
       });
+
+      audioSystem.current?.dispose();
     };
+  }, []);
+
+  // Add sound effects to combat system
+  useEffect(() => {
+    if (gameInstances.current.combatSystem) {
+      gameInstances.current.combatSystem.on('projectileShot', () => {
+        audioSystem.current?.playSound('shoot', { pitch: 1 + Math.random() * 0.2 });
+      });
+      
+      gameInstances.current.combatSystem.on('projectileImpact', () => {
+        audioSystem.current?.playSound('impact', { pitch: 0.8 + Math.random() * 0.4 });
+      });
+    }
+  }, []);
+
+  // Add power-up sound effects
+  useEffect(() => {
+    if (gameInstances.current.powerUpSystem) {
+      gameInstances.current.powerUpSystem.on('powerUpCollected', () => {
+        audioSystem.current?.playSound('powerup', { pitch: 1 + Math.random() * 0.2 });
+      });
+    }
   }, []);
 
   const handleStartGame = () => {
